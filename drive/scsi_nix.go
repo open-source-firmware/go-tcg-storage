@@ -15,11 +15,19 @@ type scsiDrive struct {
 }
 
 func (d *scsiDrive) IFRecv(proto SecurityProtocol, comID ComID, data *[]byte) error {
-	return sgio.SCSISecurityIn(d.fd, uint8(proto), uint16(comID), data)
+	err := sgio.SCSISecurityIn(d.fd, uint8(proto), uint16(comID), data)
+	if err == sgio.ErrIllegalRequest {
+		return ErrNotSupported
+	}
+	return err
 }
 
 func (d *scsiDrive) IFSend(proto SecurityProtocol, comID ComID, data []byte) error {
-	return sgio.SCSISecurityOut(d.fd, uint8(proto), uint16(comID), data)
+	err := sgio.SCSISecurityOut(d.fd, uint8(proto), uint16(comID), data)
+	if err == sgio.ErrIllegalRequest {
+		return ErrNotSupported
+	}
+	return err
 }
 
 func (d *scsiDrive) Close() error {

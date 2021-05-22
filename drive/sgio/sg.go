@@ -19,6 +19,7 @@ package sgio
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -42,9 +43,15 @@ const (
 
 	PIO_DATA_IN  = 4
 	PIO_DATA_OUT = 5
+
+	SENSE_ILLEGAL_REQUEST = 0x5
+
+	DRIVER_SENSE = 0x8
 )
 
 var (
+	ErrIllegalRequest = errors.New("Illegal SCSI request")
+
 	nativeEndian binary.ByteOrder
 )
 
@@ -91,31 +98,20 @@ type sgIoHdr struct {
 	info            uint32       // auxiliary information
 }
 
-type sgioError struct {
-	scsiStatus   uint8
-	hostStatus   uint16
-	driverStatus uint16
-	senseBuf     [32]byte // FIXME: This is not yet populated by anything
-}
-
-func (e sgioError) Error() string {
-	return fmt.Sprintf("SCSI status: %#02x, host status: %#02x, driver status: %#02x",
-		e.scsiStatus, e.hostStatus, e.driverStatus)
-}
-
-func execGenericIO(fd uintptr, hdr *sgIoHdr) error {
+func execGenericIO(fd uintptr, hdr *sgIoHdr, sense []byte) error {
 	if err := ioctl.Ioctl(fd, SG_IO, uintptr(unsafe.Pointer(hdr))); err != nil {
 		return err
 	}
 
 	// See http://www.t10.org/lists/2status.htm for SCSI status codes
 	if hdr.info&SG_INFO_OK_MASK != SG_INFO_OK {
-		err := sgioError{
-			scsiStatus:   hdr.status,
-			hostStatus:   hdr.host_status,
-			driverStatus: hdr.driver_status,
+		if hdr.driver_status == DRIVER_SENSE {
+			if sense[0] == 0x70 && sense[2] == SENSE_ILLEGAL_REQUEST {
+				return ErrIllegalRequest
+			}
 		}
-		return err
+		return fmt.Errorf("SCSI status: %#02x, host status: %#02x, driver status: %#02x, sense key: %#02x",
+			hdr.status, hdr.host_status, hdr.driver_status, sense[2])
 	}
 
 	return nil
@@ -136,5 +132,5 @@ func SendCDB(fd uintptr, cdb []byte, dir CDBDirection, buf *[]byte) error {
 		sbp:             uintptr(unsafe.Pointer(&senseBuf[0])),
 	}
 
-	return execGenericIO(fd, &hdr)
+	return execGenericIO(fd, &hdr, senseBuf)
 }

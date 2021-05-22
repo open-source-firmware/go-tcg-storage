@@ -15,11 +15,19 @@ type ataDrive struct {
 }
 
 func (d *ataDrive) IFRecv(proto SecurityProtocol, comID ComID, data *[]byte) error {
-	return sgio.ATATrustedReceive(d.fd, uint8(proto), uint16(comID), data)
+	err := sgio.ATATrustedReceive(d.fd, uint8(proto), uint16(comID), data)
+	if err == sgio.ErrIllegalRequest {
+		return ErrNotSupported
+	}
+	return err
 }
 
 func (d *ataDrive) IFSend(proto SecurityProtocol, comID ComID, data []byte) error {
-	return sgio.ATATrustedSend(d.fd, uint8(proto), uint16(comID), data)
+	err := sgio.ATATrustedSend(d.fd, uint8(proto), uint16(comID), data)
+	if err == sgio.ErrIllegalRequest {
+		return ErrNotSupported
+	}
+	return err
 }
 
 func (d *ataDrive) Close() error {

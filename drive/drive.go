@@ -4,6 +4,14 @@
 
 package drive
 
+import (
+	"errors"
+)
+
+var (
+	ErrNotSupported = errors.New("Operation is not supported")
+)
+
 type ComID int
 
 type SecurityProtocol int

@@ -59,6 +59,9 @@ type Level0Discovery struct {
 func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 	d0raw := make([]byte, 2048)
 	if err := d.IFRecv(drive.SecurityProtocolManagement, drive.ComIDDiscoveryL0, &d0raw); err != nil {
+		if err == drive.ErrNotSupported {
+			return nil, ErrNotSupported
+		}
 		return nil, err
 	}
 	d0 := &Level0Discovery{}
