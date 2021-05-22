@@ -8,8 +8,8 @@ import (
 	"log"
 	"os"
 
-	"github.com/bluecmd/go-opal/drive"
 	opal "github.com/bluecmd/go-opal"
+	"github.com/bluecmd/go-opal/drive"
 )
 
 func main() {
@@ -20,4 +20,3 @@ func main() {
 
 	opal.Open(d)
 }
-

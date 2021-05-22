@@ -16,6 +16,7 @@ func Open(device string) (driveIntf, error) {
 	}
 	defer d.Close()
 
+	// Note that SATA implements part of the SCSI standard, so try it before SCSI
 	if isNVME(d) {
 		return nil, fmt.Errorf("NVMe devices not implemented")
 	} else if isATA(d) {

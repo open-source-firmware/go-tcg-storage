@@ -5,13 +5,10 @@
 package drive
 
 import (
-	"os"
-
-	"github.com/u-root/u-root/pkg/mount/scuzz"
+	"github.com/bluecmd/go-opal/drive/sgio"
 )
 
 func isATA(fd FdIntf) bool {
-	f := os.NewFile(fd.Fd(), "dummy")
-	_, err := scuzz.NewSGDiskFromFile(f)
+	_, err := sgio.InquiryATA(fd.Fd())
 	return err == nil
 }

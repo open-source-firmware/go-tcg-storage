@@ -11,7 +11,7 @@ import (
 )
 
 const (
-	NVME_ADMIN_IDENTIFY     = 0x06
+	NVME_ADMIN_IDENTIFY = 0x06
 )
 
 var (
@@ -41,7 +41,6 @@ type nvmePassthruCommand struct {
 }
 
 type nvmeDrive struct {
-
 }
 
 func (d *nvmeDrive) SecurityCommand() {

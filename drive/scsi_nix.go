@@ -9,6 +9,6 @@ import (
 )
 
 func isSCSI(fd FdIntf) bool {
-	_, err := sgio.Inquiry(fd.Fd())
+	_, err := sgio.InquirySCSI(fd.Fd())
 	return err == nil
 }

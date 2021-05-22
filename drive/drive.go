@@ -14,5 +14,3 @@ type driveIntf interface {
 	IFRecv(cmd Command, proto Protocol, comID ComID, data []byte) error
 	IFSend(cmd Command, proto Protocol, comID ComID, data []byte) error
 }
-
-

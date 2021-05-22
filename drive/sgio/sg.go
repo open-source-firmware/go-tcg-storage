@@ -1,4 +1,5 @@
 // Copyright 2017-18 Daniel Swarbrick. All rights reserved.
+// Copyright 2021 Christian Svensson. All rights reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +21,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
+	"strings"
 	"unsafe"
 
 	"github.com/bluecmd/go-opal/drive/ioctl"
@@ -38,24 +40,18 @@ const (
 
 	// Timeout in milliseconds
 	DEFAULT_TIMEOUT = 20000
-)
 
-var (
-	nativeEndian binary.ByteOrder
-)
+	ATA_PASSTHROUGH     = 0xa1
+	ATA_IDENTIFY_DEVICE = 0xec
 
+	PIO_DATA_IN  = 4
+	PIO_DATA_OUT = 5
 
-
-
-const (
 	// SCSI commands used by this package
 	SCSI_INQUIRY          = 0x12
 	SCSI_MODE_SENSE_6     = 0x1a
 	SCSI_READ_CAPACITY_10 = 0x25
 	SCSI_ATA_PASSTHRU_16  = 0x85
-
-	// Minimum length of standard INQUIRY response
-	INQ_REPLY_LEN = 36
 
 	// SCSI-3 mode pages
 	RIGID_DISK_DRIVE_GEOMETRY_PAGE = 0x04
@@ -64,9 +60,14 @@ const (
 	MPAGE_CONTROL_DEFAULT = 2
 )
 
+var (
+	nativeEndian binary.ByteOrder
+)
+
 // SCSI CDB types
 type CDB6 [6]byte
 type CDB10 [10]byte
+type CDB12 [12]byte
 type CDB16 [16]byte
 
 // SCSI INQUIRY response
@@ -81,7 +82,37 @@ type InquiryResponse struct {
 }
 
 func (inq InquiryResponse) String() string {
-	return fmt.Sprintf("%.8s  %.16s  %.4s", inq.VendorIdent, inq.ProductIdent, inq.ProductRev)
+	return fmt.Sprintf("Type=0x%x, Vendor=%s, Product=%s, Revision=%s",
+		inq.Peripheral,
+		strings.TrimSpace(string(inq.VendorIdent[:])),
+		strings.TrimSpace(string(inq.ProductIdent[:])),
+		strings.TrimSpace(string(inq.ProductRev[:])))
+}
+
+// ATA IDENTFY DEVICE response
+type IdentifyDeviceResponse struct {
+	_        [20]byte
+	Serial   [20]byte
+	_        [6]byte
+	Firmware [8]byte
+	Model    [40]byte
+	_        [418]byte
+}
+
+func ATAString(b []byte) string {
+	out := make([]byte, len(b))
+	for i := 0; i < len(b)/2; i++ {
+		out[i*2] = b[i*2+1]
+		out[i*2+1] = b[i*2]
+	}
+	return string(out)
+}
+
+func (id IdentifyDeviceResponse) String() string {
+	return fmt.Sprintf("Serial=%s, Firmware=%s, Model=%s",
+		strings.TrimSpace(ATAString(id.Serial[:])),
+		strings.TrimSpace(ATAString(id.Firmware[:])),
+		strings.TrimSpace(ATAString(id.Model[:])))
 }
 
 // Determine native endianness of system
@@ -151,15 +182,34 @@ func execGenericIO(fd uintptr, hdr *sgIoHdr) error {
 	return nil
 }
 
-// inquiry sends a SCSI INQUIRY command to a device and returns an InquiryResponse struct.
-// TODO: Add support for Vital Product Data (VPD)
-func Inquiry(fd uintptr) (InquiryResponse, error) {
+func InquirySCSI(fd uintptr) (InquiryResponse, error) {
 	var resp InquiryResponse
 
-	respBuf := make([]byte, INQ_REPLY_LEN)
+	respBuf := make([]byte, 36)
 
 	cdb := CDB6{SCSI_INQUIRY}
 	binary.BigEndian.PutUint16(cdb[3:], uint16(len(respBuf)))
+
+	if err := SendCDB(fd, cdb[:], &respBuf); err != nil {
+		return resp, err
+	}
+
+	binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &resp)
+
+	return resp, nil
+}
+
+// ATA Passthrough via SCSI (which is what Linux uses for all ATA these days)
+func InquiryATA(fd uintptr) (IdentifyDeviceResponse, error) {
+	var resp IdentifyDeviceResponse
+
+	respBuf := make([]byte, 512)
+
+	cdb := CDB12{ATA_PASSTHROUGH}
+	cdb[1] = PIO_DATA_IN << 1
+	cdb[2] = 0x0E
+	cdb[4] = 1
+	cdb[9] = ATA_IDENTIFY_DEVICE
 
 	if err := SendCDB(fd, cdb[:], &respBuf); err != nil {
 		return resp, err
