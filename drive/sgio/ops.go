@@ -190,8 +190,8 @@ func SCSISecurityIn(fd uintptr, proto uint8, comID uint16, resp *[]byte) error {
 	cdb[1] = proto
 	cdb[2] = uint8((comID & 0xff00) >> 8)
 	cdb[3] = uint8(comID & 0xff)
-	cdb[4] = 1 // INC_512
-	binary.BigEndian.PutUint32(cdb[6:], uint32(len(*resp)/512))
+	cdb[4] = 0 // INC_512
+	binary.BigEndian.PutUint32(cdb[6:], uint32(len(*resp)))
 
 	if err := SendCDB(fd, cdb[:], CDBFromDevice, resp); err != nil {
 		return err
@@ -205,8 +205,8 @@ func SCSISecurityOut(fd uintptr, proto uint8, comID uint16, in []byte) error {
 	cdb[1] = proto
 	cdb[2] = uint8((comID & 0xff00) >> 8)
 	cdb[3] = uint8(comID & 0xff)
-	cdb[4] = 1 // INC_512
-	binary.BigEndian.PutUint32(cdb[6:], uint32(len(in)/512))
+	cdb[4] = 0 // INC_512 = 0
+	binary.BigEndian.PutUint32(cdb[6:], uint32(len(in)))
 
 	if err := SendCDB(fd, cdb[:], CDBToDevice, &in); err != nil {
 		return err
