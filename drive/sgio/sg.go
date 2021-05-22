@@ -18,20 +18,19 @@
 package sgio
 
 import (
-	"bytes"
 	"encoding/binary"
 	"fmt"
-	"strings"
 	"unsafe"
 
 	"github.com/bluecmd/go-opal/drive/ioctl"
 )
 
+type CDBDirection int32
+
 const (
-	SG_DXFER_NONE        = -1
-	SG_DXFER_TO_DEV      = -2
-	SG_DXFER_FROM_DEV    = -3
-	SG_DXFER_TO_FROM_DEV = -4
+	CDBToDevice     CDBDirection = -2
+	CDBFromDevice   CDBDirection = -3
+	CDBToFromDevice CDBDirection = -4
 
 	SG_INFO_OK_MASK = 0x1
 	SG_INFO_OK      = 0x0
@@ -41,23 +40,8 @@ const (
 	// Timeout in milliseconds
 	DEFAULT_TIMEOUT = 20000
 
-	ATA_PASSTHROUGH     = 0xa1
-	ATA_IDENTIFY_DEVICE = 0xec
-
 	PIO_DATA_IN  = 4
 	PIO_DATA_OUT = 5
-
-	// SCSI commands used by this package
-	SCSI_INQUIRY          = 0x12
-	SCSI_MODE_SENSE_6     = 0x1a
-	SCSI_READ_CAPACITY_10 = 0x25
-	SCSI_ATA_PASSTHRU_16  = 0x85
-
-	// SCSI-3 mode pages
-	RIGID_DISK_DRIVE_GEOMETRY_PAGE = 0x04
-
-	// Mode page control field
-	MPAGE_CONTROL_DEFAULT = 2
 )
 
 var (
@@ -69,51 +53,6 @@ type CDB6 [6]byte
 type CDB10 [10]byte
 type CDB12 [12]byte
 type CDB16 [16]byte
-
-// SCSI INQUIRY response
-type InquiryResponse struct {
-	Peripheral   byte // peripheral qualifier, device type
-	_            byte
-	Version      byte
-	_            [5]byte
-	VendorIdent  [8]byte
-	ProductIdent [16]byte
-	ProductRev   [4]byte
-}
-
-func (inq InquiryResponse) String() string {
-	return fmt.Sprintf("Type=0x%x, Vendor=%s, Product=%s, Revision=%s",
-		inq.Peripheral,
-		strings.TrimSpace(string(inq.VendorIdent[:])),
-		strings.TrimSpace(string(inq.ProductIdent[:])),
-		strings.TrimSpace(string(inq.ProductRev[:])))
-}
-
-// ATA IDENTFY DEVICE response
-type IdentifyDeviceResponse struct {
-	_        [20]byte
-	Serial   [20]byte
-	_        [6]byte
-	Firmware [8]byte
-	Model    [40]byte
-	_        [418]byte
-}
-
-func ATAString(b []byte) string {
-	out := make([]byte, len(b))
-	for i := 0; i < len(b)/2; i++ {
-		out[i*2] = b[i*2+1]
-		out[i*2+1] = b[i*2]
-	}
-	return string(out)
-}
-
-func (id IdentifyDeviceResponse) String() string {
-	return fmt.Sprintf("Serial=%s, Firmware=%s, Model=%s",
-		strings.TrimSpace(ATAString(id.Serial[:])),
-		strings.TrimSpace(ATAString(id.Firmware[:])),
-		strings.TrimSpace(ATAString(id.Model[:])))
-}
 
 // Determine native endianness of system
 func init() {
@@ -128,28 +67,28 @@ func init() {
 
 // SCSI generic ioctl header, defined as sg_io_hdr_t in <scsi/sg.h>
 type sgIoHdr struct {
-	interface_id    int32   // 'S' for SCSI generic (required)
-	dxfer_direction int32   // data transfer direction
-	cmd_len         uint8   // SCSI command length (<= 16 bytes)
-	mx_sb_len       uint8   // max length to write to sbp
-	iovec_count     uint16  // 0 implies no scatter gather
-	dxfer_len       uint32  // byte count of data transfer
-	dxferp          uintptr // points to data transfer memory or scatter gather list
-	cmdp            uintptr // points to command to perform
-	sbp             uintptr // points to sense_buffer memory
-	timeout         uint32  // MAX_UINT -> no timeout (unit: millisec)
-	flags           uint32  // 0 -> default, see SG_FLAG...
-	pack_id         int32   // unused internally (normally)
-	usr_ptr         uintptr // unused internally
-	status          uint8   // SCSI status
-	masked_status   uint8   // shifted, masked scsi status
-	msg_status      uint8   // messaging level data (optional)
-	sb_len_wr       uint8   // byte count actually written to sbp
-	host_status     uint16  // errors from host adapter
-	driver_status   uint16  // errors from software driver
-	resid           int32   // dxfer_len - actual_transferred
-	duration        uint32  // time taken by cmd (unit: millisec)
-	info            uint32  // auxiliary information
+	interface_id    int32        // 'S' for SCSI generic (required)
+	dxfer_direction CDBDirection // data transfer direction
+	cmd_len         uint8        // SCSI command length (<= 16 bytes)
+	mx_sb_len       uint8        // max length to write to sbp
+	iovec_count     uint16       // 0 implies no scatter gather
+	dxfer_len       uint32       // byte count of data transfer
+	dxferp          uintptr      // points to data transfer memory or scatter gather list
+	cmdp            uintptr      // points to command to perform
+	sbp             uintptr      // points to sense_buffer memory
+	timeout         uint32       // MAX_UINT -> no timeout (unit: millisec)
+	flags           uint32       // 0 -> default, see SG_FLAG...
+	pack_id         int32        // unused internally (normally)
+	usr_ptr         uintptr      // unused internally
+	status          uint8        // SCSI status
+	masked_status   uint8        // shifted, masked scsi status
+	msg_status      uint8        // messaging level data (optional)
+	sb_len_wr       uint8        // byte count actually written to sbp
+	host_status     uint16       // errors from host adapter
+	driver_status   uint16       // errors from software driver
+	resid           int32        // dxfer_len - actual_transferred
+	duration        uint32       // time taken by cmd (unit: millisec)
+	info            uint32       // auxiliary information
 }
 
 type sgioError struct {
@@ -182,94 +121,20 @@ func execGenericIO(fd uintptr, hdr *sgIoHdr) error {
 	return nil
 }
 
-func InquirySCSI(fd uintptr) (InquiryResponse, error) {
-	var resp InquiryResponse
-
-	respBuf := make([]byte, 36)
-
-	cdb := CDB6{SCSI_INQUIRY}
-	binary.BigEndian.PutUint16(cdb[3:], uint16(len(respBuf)))
-
-	if err := SendCDB(fd, cdb[:], &respBuf); err != nil {
-		return resp, err
-	}
-
-	binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &resp)
-
-	return resp, nil
-}
-
-// ATA Passthrough via SCSI (which is what Linux uses for all ATA these days)
-func InquiryATA(fd uintptr) (IdentifyDeviceResponse, error) {
-	var resp IdentifyDeviceResponse
-
-	respBuf := make([]byte, 512)
-
-	cdb := CDB12{ATA_PASSTHROUGH}
-	cdb[1] = PIO_DATA_IN << 1
-	cdb[2] = 0x0E
-	cdb[4] = 1
-	cdb[9] = ATA_IDENTIFY_DEVICE
-
-	if err := SendCDB(fd, cdb[:], &respBuf); err != nil {
-		return resp, err
-	}
-
-	binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &resp)
-
-	return resp, nil
-}
-
-// SendCDB sends a SCSI Command Descriptor Block to the device and writes the response into the
-// supplied []byte pointer.
-// TODO: Return SCSI status code, sense buf etc as part of error
-func SendCDB(fd uintptr, cdb []byte, respBuf *[]byte) error {
+func SendCDB(fd uintptr, cdb []byte, dir CDBDirection, buf *[]byte) error {
 	senseBuf := make([]byte, 32)
 
-	// Populate required fields of "sg_io_hdr_t" struct
 	hdr := sgIoHdr{
 		interface_id:    'S',
-		dxfer_direction: SG_DXFER_FROM_DEV,
+		dxfer_direction: dir,
 		timeout:         DEFAULT_TIMEOUT,
 		cmd_len:         uint8(len(cdb)),
 		mx_sb_len:       uint8(len(senseBuf)),
-		dxfer_len:       uint32(len(*respBuf)),
-		dxferp:          uintptr(unsafe.Pointer(&(*respBuf)[0])),
+		dxfer_len:       uint32(len(*buf)),
+		dxferp:          uintptr(unsafe.Pointer(&(*buf)[0])),
 		cmdp:            uintptr(unsafe.Pointer(&cdb[0])),
 		sbp:             uintptr(unsafe.Pointer(&senseBuf[0])),
 	}
 
 	return execGenericIO(fd, &hdr)
-}
-
-// modeSense sends a SCSI MODE SENSE(6) command to a device.
-func ModeSense(fd uintptr, pageNum, subPageNum, pageControl uint8) ([]byte, error) {
-	respBuf := make([]byte, 64)
-
-	cdb := CDB6{SCSI_MODE_SENSE_6}
-	cdb[2] = (pageControl << 6) | (pageNum & 0x3f)
-	cdb[3] = subPageNum
-	cdb[4] = uint8(len(respBuf))
-
-	if err := SendCDB(fd, cdb[:], &respBuf); err != nil {
-		return respBuf, err
-	}
-
-	return respBuf, nil
-}
-
-// readCapacity sends a SCSI READ CAPACITY(10) command to a device and returns the capacity in bytes.
-func ReadCapacity(fd uintptr) (uint64, error) {
-	respBuf := make([]byte, 8)
-	cdb := CDB10{SCSI_READ_CAPACITY_10}
-
-	if err := SendCDB(fd, cdb[:], &respBuf); err != nil {
-		return 0, err
-	}
-
-	lastLBA := binary.BigEndian.Uint32(respBuf[0:]) // max. addressable LBA
-	LBsize := binary.BigEndian.Uint32(respBuf[4:])  // logical block (i.e., sector) size
-	capacity := (uint64(lastLBA) + 1) * uint64(LBsize)
-
-	return capacity, nil
 }
