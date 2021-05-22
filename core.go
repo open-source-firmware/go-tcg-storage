@@ -10,6 +10,7 @@ package opal
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -28,6 +29,10 @@ const (
 	FeatureTPer    FeatureCode = 0x0001
 	FeatureLocking FeatureCode = 0x0002
 	FeatureOPAL20  FeatureCode = 0x0203
+)
+
+var (
+	ErrNotSupported = errors.New("Device does not support TCG Storage Core")
 )
 
 type TPerFeature struct {
@@ -67,6 +72,9 @@ func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 	}{}
 	if err := binary.Read(d0buf, binary.BigEndian, &d0hdr); err != nil {
 		return nil, fmt.Errorf("Failed to parse Level 0 discovery: %v", err)
+	}
+	if d0hdr.Size == 0 {
+		return nil, ErrNotSupported
 	}
 	d0.MajorVersion = int(d0hdr.Major)
 	d0.MinorVersion = int(d0hdr.Minor)

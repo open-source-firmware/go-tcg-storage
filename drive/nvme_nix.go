@@ -5,6 +5,7 @@
 package drive
 
 import (
+	"os"
 	"unsafe"
 
 	"github.com/bluecmd/go-opal/drive/ioctl"
@@ -12,6 +13,8 @@ import (
 
 const (
 	NVME_ADMIN_IDENTIFY = 0x06
+	NVME_SECURITY_SEND  = 0x81
+	NVME_SECURITY_RECV  = 0x82
 )
 
 var (
@@ -40,11 +43,35 @@ type nvmePassthruCommand struct {
 	result       uint32
 }
 
+type nvmeAdminCommand nvmePassthruCommand
+
 type nvmeDrive struct {
+	fd uintptr
 }
 
-func (d *nvmeDrive) SecurityCommand() {
+func (d *nvmeDrive) IFRecv(proto SecurityProtocol, comID ComID, data *[]byte) error {
+	cmd := nvmeAdminCommand{
+		opcode:   NVME_SECURITY_RECV,
+		nsid:     0,
+		addr:     uint64(uintptr(unsafe.Pointer(&(*data)[0]))),
+		data_len: uint32(len(*data)),
+		cdw10:    uint32(proto&0xff)<<24 | uint32(comID&0xffff)<<8,
+		cdw11:    uint32(len(*data)),
+	}
 
+	return ioctl.Ioctl(d.fd, NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
+}
+
+func (d *nvmeDrive) IFSend(proto SecurityProtocol, comID ComID, dnvme *[]byte) error {
+	return nil
+}
+
+func (d *nvmeDrive) Close() error {
+	return os.NewFile(d.fd, "").Close()
+}
+
+func NVMEDrive(fd FdIntf) *nvmeDrive {
+	return &nvmeDrive{fd: fd.Fd()}
 }
 
 func isNVME(f FdIntf) bool {
