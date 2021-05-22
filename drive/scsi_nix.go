@@ -5,8 +5,30 @@
 package drive
 
 import (
+	"os"
+
 	"github.com/bluecmd/go-opal/drive/sgio"
 )
+
+type scsiDrive struct {
+	fd uintptr
+}
+
+func (d *scsiDrive) IFRecv(proto SecurityProtocol, comID ComID, data *[]byte) error {
+	return sgio.SCSISecurityIn(d.fd, uint8(proto), uint16(comID), data)
+}
+
+func (d *scsiDrive) IFSend(proto SecurityProtocol, comID ComID, data []byte) error {
+	return sgio.SCSISecurityOut(d.fd, uint8(proto), uint16(comID), data)
+}
+
+func (d *scsiDrive) Close() error {
+	return os.NewFile(d.fd, "").Close()
+}
+
+func SCSIDrive(fd FdIntf) *scsiDrive {
+	return &scsiDrive{fd: fd.Fd()}
+}
 
 func isSCSI(fd FdIntf) bool {
 	_, err := sgio.SCSIInquiry(fd.Fd())

@@ -17,7 +17,7 @@ const (
 
 type driveIntf interface {
 	IFRecv(proto SecurityProtocol, comID ComID, data *[]byte) error
-	IFSend(proto SecurityProtocol, comID ComID, data *[]byte) error
+	IFSend(proto SecurityProtocol, comID ComID, data []byte) error
 
 	Close() error
 }

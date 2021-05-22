@@ -18,8 +18,8 @@ func (d *ataDrive) IFRecv(proto SecurityProtocol, comID ComID, data *[]byte) err
 	return sgio.ATATrustedReceive(d.fd, uint8(proto), uint16(comID), data)
 }
 
-func (d *ataDrive) IFSend(proto SecurityProtocol, comID ComID, data *[]byte) error {
-	return nil
+func (d *ataDrive) IFSend(proto SecurityProtocol, comID ComID, data []byte) error {
+	return sgio.ATATrustedSend(d.fd, uint8(proto), uint16(comID), data)
 }
 
 func (d *ataDrive) Close() error {

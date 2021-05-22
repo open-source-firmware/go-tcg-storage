@@ -21,8 +21,7 @@ func Open(device string) (driveIntf, error) {
 	} else if isATA(d) {
 		return ATADrive(d), nil
 	} else if isSCSI(d) {
-		d.Close()
-		return nil, fmt.Errorf("SCSI devices not implemented")
+		return SCSIDrive(d), nil
 	}
 
 	d.Close()

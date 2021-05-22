@@ -169,6 +169,47 @@ func ATATrustedReceive(fd uintptr, proto uint8, comID uint16, resp *[]byte) erro
 }
 
 // ATA TRUSTED SEND
-func ATATrustedSend(fd uintptr, proto uint8, comID uint16, in []byte) ([]byte, error) {
-	return []byte{}, nil
+func ATATrustedSend(fd uintptr, proto uint8, comID uint16, in []byte) error {
+	cdb := CDB12{ATA_PASSTHROUGH}
+	cdb[1] = PIO_DATA_OUT << 1
+	cdb[2] = 0x06
+	cdb[3] = proto
+	cdb[4] = uint8(len(in) / 512)
+	cdb[6] = uint8(comID & 0xff)
+	cdb[7] = uint8((comID & 0xff00) >> 8)
+	cdb[9] = ATA_TRUSTED_RCV
+	if err := SendCDB(fd, cdb[:], CDBToDevice, &in); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SCSI SECURITY IN
+func SCSISecurityIn(fd uintptr, proto uint8, comID uint16, resp *[]byte) error {
+	cdb := CDB12{SCSI_SECURITY_IN}
+	cdb[1] = proto
+	cdb[2] = uint8((comID & 0xff00) >> 8)
+	cdb[3] = uint8(comID & 0xff)
+	cdb[4] = 1 // INC_512
+	binary.BigEndian.PutUint32(cdb[6:], uint32(len(*resp)/512))
+
+	if err := SendCDB(fd, cdb[:], CDBFromDevice, resp); err != nil {
+		return err
+	}
+	return nil
+}
+
+// SCSI SECURITY OUT
+func SCSISecurityOut(fd uintptr, proto uint8, comID uint16, in []byte) error {
+	cdb := CDB12{SCSI_SECURITY_OUT}
+	cdb[1] = proto
+	cdb[2] = uint8((comID & 0xff00) >> 8)
+	cdb[3] = uint8(comID & 0xff)
+	cdb[4] = 1 // INC_512
+	binary.BigEndian.PutUint32(cdb[6:], uint32(len(in)/512))
+
+	if err := SendCDB(fd, cdb[:], CDBToDevice, &in); err != nil {
+		return err
+	}
+	return nil
 }

@@ -20,7 +20,7 @@ import (
 
 type DriveIntf interface {
 	IFRecv(proto drive.SecurityProtocol, comID drive.ComID, data *[]byte) error
-	IFSend(proto drive.SecurityProtocol, comID drive.ComID, data *[]byte) error
+	IFSend(proto drive.SecurityProtocol, comID drive.ComID, data []byte) error
 }
 
 type FeatureCode uint16

@@ -62,8 +62,17 @@ func (d *nvmeDrive) IFRecv(proto SecurityProtocol, comID ComID, data *[]byte) er
 	return ioctl.Ioctl(d.fd, NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
 }
 
-func (d *nvmeDrive) IFSend(proto SecurityProtocol, comID ComID, dnvme *[]byte) error {
-	return nil
+func (d *nvmeDrive) IFSend(proto SecurityProtocol, comID ComID, data []byte) error {
+	cmd := nvmeAdminCommand{
+		opcode:   NVME_SECURITY_SEND,
+		nsid:     0,
+		addr:     uint64(uintptr(unsafe.Pointer(&data[0]))),
+		data_len: uint32(len(data)),
+		cdw10:    uint32(proto&0xff)<<24 | uint32(comID&0xffff)<<8,
+		cdw11:    uint32(len(data)),
+	}
+
+	return ioctl.Ioctl(d.fd, NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
 }
 
 func (d *nvmeDrive) Close() error {
