@@ -6,13 +6,14 @@ package main
 
 import (
 	"log"
+	"os"
 
 	"github.com/bluecmd/go-opal/drive"
 	opal "github.com/bluecmd/go-opal"
 )
 
 func main() {
-	d, err := drive.Open("/dev/sdb")
+	d, err := drive.Open(os.Args[1])
 	if err != nil {
 		log.Fatalf("Unable to open drive: %v", err)
 	}

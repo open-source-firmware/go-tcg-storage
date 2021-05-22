@@ -9,10 +9,6 @@ import (
 	"os"
 )
 
-type driveIntf interface {
-	SecurityCommand() error
-}
-
 func Open(device string) (driveIntf, error) {
 	d, err := os.OpenFile(device, os.O_RDWR, 0)
 	if err != nil {
@@ -21,9 +17,11 @@ func Open(device string) (driveIntf, error) {
 	defer d.Close()
 
 	if isNVME(d) {
-		return nil, fmt.Errorf("NVMe device not implemented")
+		return nil, fmt.Errorf("NVMe devices not implemented")
 	} else if isATA(d) {
-		return nil, fmt.Errorf("ATA device not implemented")
+		return nil, fmt.Errorf("ATA devices not implemented")
+	} else if isSCSI(d) {
+		return nil, fmt.Errorf("SCSI devices not implemented")
 	}
 
 	return nil, fmt.Errorf("Device type not supported")
