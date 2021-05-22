@@ -5,20 +5,25 @@
 package opal
 
 import (
-	"fmt"
-
-	"github.com/bluecmd/go-opal/drive"
+	"errors"
 )
 
-type DriveIntf interface {
-	IFRecv(cmd drive.Command, proto drive.Protocol, comID drive.ComID, data []byte) error
-	IFSend(cmd drive.Command, proto drive.Protocol, comID drive.ComID, data []byte) error
-}
+var (
+	ErrNoOPAL20Support = errors.New("Device does not support OPAL 2.0")
+)
 
 type opalSession struct {
-
+	d DriveIntf
 }
 
-func Open(drive DriveIntf) (*opalSession, error) {
-	return nil, fmt.Errorf("Not implemented")
+func Open(d DriveIntf) (*opalSession, error) {
+	// Ensure the device supports OPAL 2.0
+	d0, err := Discovery0(d)
+	if err != nil {
+		return nil, err
+	}
+	if d0.OPAL20 == nil {
+		return nil, ErrNoOPAL20Support
+	}
+	return &opalSession{d: d}, nil
 }

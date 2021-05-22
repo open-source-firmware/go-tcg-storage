@@ -4,13 +4,20 @@
 
 package drive
 
-type Command int
-
 type ComID int
 
-type Protocol int
+type SecurityProtocol int
+
+const (
+	ComIDDiscoveryL0 ComID = 1
+
+	SecurityProtocolManagement SecurityProtocol = 1
+	SecurityProtocolTPer       SecurityProtocol = 2
+)
 
 type driveIntf interface {
-	IFRecv(cmd Command, proto Protocol, comID ComID, data []byte) error
-	IFSend(cmd Command, proto Protocol, comID ComID, data []byte) error
+	IFRecv(proto SecurityProtocol, comID ComID, data *[]byte) error
+	IFSend(proto SecurityProtocol, comID ComID, data *[]byte) error
+
+	Close() error
 }

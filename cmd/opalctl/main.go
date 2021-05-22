@@ -10,13 +10,19 @@ import (
 
 	opal "github.com/bluecmd/go-opal"
 	"github.com/bluecmd/go-opal/drive"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func main() {
 	d, err := drive.Open(os.Args[1])
 	if err != nil {
-		log.Fatalf("Unable to open drive: %v", err)
+		log.Fatalf("drive.Open: %v", err)
 	}
+	defer d.Close()
 
-	opal.Open(d)
+	d0, err := opal.Discovery0(d)
+	if err != nil {
+		log.Fatalf("opal.Discovery0: %v", err)
+	}
+	spew.Dump(d0)
 }

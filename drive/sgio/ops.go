@@ -24,12 +24,16 @@ import (
 
 const (
 	ATA_PASSTHROUGH     = 0xa1
+	ATA_TRUSTED_RCV     = 0x5c
+	ATA_TRUSTED_SND     = 0x5e
 	ATA_IDENTIFY_DEVICE = 0xec
 
 	SCSI_INQUIRY          = 0x12
 	SCSI_MODE_SENSE_6     = 0x1a
 	SCSI_READ_CAPACITY_10 = 0x25
 	SCSI_ATA_PASSTHRU_16  = 0x85
+	SCSI_SECURITY_IN      = 0xa2
+	SCSI_SECURITY_OUT     = 0xb5
 )
 
 // SCSI INQUIRY response
@@ -77,8 +81,8 @@ func (id IdentifyDeviceResponse) String() string {
 		strings.TrimSpace(ATAString(id.Model[:])))
 }
 
-// INQUERY - Returns parsed inquiry data.
-func InquirySCSI(fd uintptr) (InquiryResponse, error) {
+// INQUIRY - Returns parsed inquiry data.
+func SCSIInquiry(fd uintptr) (InquiryResponse, error) {
 	var resp InquiryResponse
 
 	respBuf := make([]byte, 36)
@@ -96,7 +100,7 @@ func InquirySCSI(fd uintptr) (InquiryResponse, error) {
 }
 
 // ATA Passthrough via SCSI (which is what Linux uses for all ATA these days)
-func InquiryATA(fd uintptr) (IdentifyDeviceResponse, error) {
+func ATAIdentify(fd uintptr) (IdentifyDeviceResponse, error) {
 	var resp IdentifyDeviceResponse
 
 	respBuf := make([]byte, 512)
@@ -117,7 +121,7 @@ func InquiryATA(fd uintptr) (IdentifyDeviceResponse, error) {
 }
 
 // SCSI MODE SENSE(6) - Returns the raw response
-func ModeSense(fd uintptr, pageNum, subPageNum, pageControl uint8) ([]byte, error) {
+func SCSIModeSense(fd uintptr, pageNum, subPageNum, pageControl uint8) ([]byte, error) {
 	respBuf := make([]byte, 64)
 
 	cdb := CDB6{SCSI_MODE_SENSE_6}
@@ -133,7 +137,7 @@ func ModeSense(fd uintptr, pageNum, subPageNum, pageControl uint8) ([]byte, erro
 }
 
 // SCSI READ CAPACITY(10) - Returns the capacity in bytes
-func ReadCapacity(fd uintptr) (uint64, error) {
+func SCSIReadCapacity(fd uintptr) (uint64, error) {
 	respBuf := make([]byte, 8)
 	cdb := CDB10{SCSI_READ_CAPACITY_10}
 
@@ -146,4 +150,25 @@ func ReadCapacity(fd uintptr) (uint64, error) {
 	capacity := (uint64(lastLBA) + 1) * uint64(LBsize)
 
 	return capacity, nil
+}
+
+// ATA TRUSTED RECEIVE
+func ATATrustedReceive(fd uintptr, proto uint8, comID uint16, resp *[]byte) error {
+	cdb := CDB12{ATA_PASSTHROUGH}
+	cdb[1] = PIO_DATA_IN << 1
+	cdb[2] = 0x0E
+	cdb[3] = proto
+	cdb[4] = uint8(len(*resp) / 512)
+	cdb[6] = uint8(comID & 0xff)
+	cdb[7] = uint8((comID & 0xff00) >> 8)
+	cdb[9] = ATA_TRUSTED_RCV
+	if err := SendCDB(fd, cdb[:], CDBFromDevice, resp); err != nil {
+		return err
+	}
+	return nil
+}
+
+// ATA TRUSTED SEND
+func ATATrustedSend(fd uintptr, proto uint8, comID uint16, in []byte) ([]byte, error) {
+	return []byte{}, nil
 }
