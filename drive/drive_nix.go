@@ -15,11 +15,8 @@ func Open(device string) (driveIntf, error) {
 		return nil, err
 	}
 
-	// Note that SATA implements part of the SCSI standard, so try it before SCSI
 	if isNVME(d) {
 		return NVMEDrive(d), nil
-	} else if isATA(d) {
-		return ATADrive(d), nil
 	} else if isSCSI(d) {
 		return SCSIDrive(d), nil
 	}
