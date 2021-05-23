@@ -9,7 +9,7 @@ on:
     branches: [ master ]
 
 jobs:
-  test:
+  Test Code:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
@@ -30,11 +30,11 @@ jobs:
               exit 1
           fi
 
-      - name: GO vet
+      - name: Go vet
         run: make vet
-
-      - name: Test
-        run: make test
 
       - name: Test building
         run: make build
+
+      - name: Run tests
+        run: make test
