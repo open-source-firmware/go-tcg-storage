@@ -13,4 +13,3 @@ import (
 var (
 	ErrNoOpalV2Support = errors.New("device does not support Opal 2.0")
 )
-

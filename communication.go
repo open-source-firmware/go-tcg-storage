@@ -66,7 +66,7 @@ hdr->cp.extendedComID[3] = 0x00;
 //     uint32_t acknowledgement;
 //     uint32_t length;
 // } OPALPacket;
-// 
+//
 // /** Data sub packet header */
 // typedef struct _OPALDataSubPacket {
 //     uint8_t reserved0[6];

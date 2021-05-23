@@ -17,22 +17,22 @@ type MethodID [8]byte
 
 var (
 	InvokeIDSMU InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF}
-// 00 00 00 00 00 00 00 00 Used to represent null uid
-// 00 00 00 00 00 00 00 01 Used as the SPUID, the UID that identifies "This SP" – used as the InvokingID for invocation of SP methods
-// 00 00 00 00 00 00 00 FF Used as the SMUID, the UID that identifies "the Session manager" – used as InvokingID for invocation of Session Manager layer methods
-// 00 00 00 00 00 00 FF xx Identifies UIDs assigned to Session Manager layer methods, where xx is the UID assigned to a particular method (see Table 241)
-// 00 00 00 0B 00 00 00 01 Used in the C_PIN table's CharSet column to indicate that the GenKey character set is not restricted (all byte values are legal).
+	// 00 00 00 00 00 00 00 00 Used to represent null uid
+	// 00 00 00 00 00 00 00 01 Used as the SPUID, the UID that identifies "This SP" – used as the InvokingID for invocation of SP methods
+	// 00 00 00 00 00 00 00 FF Used as the SMUID, the UID that identifies "the Session manager" – used as InvokingID for invocation of Session Manager layer methods
+	// 00 00 00 00 00 00 FF xx Identifies UIDs assigned to Session Manager layer methods, where xx is the UID assigned to a particular method (see Table 241)
+	// 00 00 00 0B 00 00 00 01 Used in the C_PIN table's CharSet column to indicate that the GenKey character set is not restricted (all byte values are legal).
 
-// Table 241 Session Manager Method UIDs
-// Method UID Method Name
+	// Table 241 Session Manager Method UIDs
+	// Method UID Method Name
 	MethodIDProperties MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x01}
+
 // 00 00 00 00 00 00 FF 01 Properties
 // 00 00 00 00 00 00 FF 02 StartSession
 // 00 00 00 00 00 00 FF 03 SyncSession
 // 00 00 00 00 00 00 FF 04 StartTrustedSession
 // 00 00 00 00 00 00 FF 05 SyncTrustedSession
 // 00 00 00 00 00 00 FF 06 CloseSession
-
 
 // Table 242 MethodID UIDs
 // UID in MethodID Table Method Name Template
@@ -121,10 +121,10 @@ func (m *MethodCall) MarshalBinary() ([]byte, error) {
 	// parameters follow, enclosed in "list" delimiters ("[" and "]"). T
 
 	// bufferpos = sizeof(OPALHeader)
-	// cmdbuf[bufferpos++] = OPAL_TOKEN::CALL; 
+	// cmdbuf[bufferpos++] = OPAL_TOKEN::CALL;
 	// memcpy(&cmdbuf[bufferpos], &OPALMETHOD[InvokingUID][0], 8);·
 	// cmdbuf[bufferpos++] = OPAL_SHORT_ATOM::BYTESTRING8;
-	// memcpy(&cmdbuf[bufferpos], &OPALMETHOD[method][0], 8); 
+	// memcpy(&cmdbuf[bufferpos], &OPALMETHOD[method][0], 8);
 	// more data
 	// sendCommand(HSN=0,TSN=0, ComID = Opal ComId (or e.g. disk_info.Enterprise_basecomID))
 	// HSN = response.getUint32(4) (bigendian)

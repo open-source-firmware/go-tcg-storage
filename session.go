@@ -18,7 +18,7 @@ type SessionManager struct {
 }
 
 type Session struct {
-	ComID ComID
+	ComID    ComID
 	TSN, HSN int
 }
 
