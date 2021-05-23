@@ -38,4 +38,11 @@ func main() {
 		log.Fatalf("tcg.Discovery0: %v", err)
 	}
 	spew.Dump(d0)
+
+	opal, err := tcg.NewOpalSession(d)
+	if err != nil {
+		log.Fatalf("tcg.NewOpalSession: %v", err)
+	}
+	defer opal.Close()
+	log.Printf("Opal session successfully opened")
 }

@@ -18,7 +18,13 @@ type opalSession struct {
 	d DriveIntf
 }
 
-func OpalSession(d DriveIntf) (*opalSession, error) {
+func (s *opalSession) Close() error {
+	return nil
+}
+
+// TODO: This is placeholder! It is likely the session will be not bound to Opal
+// like this.
+func NewOpalSession(d DriveIntf) (*opalSession, error) {
 	// Ensure the device supports OPAL 2.0
 	d0, err := Discovery0(d)
 	if err != nil {
