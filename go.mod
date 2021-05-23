@@ -1,4 +1,4 @@
-module github.com/bluecmd/go-opal
+module github.com/bluecmd/go-tcg-storage
 
 go 1.15
 

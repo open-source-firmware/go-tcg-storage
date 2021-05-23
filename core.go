@@ -3,9 +3,8 @@
 // license that can be found in the LICENSE file.
 
 // Implements TCG Storage Architecture Core Specification TCG Specification Version 2.01
-// for getting access to OPAL 2.0 functions.
 
-package opal
+package tcgstorage
 
 import (
 	"bytes"
@@ -15,7 +14,7 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/bluecmd/go-opal/drive"
+	"github.com/bluecmd/go-tcg-storage/drive"
 )
 
 type DriveIntf interface {

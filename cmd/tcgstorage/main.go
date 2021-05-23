@@ -8,8 +8,8 @@ import (
 	"log"
 	"os"
 
-	opal "github.com/bluecmd/go-opal"
-	"github.com/bluecmd/go-opal/drive"
+	tcg "github.com/bluecmd/go-tcg-storage"
+	"github.com/bluecmd/go-tcg-storage/drive"
 	"github.com/davecgh/go-spew/spew"
 )
 
@@ -20,9 +20,9 @@ func main() {
 	}
 	defer d.Close()
 
-	d0, err := opal.Discovery0(d)
+	d0, err := tcg.Discovery0(d)
 	if err != nil {
-		log.Fatalf("opal.Discovery0: %v", err)
+		log.Fatalf("tcg.Discovery0: %v", err)
 	}
 	spew.Dump(d0)
 }

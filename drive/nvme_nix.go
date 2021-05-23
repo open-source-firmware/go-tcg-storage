@@ -8,7 +8,7 @@ import (
 	"os"
 	"unsafe"
 
-	"github.com/bluecmd/go-opal/drive/ioctl"
+	"github.com/bluecmd/go-tcg-storage/drive/ioctl"
 )
 
 const (
