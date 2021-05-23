@@ -14,6 +14,8 @@ import (
 )
 
 func main() {
+	spew.Config.Indent = "  "
+
 	d, err := drive.Open(os.Args[1])
 	if err != nil {
 		log.Fatalf("drive.Open: %v", err)

@@ -38,8 +38,8 @@ func SecurityProtocols(d driveIntf) ([]SecurityProtocol, error) {
 	}
 	buf := bytes.NewBuffer(raw)
 	hdr := struct {
-		_ [6]byte
-		Length   uint16
+		_      [6]byte
+		Length uint16
 	}{}
 	if err := binary.Read(buf, binary.BigEndian, &hdr); err != nil {
 		return nil, fmt.Errorf("Failed to parse security protocol list header: %v", err)
@@ -64,8 +64,8 @@ func Certificate(d driveIntf) (*x509.Certificate, error) {
 	}
 	buf := bytes.NewBuffer(raw)
 	hdr := struct {
-		_ uint16
-		Size   uint16
+		_    uint16
+		Size uint16
 	}{}
 	if err := binary.Read(buf, binary.BigEndian, &hdr); err != nil {
 		return nil, fmt.Errorf("Failed to parse certificate header: %v", err)

@@ -22,41 +22,39 @@ type DriveIntf interface {
 	IFSend(proto drive.SecurityProtocol, sps uint16, data []byte) error
 }
 
-type FeatureCode uint16
-
 type ComID int
 
 const (
 	ComIDDiscoveryL0 ComID = 1
-
-	FeatureTPer    FeatureCode = 0x0001
-	FeatureLocking FeatureCode = 0x0002
-	FeatureOPAL20  FeatureCode = 0x0203
 )
 
 var (
 	ErrNotSupported = errors.New("Device does not support TCG Storage Core")
 )
 
-type TPerFeature struct {
-	// TODO
-}
-
-type LockingFeature struct {
-	// TODO
-}
-
-type OPAL20Feature struct {
-	// TODO
-}
-
 type Level0Discovery struct {
-	MajorVersion int
-	MinorVersion int
-	Vendor       [32]byte
-	Locking      *LockingFeature
-	TPer         *TPerFeature
-	OPAL20       *OPAL20Feature
+	MajorVersion      int
+	MinorVersion      int
+	Vendor            [32]byte
+	TPer              *FeatureTPer
+	Locking           *FeatureLocking
+	Geometry          *FeatureGeometry
+	SecureMsg         *FeatureSecureMsg
+	Enterprise        *FeatureEnterprise
+	OpalV1            *FeatureOpalV1
+	SingleUser        *FeatureSingleUser
+	DataStore         *FeatureDataStore
+	OpalV2            *FeatureOpalV2
+	Opalite           *FeatureOpalite
+	PyriteV1          *FeaturePyriteV1
+	PyriteV2          *FeaturePyriteV2
+	RubyV1            *FeatureRubyV1
+	LockingLBA        *FeatureLockingLBA
+	BlockSID          *FeatureBlockSID
+	NamespaceLocking  *FeatureNamespaceLocking
+	DataRemoval       *FeatureDataRemoval
+	NamespaceGeometry *FeatureNamespaceGeometry
+	UnknownFeatures   []uint16
 }
 
 // Perform a Level 0 SSC Discovery.
@@ -100,14 +98,45 @@ func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 		frdr := io.LimitReader(d0buf, int64(fhdr.Size))
 		var err error
 		switch fhdr.Code {
-		case FeatureTPer:
+		case FeatureCodeTPer:
 			d0.TPer, err = readTPerFeature(frdr)
-		case FeatureLocking:
+		case FeatureCodeLocking:
 			d0.Locking, err = readLockingFeature(frdr)
-		case FeatureOPAL20:
-			d0.OPAL20, err = readOPAL20Feature(frdr)
+		case FeatureCodeGeometry:
+			d0.Geometry, err = readGeometryFeature(frdr)
+		case FeatureCodeSecureMsg:
+			d0.SecureMsg, err = readSecureMsgFeature(frdr)
+		case FeatureCodeEnterprise:
+			d0.Enterprise, err = readEnterpriseFeature(frdr)
+		case FeatureCodeOpalV1:
+			d0.OpalV1, err = readOpalV1Feature(frdr)
+		case FeatureCodeSingleUser:
+			d0.SingleUser, err = readSingleUserFeature(frdr)
+		case FeatureCodeDataStore:
+			d0.DataStore, err = readDataStoreFeature(frdr)
+		case FeatureCodeOpalV2:
+			d0.OpalV2, err = readOpalV2Feature(frdr)
+		case FeatureCodeOpalite:
+			d0.Opalite, err = readOpaliteFeature(frdr)
+		case FeatureCodePyriteV1:
+			d0.PyriteV1, err = readPyriteV1Feature(frdr)
+		case FeatureCodePyriteV2:
+			d0.PyriteV2, err = readPyriteV2Feature(frdr)
+		case FeatureCodeRubyV1:
+			d0.RubyV1, err = readRubyV1Feature(frdr)
+		case FeatureCodeLockingLBA:
+			d0.LockingLBA, err = readLockingLBAFeature(frdr)
+		case FeatureCodeBlockSID:
+			d0.BlockSID, err = readBlockSIDFeature(frdr)
+		case FeatureCodeNamespaceLocking:
+			d0.NamespaceLocking, err = readNamespaceLockingFeature(frdr)
+		case FeatureCodeDataRemoval:
+			d0.DataRemoval, err = readDataRemovalFeature(frdr)
+		case FeatureCodeNamespaceGeometry:
+			d0.NamespaceGeometry, err = readNamespaceGeometryFeature(frdr)
 		default:
 			// Unsupported feature
+			d0.UnknownFeatures = append(d0.UnknownFeatures, uint16(fhdr.Code))
 		}
 		if err != nil {
 			return nil, err
@@ -116,19 +145,4 @@ func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 		fsize -= binary.Size(fhdr) + int(fhdr.Size)
 	}
 	return d0, nil
-}
-
-func readTPerFeature(rdr io.Reader) (*TPerFeature, error) {
-	f := &TPerFeature{}
-	return f, nil
-}
-
-func readLockingFeature(rdr io.Reader) (*LockingFeature, error) {
-	f := &LockingFeature{}
-	return f, nil
-}
-
-func readOPAL20Feature(rdr io.Reader) (*OPAL20Feature, error) {
-	f := &OPAL20Feature{}
-	return f, nil
 }
