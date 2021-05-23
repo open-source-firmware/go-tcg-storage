@@ -39,10 +39,10 @@ func main() {
 	}
 	spew.Dump(d0)
 
-	opal, err := tcg.NewOpalSession(d)
+	s := tcg.NewSessionManager(d)
+	prop, err := s.Properties()
 	if err != nil {
-		log.Fatalf("tcg.NewOpalSession: %v", err)
+		log.Fatalf("s.Properties: %v", err)
 	}
-	defer opal.Close()
-	log.Printf("Opal session successfully opened")
+	spew.Dump(prop)
 }

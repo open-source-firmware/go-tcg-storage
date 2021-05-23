@@ -50,7 +50,7 @@ const (
 )
 
 var (
-	ErrIllegalRequest = errors.New("Illegal SCSI request")
+	ErrIllegalRequest = errors.New("illegal SCSI request")
 
 	nativeEndian binary.ByteOrder
 )

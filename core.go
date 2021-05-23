@@ -29,7 +29,7 @@ const (
 )
 
 var (
-	ErrNotSupported = errors.New("Device does not support TCG Storage Core")
+	ErrNotSupported = errors.New("device does not support TCG Storage Core")
 )
 
 type Level0Discovery struct {
@@ -76,7 +76,7 @@ func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 		Vendor [32]byte
 	}{}
 	if err := binary.Read(d0buf, binary.BigEndian, &d0hdr); err != nil {
-		return nil, fmt.Errorf("Failed to parse Level 0 discovery: %v", err)
+		return nil, fmt.Errorf("failed to parse Level 0 discovery: %v", err)
 	}
 	if d0hdr.Size == 0 {
 		return nil, ErrNotSupported
@@ -93,7 +93,7 @@ func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 			Size    uint8
 		}{}
 		if err := binary.Read(d0buf, binary.BigEndian, &fhdr); err != nil {
-			return nil, fmt.Errorf("Failed to parse feature header: %v", err)
+			return nil, fmt.Errorf("failed to parse feature header: %v", err)
 		}
 		frdr := io.LimitReader(d0buf, int64(fhdr.Size))
 		var err error
