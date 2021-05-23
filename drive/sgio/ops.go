@@ -185,11 +185,11 @@ func ATATrustedSend(fd uintptr, proto uint8, comID uint16, in []byte) error {
 }
 
 // SCSI SECURITY IN
-func SCSISecurityIn(fd uintptr, proto uint8, comID uint16, resp *[]byte) error {
+func SCSISecurityIn(fd uintptr, proto uint8, sps uint16, resp *[]byte) error {
 	cdb := CDB12{SCSI_SECURITY_IN}
 	cdb[1] = proto
-	cdb[2] = uint8((comID & 0xff00) >> 8)
-	cdb[3] = uint8(comID & 0xff)
+	cdb[2] = uint8((sps & 0xff00) >> 8)
+	cdb[3] = uint8(sps & 0xff)
 	cdb[4] = 0 // INC_512
 	binary.BigEndian.PutUint32(cdb[6:], uint32(len(*resp)))
 
@@ -200,11 +200,11 @@ func SCSISecurityIn(fd uintptr, proto uint8, comID uint16, resp *[]byte) error {
 }
 
 // SCSI SECURITY OUT
-func SCSISecurityOut(fd uintptr, proto uint8, comID uint16, in []byte) error {
+func SCSISecurityOut(fd uintptr, proto uint8, sps uint16, in []byte) error {
 	cdb := CDB12{SCSI_SECURITY_OUT}
 	cdb[1] = proto
-	cdb[2] = uint8((comID & 0xff00) >> 8)
-	cdb[3] = uint8(comID & 0xff)
+	cdb[2] = uint8((sps & 0xff00) >> 8)
+	cdb[3] = uint8(sps & 0xff)
 	cdb[4] = 0 // INC_512 = 0
 	binary.BigEndian.PutUint32(cdb[6:], uint32(len(in)))
 

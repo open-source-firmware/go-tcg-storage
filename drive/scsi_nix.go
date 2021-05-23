@@ -14,16 +14,16 @@ type scsiDrive struct {
 	fd uintptr
 }
 
-func (d *scsiDrive) IFRecv(proto SecurityProtocol, comID ComID, data *[]byte) error {
-	err := sgio.SCSISecurityIn(d.fd, uint8(proto), uint16(comID), data)
+func (d *scsiDrive) IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) error {
+	err := sgio.SCSISecurityIn(d.fd, uint8(proto), sps, data)
 	if err == sgio.ErrIllegalRequest {
 		return ErrNotSupported
 	}
 	return err
 }
 
-func (d *scsiDrive) IFSend(proto SecurityProtocol, comID ComID, data []byte) error {
-	err := sgio.SCSISecurityOut(d.fd, uint8(proto), uint16(comID), data)
+func (d *scsiDrive) IFSend(proto SecurityProtocol, sps uint16, data []byte) error {
+	err := sgio.SCSISecurityOut(d.fd, uint8(proto), sps, data)
 	if err == sgio.ErrIllegalRequest {
 		return ErrNotSupported
 	}

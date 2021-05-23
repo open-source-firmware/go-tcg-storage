@@ -12,20 +12,17 @@ var (
 	ErrNotSupported = errors.New("Operation is not supported")
 )
 
-type ComID int
-
 type SecurityProtocol int
 
 const (
-	ComIDDiscoveryL0 ComID = 1
-
-	SecurityProtocolManagement SecurityProtocol = 1
-	SecurityProtocolTPer       SecurityProtocol = 2
+	SecurityProtocolInformation   SecurityProtocol = 0
+	SecurityProtocolTCGManagement SecurityProtocol = 1
+	SecurityProtocolTCGTPer       SecurityProtocol = 2
 )
 
 type driveIntf interface {
-	IFRecv(proto SecurityProtocol, comID ComID, data *[]byte) error
-	IFSend(proto SecurityProtocol, comID ComID, data []byte) error
+	IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) error
+	IFSend(proto SecurityProtocol, sps uint16, data []byte) error
 
 	Close() error
 }

@@ -18,13 +18,17 @@ import (
 )
 
 type DriveIntf interface {
-	IFRecv(proto drive.SecurityProtocol, comID drive.ComID, data *[]byte) error
-	IFSend(proto drive.SecurityProtocol, comID drive.ComID, data []byte) error
+	IFRecv(proto drive.SecurityProtocol, sps uint16, data *[]byte) error
+	IFSend(proto drive.SecurityProtocol, sps uint16, data []byte) error
 }
 
 type FeatureCode uint16
 
+type ComID int
+
 const (
+	ComIDDiscoveryL0 ComID = 1
+
 	FeatureTPer    FeatureCode = 0x0001
 	FeatureLocking FeatureCode = 0x0002
 	FeatureOPAL20  FeatureCode = 0x0203
@@ -57,7 +61,7 @@ type Level0Discovery struct {
 
 func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 	d0raw := make([]byte, 2048)
-	if err := d.IFRecv(drive.SecurityProtocolManagement, drive.ComIDDiscoveryL0, &d0raw); err != nil {
+	if err := d.IFRecv(drive.SecurityProtocolTCGManagement, uint16(ComIDDiscoveryL0), &d0raw); err != nil {
 		if err == drive.ErrNotSupported {
 			return nil, ErrNotSupported
 		}
