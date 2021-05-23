@@ -1,8 +1,6 @@
-VERSION := $(shell git describe --tags)
-GIT_HASH := $(shell git rev-parse --short HEAD )
-
-GO_VERSION        ?= $(shell go version)
-GO_VERSION_NUMBER ?= $(word 3, $(GO_VERSION))
+# Copyright (c) 2021 by library authors. All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
 
 .PHONY: build
 build:
