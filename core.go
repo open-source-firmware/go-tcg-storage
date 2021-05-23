@@ -49,10 +49,10 @@ type OPAL20Feature struct {
 type Level0Discovery struct {
 	MajorVersion int
 	MinorVersion int
-	Vendor [32]byte
-	Locking *LockingFeature
-	TPer    *TPerFeature
-	OPAL20  *OPAL20Feature
+	Vendor       [32]byte
+	Locking      *LockingFeature
+	TPer         *TPerFeature
+	OPAL20       *OPAL20Feature
 }
 
 func Discovery0(d DriveIntf) (*Level0Discovery, error) {
@@ -66,10 +66,10 @@ func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 	d0 := &Level0Discovery{}
 	d0buf := bytes.NewBuffer(d0raw)
 	d0hdr := struct {
-		Size uint32
-		Major uint16
-		Minor uint16
-		_ [8]byte
+		Size   uint32
+		Major  uint16
+		Minor  uint16
+		_      [8]byte
 		Vendor [32]byte
 	}{}
 	if err := binary.Read(d0buf, binary.BigEndian, &d0hdr); err != nil {
@@ -85,16 +85,16 @@ func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 	fsize := int(d0hdr.Size) - binary.Size(d0hdr) + 4
 	for fsize > 0 {
 		fhdr := struct {
-			Code FeatureCode
+			Code    FeatureCode
 			Version uint8
-			Size uint8
+			Size    uint8
 		}{}
 		if err := binary.Read(d0buf, binary.BigEndian, &fhdr); err != nil {
 			return nil, fmt.Errorf("Failed to parse feature header: %v", err)
 		}
 		frdr := io.LimitReader(d0buf, int64(fhdr.Size))
 		var err error
-		switch (fhdr.Code) {
+		switch fhdr.Code {
 		case FeatureTPer:
 			d0.TPer, err = readTPerFeature(frdr)
 		case FeatureLocking:

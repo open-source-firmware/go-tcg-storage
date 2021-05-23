@@ -1,0 +1,41 @@
+name: Go
+
+on:
+  push:
+    branches:
+      - '**'
+      - '!master'
+  pull_request:
+    branches: [ master ]
+
+jobs:
+  test:
+    name: Test Code
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Set up Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: ^1.16
+        id: go
+      - name: Get dependencies
+        run: make get-dependencies
+
+      - name: Ensure that all files are properly formatted
+        run: |
+          FILES=$(gofmt -s -l .)
+          if [ -n "${FILES}" ]; then
+              printf "Following files are not formatted: \n%s" "$FILES"
+              exit 1
+          fi
+
+      - name: Go vet
+        run: make vet
+
+      - name: Test building
+        run: make build
+
+      - name: Run tests
+        run: make test
