@@ -20,6 +20,17 @@ func main() {
 	}
 	defer d.Close()
 
+	spl, err := drive.SecurityProtocols(d)
+	if err != nil {
+		log.Fatalf("drive.SecurityProtocols: %v", err)
+	}
+	spew.Dump(spl)
+	crt, err := drive.Certificate(d)
+	if err != nil {
+		log.Fatalf("drive.Certificate: %v", err)
+	}
+	spew.Dump(crt)
+
 	d0, err := tcg.Discovery0(d)
 	if err != nil {
 		log.Fatalf("tcg.Discovery0: %v", err)

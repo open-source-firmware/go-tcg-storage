@@ -59,6 +59,7 @@ type Level0Discovery struct {
 	OPAL20       *OPAL20Feature
 }
 
+// Perform a Level 0 SSC Discovery.
 func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 	d0raw := make([]byte, 2048)
 	if err := d.IFRecv(drive.SecurityProtocolTCGManagement, uint16(ComIDDiscoveryL0), &d0raw); err != nil {
