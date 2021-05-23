@@ -1,6 +1,6 @@
 # go-tcg-storage
 
-[![Workflow](https://github.com/bluecmd/go-tcg-storage/workflows/Go/badge.svg)
+[![Workflow](https://github.com/bluecmd/go-tcg-storage/workflows/Go/badge.svg)](https://github.com/bluecmd/go-tcg-storage/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bluecmd/go-tcg-storage)](https://goreportcard.com/report/github.com/bluecmd/go-tcg-storage)
 [![GoDoc](https://godoc.org/github.com/bluecmd/go-tcg-storage?status.svg)](https://godoc.org/github.com/bluecmd/go-tcg-storage)
 [![Slack](https://slack.osfw.dev/badge.svg)](https://slack.osfw.dev)
