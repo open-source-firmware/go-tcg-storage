@@ -1,0 +1,14 @@
+---
+branches:
+  - master
+plugins:
+  - "@semantic-release/commit-analyzer"
+  - "@semantic-release/release-notes-generator"
+  - - "@semantic-release/exec"
+    - prepareCmd: "make build-release"
+  - - "@semantic-release/github"
+    - assets:
+        - path: "tcgstorage.linux.amd64"
+          label: "Linux AMD64"
+        - path: "tcgstorage.linux.arm64"
+          label: "Linux ARM64"
