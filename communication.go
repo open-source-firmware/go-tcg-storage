@@ -80,7 +80,9 @@ func (c *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte)
 	if err := binary.Write(&subpkt, binary.BigEndian, &spkthdr); err != nil {
 		return err
 	}
-	// TODO: PAD!
+	subpkt.Write(data)
+	pad := 4 - (len(data) % 4)
+	subpkt.Write(make([]byte, pad))
 
 	pkt := bytes.Buffer{}
 	if uint(pkt.Len()) > c.tp.MaxPacketSize {
@@ -122,8 +124,11 @@ func (c *plainCom) Receive(proto drive.SecurityProtocol, ses *Session) ([]byte, 
 	// TODO: Unpacketize
 	buf := make([]byte, c.tp.MaxComPacketSize)
 	err := c.d.IFRecv(proto, uint16(ses.ComID), &buf)
+	if err != nil {
+		return nil, err
+	}
 	fmt.Printf("com.Receive:\n%s\n", hex.Dump(buf))
-	return buf, err
+	return nil, fmt.Errorf("not implemented")
 }
 
 //  Create header:

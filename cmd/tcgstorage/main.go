@@ -38,8 +38,11 @@ func main() {
 		log.Fatalf("tcg.Discovery0: %v", err)
 	}
 	spew.Dump(d0)
+	if d0.OpalV2 == nil {
+		log.Fatalf("Opal V2 not supported!")
+	}
 
-	s, err := tcg.NewSession(d, d0.TPer, tcg.ComID(0x1))
+	s, err := tcg.NewSession(d, d0.TPer, tcg.ComID(d0.OpalV2.BaseComID))
 	if err != nil {
 		log.Fatalf("s.NewSession: %v", err)
 	}

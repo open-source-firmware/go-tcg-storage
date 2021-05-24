@@ -70,18 +70,34 @@ type FeatureSingleUser struct {
 type FeatureDataStore struct {
 	// TODO
 }
+
 type FeatureOpalV2 struct {
-	// TODO
+	BaseComID                     uint16
+	NumComID                      uint16
+	NumLockingSPAdminSupported    uint16
+	NumLockingSPUserSupported     uint16
+	InitialCPINSIDIndicator       uint8
+	BehaviorCPINSIDuponTPerRevert uint8
 }
+
 type FeatureOpalite struct {
 	// TODO
 }
+
 type FeaturePyriteV1 struct {
-	// TODO
+	BaseComID                     uint16
+	NumComID                      uint16
+	InitialCPINSIDIndicator       uint8
+	BehaviorCPINSIDuponTPerRevert uint8
 }
+
 type FeaturePyriteV2 struct {
-	// TODO
+	BaseComID                     uint16
+	NumComID                      uint16
+	InitialCPINSIDIndicator       uint8
+	BehaviorCPINSIDuponTPerRevert uint8
 }
+
 type FeatureRubyV1 struct {
 	// TODO
 }
@@ -163,6 +179,9 @@ func readDataStoreFeature(rdr io.Reader) (*FeatureDataStore, error) {
 
 func readOpalV2Feature(rdr io.Reader) (*FeatureOpalV2, error) {
 	f := &FeatureOpalV2{}
+	if err := binary.Read(rdr, binary.BigEndian, f); err != nil {
+		return nil, err
+	}
 	return f, nil
 }
 
@@ -173,11 +192,17 @@ func readOpaliteFeature(rdr io.Reader) (*FeatureOpalite, error) {
 
 func readPyriteV1Feature(rdr io.Reader) (*FeaturePyriteV1, error) {
 	f := &FeaturePyriteV1{}
+	if err := binary.Read(rdr, binary.BigEndian, f); err != nil {
+		return nil, err
+	}
 	return f, nil
 }
 
 func readPyriteV2Feature(rdr io.Reader) (*FeaturePyriteV2, error) {
 	f := &FeaturePyriteV2{}
+	if err := binary.Read(rdr, binary.BigEndian, f); err != nil {
+		return nil, err
+	}
 	return f, nil
 }
 
