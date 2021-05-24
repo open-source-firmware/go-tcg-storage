@@ -73,7 +73,7 @@ func GetComID(d DriveIntf) (ComID, error) {
 	c := binary.BigEndian.Uint16(comID[0:2])
 	ce := binary.BigEndian.Uint16(comID[2:4])
 
-	return ComID(c + ce<<16), nil
+	return ComID(uint32(c) + uint32(ce)<<16), nil
 }
 
 func HandleComIDRequest(d DriveIntf, comID ComID, req ComIDRequest) ([]byte, error) {
