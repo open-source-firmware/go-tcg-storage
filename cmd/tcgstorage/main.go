@@ -39,7 +39,7 @@ func main() {
 	}
 	spew.Dump(d0)
 
-	s, err := tcg.NewSession(d, tcg.ComID(0x1))
+	s, err := tcg.NewSession(d, d0.TPer, tcg.ComID(0x1))
 	if err != nil {
 		log.Fatalf("s.NewSession: %v", err)
 	}

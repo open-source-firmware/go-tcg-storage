@@ -7,6 +7,8 @@
 package tcgstorage
 
 import (
+	"fmt"
+
 	"github.com/bluecmd/go-tcg-storage/drive"
 )
 
@@ -32,14 +34,22 @@ func NewPlainCommunication(d DriveIntf, hp HostProperties, tp TPerProperties) *p
 
 func (s *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte) error {
 	// TODO: Packetize
-	return s.d.IFSend(proto, uint16(ses.ComID), data)
+	// From "3.3.10.3 Synchronous Communications Restrictions"
+	// > Methods SHALL NOT span ComPackets. In the case where an incomplete method is
+	// > submitted, if the TPer is able to identify the associated session, then that session SHALL
+	// Maybe add a "fragment" flag?
+	//return s.d.IFSend(proto, uint16(ses.ComID), data)
+
+	fmt.Printf("com.Send would have sent:\n%+v\n", data)
+	return fmt.Errorf("com.Send not implemented")
 }
 
 func (s *plainCom) Receive(proto drive.SecurityProtocol, ses *Session) ([]byte, error) {
 	// TODO: Unpacketize
-	buf := make([]byte, s.tp.MaxComPacketSize)
-	err := s.d.IFRecv(proto, uint16(ses.ComID), &buf)
-	return buf, err
+	//buf := make([]byte, s.tp.MaxComPacketSize)
+	//err := s.d.IFRecv(proto, uint16(ses.ComID), &buf)
+	//return buf, err
+	return nil, fmt.Errorf("com.Receive not implemented")
 }
 
 //  Create header:

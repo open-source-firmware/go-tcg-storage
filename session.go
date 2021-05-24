@@ -7,9 +7,14 @@
 package tcgstorage
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/bluecmd/go-tcg-storage/drive"
+)
+
+var (
+	ErrTPerSyncNotSupported = errors.New("synchronous operation not supported by TPer")
 )
 
 type Session struct {
@@ -89,10 +94,14 @@ var (
 	}
 )
 
+//func NewOpalV2Session(d DriveIntf, tper *FeatureTPer, opal *FeatureOpalV2) (*Session, error) {
+//	return NewSession(d, tper, opal.BaseComID)
+//}
+
 // Initiate a new session with a Security Provider
 //
 // TODO: Let's see if this API makes sense...
-func NewSession(d DriveIntf, comID ComID) (*Session, error) {
+func NewSession(d DriveIntf, tper *FeatureTPer, comID ComID) (*Session, error) {
 	// --- What is a Session?
 	//
 	// Quoting "3.3.7.1 Sessions"
@@ -133,6 +142,23 @@ func NewSession(d DriveIntf, comID ComID) (*Session, error) {
 	// This means that the first we do should be to set the HostProperties to sane (for us)
 	// values, and start a session ASAP to persist those. We assume the current HostProperties
 	// are set to the lowest values.
+	//
+	// Dyanmic ComIDs seem great from reading the spec, but sadly it seems it is not
+	// commonly implemented, which means that we will fight over a single shared ComID.
+	// I expect that this can cause issues where session ComPackets are routed to
+	// another application on the same ComID - or that another application could
+	// simply inject commands in an established session (unless the session has
+	// transitioned into a secure session).
+	//
+	// > "When an IF-RECV is sent to the TPer using a particular ComID, the TPer SHALL respond by putting
+	// > packets from the sessions associated with the ComID into the response"
+	//
+	// TODO: Investigate ComID crosstalk.
+
+	if !tper.SyncSupported {
+		return nil, ErrTPerSyncNotSupported
+	}
+
 	hp := InitialHostProperties
 	tp := InitialTPerProperties
 	c := NewPlainCommunication(d, hp, tp)
@@ -157,6 +183,8 @@ func NewSession(d DriveIntf, comID ComID) (*Session, error) {
 
 func (s *Session) properties(hp *HostProperties) (HostProperties, TPerProperties, error) {
 	mc := NewMethodCall(InvokeIDSMU, MethodIDProperties)
+
+	//mc.PushToken(StreamStartList)
 
 	// TODO
 	// DtaCommand *props = new DtaCommand(OPAL_UID::OPAL_SMUID_UID, OPAL_METHOD::PROPERTIES);

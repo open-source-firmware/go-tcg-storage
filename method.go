@@ -7,6 +7,7 @@
 package tcgstorage
 
 import (
+	"bytes"
 	"fmt"
 
 	"github.com/bluecmd/go-tcg-storage/drive"
@@ -94,49 +95,46 @@ var (
 )
 
 type MethodCall struct {
-	iuid InvokingID
-	muid MethodID
+	buf bytes.Buffer
 }
 
 func NewMethodCall(iid InvokingID, mid MethodID) *MethodCall {
-	return &MethodCall{iid, mid}
+	m := &MethodCall{bytes.Buffer{}}
+	m.PushToken(StreamCall)
+	m.PushRaw(iid[:])
+	m.PushRaw(mid[:])
+	return m
 }
 
+func (m *MethodCall) PushToken(tok StreamToken) {
+	m.buf.Write([]byte(tok))
+}
+
+func (m *MethodCall) PushRaw(b []byte) {
+	m.buf.Write(b)
+}
+
+func (m *MethodCall) PushBytes(b []byte) {
+	if len(b) == 0 {
+		m.buf.Write([]byte{0xa0}) // Short atom with length of 0 ("3.2.2.3.1.2 Short atoms")
+	} else if len(b) == 1 && b[0] < 64 {
+		m.buf.Write(b) // Tiny atom
+	} else {
+		panic("atom not implemented")
+		// Large atom
+		// ...
+	}
+}
+
+
 func (m *MethodCall) MarshalBinary() ([]byte, error) {
-	// Session Manager method calls are written as follows, where
-	// “SMUID” is 0x00 0x00 0x00 0x00
-	// 0x00 0x00 0x00 0xFF: SMUID.MethodName[ <Parameters> ]
-
-	// SP method calls are written as follows, where
-	// "ThisSP" is 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x01:
-	// ThisSP.MethodName[ <Parameters> ]
-
-	// Table method calls are written as follows, where TableUID is the UID of the table (see 3.2.5.3)
-	// upon which the method is being invoked: TableUID.MethodName[ <Parameters> ]
-	// d. Object methods are written as follows, where ObjectUID is the UID of the object (see 3.2.5.3)
-	// upon which the method is being invoked: ObjectUID.MethodName[ <Parameters> ]
-
-	// The InvokingID (the table or object UID to which the method applies) and MethodName (the method's
-	// UID column value as it is defined in an SP's MethodID table) appear first in the signature. The
-	// parameters follow, enclosed in "list" delimiters ("[" and "]"). T
-
-	// bufferpos = sizeof(OPALHeader)
-	// cmdbuf[bufferpos++] = OPAL_TOKEN::CALL;
-	// memcpy(&cmdbuf[bufferpos], &OPALMETHOD[InvokingUID][0], 8);·
-	// cmdbuf[bufferpos++] = OPAL_SHORT_ATOM::BYTESTRING8;
-	// memcpy(&cmdbuf[bufferpos], &OPALMETHOD[method][0], 8);
-	// more data
-	// sendCommand(HSN=0,TSN=0, ComID = Opal ComId (or e.g. disk_info.Enterprise_basecomID))
-	// HSN = response.getUint32(4) (bigendian)
-	// TSN = response.getUint32(5) (bigendian)
-
-	//  cmdbuf[bufferpos++] = OPAL_TOKEN::ENDOFDATA; // End of method call
-	//  cmdbuf[bufferpos++] = OPAL_TOKEN::STARTLIST; // Start of Status code list
-	//  cmdbuf[bufferpos++] = 0x00; // Expected status code (used for aborts)
-	//  cmdbuf[bufferpos++] = 0x00; // Reserved
-	//  cmdbuf[bufferpos++] = 0x00; // Reserved
-	//  cmdbuf[bufferpos++] = OPAL_TOKEN::ENDLIST;
-	return nil, fmt.Errorf("not implemented")
+	m.PushToken(StreamEndOfData) // Finish method call
+	m.PushToken(StreamStartList) // Status code list
+	m.PushBytes([]byte{0}) // Expected status code
+	m.PushBytes([]byte{0}) // Reserved
+	m.PushBytes([]byte{0}) // Reserved
+	m.PushToken(StreamEndList) // Status code list
+	return m.buf.Bytes(), nil
 }
 
 func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, ses *Session) ([]byte, error) {
