@@ -22,6 +22,10 @@ type Session struct {
 	c        CommunicationIntf
 	ComID    ComID
 	TSN, HSN int
+	// See "3.2.3.3.1.2 SeqNumber"
+	SeqLastXmit     int
+	SeqLastAcked    int
+	SeqNextExpected int
 }
 
 type HostProperties struct {

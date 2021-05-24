@@ -126,14 +126,13 @@ func (m *MethodCall) PushBytes(b []byte) {
 	}
 }
 
-
 func (m *MethodCall) MarshalBinary() ([]byte, error) {
 	m.PushToken(StreamEndOfData) // Finish method call
 	m.PushToken(StreamStartList) // Status code list
-	m.PushBytes([]byte{0}) // Expected status code
-	m.PushBytes([]byte{0}) // Reserved
-	m.PushBytes([]byte{0}) // Reserved
-	m.PushToken(StreamEndList) // Status code list
+	m.PushBytes([]byte{0})       // Expected status code
+	m.PushBytes([]byte{0})       // Reserved
+	m.PushBytes([]byte{0})       // Reserved
+	m.PushToken(StreamEndList)   // Status code list
 	return m.buf.Bytes(), nil
 }
 

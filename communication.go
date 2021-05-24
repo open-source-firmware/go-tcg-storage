@@ -7,9 +7,18 @@
 package tcgstorage
 
 import (
+	"bytes"
+	"encoding/binary"
+	"encoding/hex"
+	"errors"
 	"fmt"
 
 	"github.com/bluecmd/go-tcg-storage/drive"
+)
+
+var (
+	ErrTooLargeComPacket = errors.New("packet assembly constructed a too large ComPacket")
+	ErrTooLargePacket    = errors.New("packet assembly constructed a too large Packet")
 )
 
 // NOTE: This is almost io.ReadWriter, but not quite - I couldn't figure out
@@ -25,6 +34,29 @@ type plainCom struct {
 	tp TPerProperties
 }
 
+type comPacketHeader struct {
+	_               uint32
+	ComID           uint16
+	ComIDExt        uint16
+	OutstandingData uint32
+	MinTransfer     uint32
+	Length          uint32
+}
+type packetHeader struct {
+	TSN             uint32
+	HSN             uint32
+	SeqNumber       uint32
+	_               uint16
+	AckType         uint16
+	Acknowledgement uint32
+	Length          uint32
+}
+type subPacketHeader struct {
+	_      [6]byte
+	Kind   uint16
+	Length uint32
+}
+
 // Low-level communication used to send/receive packets to a TPer or SP.
 //
 // Implements Subpacket-Packet-ComPacket packet format.
@@ -32,24 +64,66 @@ func NewPlainCommunication(d DriveIntf, hp HostProperties, tp TPerProperties) *p
 	return &plainCom{d, hp, tp}
 }
 
-func (s *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte) error {
+func (c *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte) error {
 	// TODO: Packetize
 	// From "3.3.10.3 Synchronous Communications Restrictions"
 	// > Methods SHALL NOT span ComPackets. In the case where an incomplete method is
 	// > submitted, if the TPer is able to identify the associated session, then that session SHALL
-	// Maybe add a "fragment" flag?
-	//return s.d.IFSend(proto, uint16(ses.ComID), data)
+	// Maybe add a "fragment" flag to reject too large Sends when synchronous?
+	// TODO: Implement fragmentation
 
-	fmt.Printf("com.Send would have sent:\n%+v\n", data)
-	return fmt.Errorf("com.Send not implemented")
+	subpkt := bytes.Buffer{}
+	spkthdr := subPacketHeader{
+		Kind:   0, // Data
+		Length: uint32(len(data)),
+	}
+	if err := binary.Write(&subpkt, binary.BigEndian, &spkthdr); err != nil {
+		return err
+	}
+	// TODO: PAD!
+
+	pkt := bytes.Buffer{}
+	if uint(pkt.Len()) > c.tp.MaxPacketSize {
+		return ErrTooLargePacket
+	}
+	pkthdr := packetHeader{
+		TSN:       uint32(ses.TSN),
+		HSN:       uint32(ses.HSN),
+		SeqNumber: uint32(ses.SeqLastXmit + 1),
+		AckType:   0, /* TODO */
+		Length:    uint32(subpkt.Len()),
+	}
+	if err := binary.Write(&pkt, binary.BigEndian, &pkthdr); err != nil {
+		return err
+	}
+	pkt.Write(subpkt.Bytes())
+
+	compkt := bytes.Buffer{}
+	compkthdr := comPacketHeader{
+		ComID:           uint16(ses.ComID),
+		ComIDExt:        0,
+		OutstandingData: 0, /* Reseved */
+		MinTransfer:     0, /* Reserved */
+		Length:          uint32(pkt.Len()),
+	}
+	if err := binary.Write(&compkt, binary.BigEndian, &compkthdr); err != nil {
+		return err
+	}
+	compkt.Write(pkt.Bytes())
+	if uint(compkt.Len()) > c.tp.MaxComPacketSize {
+		return ErrTooLargeComPacket
+	}
+	fmt.Printf("com.Send:\n%s\n", hex.Dump(pkt.Bytes()))
+	ses.SeqLastXmit += 1
+	return c.d.IFSend(proto, uint16(ses.ComID), pkt.Bytes())
 }
 
-func (s *plainCom) Receive(proto drive.SecurityProtocol, ses *Session) ([]byte, error) {
+func (c *plainCom) Receive(proto drive.SecurityProtocol, ses *Session) ([]byte, error) {
 	// TODO: Unpacketize
-	//buf := make([]byte, s.tp.MaxComPacketSize)
-	//err := s.d.IFRecv(proto, uint16(ses.ComID), &buf)
-	//return buf, err
-	return nil, fmt.Errorf("com.Receive not implemented")
+	buf := make([]byte, c.tp.MaxComPacketSize)
+	err := c.d.IFRecv(proto, uint16(ses.ComID), &buf)
+	fmt.Printf("com.Receive:\n%s\n", hex.Dump(buf))
+	return buf, err
 }
 
 //  Create header:
