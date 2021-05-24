@@ -39,10 +39,9 @@ func main() {
 	}
 	spew.Dump(d0)
 
-	s := tcg.NewSessionManager(d)
-	prop, err := s.Properties()
+	s, err := tcg.NewSession(d, tcg.ComID(0x1))
 	if err != nil {
-		log.Fatalf("s.Properties: %v", err)
+		log.Fatalf("s.NewSession: %v", err)
 	}
-	spew.Dump(prop)
+	spew.Dump(s)
 }

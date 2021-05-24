@@ -18,14 +18,16 @@ type CommunicationIntf interface {
 }
 
 type plainCom struct {
-	d DriveIntf
+	d  DriveIntf
+	hp HostProperties
+	tp TPerProperties
 }
 
 // Low-level communication used to send/receive packets to a TPer or SP.
 //
 // Implements Subpacket-Packet-ComPacket packet format.
-func NewPlainCommunication(d DriveIntf) *plainCom {
-	return &plainCom{d}
+func NewPlainCommunication(d DriveIntf, hp HostProperties, tp TPerProperties) *plainCom {
+	return &plainCom{d, hp, tp}
 }
 
 func (s *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte) error {
@@ -35,7 +37,7 @@ func (s *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte)
 
 func (s *plainCom) Receive(proto drive.SecurityProtocol, ses *Session) ([]byte, error) {
 	// TODO: Unpacketize
-	buf := make([]byte, 1024)
+	buf := make([]byte, s.tp.MaxComPacketSize)
 	err := s.d.IFRecv(proto, uint16(ses.ComID), &buf)
 	return buf, err
 }
