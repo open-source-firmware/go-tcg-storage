@@ -6,7 +6,7 @@
 [![Slack](https://slack.osfw.dev/badge.svg)](https://slack.osfw.dev)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/bluecmd/go-tcg-storage/blob/master/LICENSE)
 
-Go library for interfacing TCG Storage Security Subsystem Class (SSC) functions on storage devices.
+Go library for interfacing TCG Storage and Security Subsystem Class (SSC) functions on storage devices.
 
 Supported (or planned) standards:
 
