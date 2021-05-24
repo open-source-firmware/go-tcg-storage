@@ -33,6 +33,25 @@ func main() {
 	}
 	spew.Dump(crt)
 
+	comID, err := tcg.GetComID(d)
+	if err != nil {
+		log.Fatalf("Unable to allocate ComID: %v", err)
+	}
+	log.Printf("Allocated ComID 0x%08x", comID)
+	valid, err := tcg.IsComIDValid(d, comID)
+	if err != nil {
+		log.Fatalf("Unable to validate allocated ComID: %v", err)
+	}
+	if !valid {
+		log.Fatalf("Allocated ComID not valid")
+	}
+	log.Printf("ComID validated successfully")
+
+	if err := tcg.StackReset(d, comID); err != nil {
+		log.Fatalf("Unable to reset the synchronous protocol stack: %v", err)
+	}
+	log.Printf("Synchronous protocol stack reset successfully")
+
 	d0, err := tcg.Discovery0(d)
 	if err != nil {
 		log.Fatalf("tcg.Discovery0: %v", err)

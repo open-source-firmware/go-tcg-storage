@@ -15,6 +15,8 @@ type scsiDrive struct {
 }
 
 func (d *scsiDrive) IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) error {
+	// TODO: It seems that some drives are picky on that the data is aligned in some fashion, possibly to 512?
+	// Should work something out to ensure we pad the request accordingly
 	err := sgio.SCSISecurityIn(d.fd, uint8(proto), sps, data)
 	if err == sgio.ErrIllegalRequest {
 		return ErrNotSupported
@@ -23,6 +25,8 @@ func (d *scsiDrive) IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) err
 }
 
 func (d *scsiDrive) IFSend(proto SecurityProtocol, sps uint16, data []byte) error {
+	// TODO: It seems that some drives are picky on that the data is aligned in some fashion, possibly to 512?
+	// Should work something out to ensure we pad the request accordingly
 	err := sgio.SCSISecurityOut(d.fd, uint8(proto), sps, data)
 	if err == sgio.ErrIllegalRequest {
 		return ErrNotSupported

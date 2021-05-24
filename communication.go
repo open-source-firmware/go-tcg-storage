@@ -102,8 +102,8 @@ func (c *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte)
 
 	compkt := bytes.Buffer{}
 	compkthdr := comPacketHeader{
-		ComID:           uint16(ses.ComID),
-		ComIDExt:        0,
+		ComID:           uint16(ses.ComID & 0xffff),
+		ComIDExt:        uint16((ses.ComID & 0xffff0000) >> 16),
 		OutstandingData: 0, /* Reseved */
 		MinTransfer:     0, /* Reserved */
 		Length:          uint32(pkt.Len()),

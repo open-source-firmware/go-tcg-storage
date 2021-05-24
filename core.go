@@ -23,12 +23,16 @@ type DriveIntf interface {
 }
 
 type ComID int
+type ComIDRequest [4]byte
 
 const (
 	ComIDDiscoveryL0 ComID = 1
 )
 
 var (
+	ComIDRequestVerifyComIDValid ComIDRequest = [4]byte{0x00, 0x00, 0x00, 0x01}
+	ComIDRequestStackReset       ComIDRequest = [4]byte{0x00, 0x00, 0x00, 0x02}
+
 	ErrNotSupported = errors.New("device does not support TCG Storage Core")
 )
 
@@ -55,6 +59,68 @@ type Level0Discovery struct {
 	DataRemoval       *FeatureDataRemoval
 	NamespaceGeometry *FeatureNamespaceGeometry
 	UnknownFeatures   []uint16
+}
+
+// Request an (extended) ComID.
+func GetComID(d DriveIntf) (ComID, error) {
+	var comID [512]byte
+	comIDs := comID[:]
+	if err := d.IFRecv(drive.SecurityProtocolTCGTPer, 0, &comIDs); err != nil {
+		return ComID(-1), err
+	}
+
+	c := binary.BigEndian.Uint16(comID[0:2])
+	ce := binary.BigEndian.Uint16(comID[2:4])
+
+	return ComID(c + ce<<16), nil
+}
+
+func HandleComIDRequest(d DriveIntf, comID ComID, req ComIDRequest) ([]byte, error) {
+	var buf [512]byte
+	binary.BigEndian.PutUint16(buf[0:2], uint16(comID&0xffff))
+	binary.BigEndian.PutUint16(buf[2:4], uint16((comID&0xffff0000)>>16))
+	copy(buf[4:8], req[:])
+
+	if err := d.IFSend(drive.SecurityProtocolTCGTPer, uint16(comID&0xffff), buf[:]); err != nil {
+		return nil, err
+	}
+
+	buf = [512]byte{}
+	bufs := buf[:]
+	if err := d.IFRecv(drive.SecurityProtocolTCGTPer, uint16(comID&0xffff), &bufs); err != nil {
+		return nil, err
+	}
+
+	// TODO: Verify the request code in response?
+	size := binary.BigEndian.Uint16(buf[10:12])
+	return buf[12 : 12+size], nil
+}
+
+// Validate a ComID.
+func IsComIDValid(d DriveIntf, comID ComID) (bool, error) {
+	res, err := HandleComIDRequest(d, comID, ComIDRequestVerifyComIDValid)
+	if err != nil {
+		return false, err
+	}
+	state := binary.BigEndian.Uint32(res[0:4])
+	return state == 2 || state == 3, nil
+}
+
+// Reset the state of the synchronous protocol stack.
+func StackReset(d DriveIntf, comID ComID) error {
+	res, err := HandleComIDRequest(d, comID, ComIDRequestStackReset)
+	if err != nil {
+		return err
+	}
+	if len(res) < 4 {
+		// TODO: Implement stack reset pending re-poll
+		return fmt.Errorf("stack reset is probably Pending, which is not supported")
+	}
+	success := binary.BigEndian.Uint32(res[0:4])
+	if success != 0 {
+		return fmt.Errorf("stack reset reported failure")
+	}
+	return nil
 }
 
 // Perform a Level 0 SSC Discovery.
