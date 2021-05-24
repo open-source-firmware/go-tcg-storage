@@ -22,5 +22,5 @@ func Open(device string) (driveIntf, error) {
 	}
 
 	d.Close()
-	return nil, fmt.Errorf("Device type not supported")
+	return nil, fmt.Errorf("device type not supported")
 }

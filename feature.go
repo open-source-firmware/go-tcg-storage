@@ -7,6 +7,7 @@
 package tcgstorage
 
 import (
+	"encoding/binary"
 	"io"
 )
 
@@ -34,11 +35,23 @@ const (
 )
 
 type FeatureTPer struct {
-	// TODO
+	SyncSupported       bool
+	AsyncSupported      bool
+	AckNakSupported     bool
+	BufferMgmtSupported bool
+	StreamingSupported  bool
+	ComIDMgmtSupported  bool
 }
+
 type FeatureLocking struct {
-	// TODO
+	LockingSupported bool
+	LockingEnabled   bool
+	Locked           bool
+	MediaEncryption  bool
+	MBREnabled       bool
+	MBRDone          bool
 }
+
 type FeatureGeometry struct {
 	// TODO
 }
@@ -57,18 +70,34 @@ type FeatureSingleUser struct {
 type FeatureDataStore struct {
 	// TODO
 }
+
 type FeatureOpalV2 struct {
-	// TODO
+	BaseComID                     uint16
+	NumComID                      uint16
+	NumLockingSPAdminSupported    uint16
+	NumLockingSPUserSupported     uint16
+	InitialCPINSIDIndicator       uint8
+	BehaviorCPINSIDuponTPerRevert uint8
 }
+
 type FeatureOpalite struct {
 	// TODO
 }
+
 type FeaturePyriteV1 struct {
-	// TODO
+	BaseComID                     uint16
+	NumComID                      uint16
+	InitialCPINSIDIndicator       uint8
+	BehaviorCPINSIDuponTPerRevert uint8
 }
+
 type FeaturePyriteV2 struct {
-	// TODO
+	BaseComID                     uint16
+	NumComID                      uint16
+	InitialCPINSIDIndicator       uint8
+	BehaviorCPINSIDuponTPerRevert uint8
 }
+
 type FeatureRubyV1 struct {
 	// TODO
 }
@@ -90,11 +119,31 @@ type FeatureNamespaceGeometry struct {
 
 func readTPerFeature(rdr io.Reader) (*FeatureTPer, error) {
 	f := &FeatureTPer{}
+	var raw uint8
+	if err := binary.Read(rdr, binary.BigEndian, &raw); err != nil {
+		return nil, err
+	}
+	f.SyncSupported = raw&0x1 > 0
+	f.AsyncSupported = raw&0x2 > 0
+	f.AckNakSupported = raw&0x4 > 0
+	f.BufferMgmtSupported = raw&0x8 > 0
+	f.StreamingSupported = raw&0x10 > 0
+	f.ComIDMgmtSupported = raw&0x40 > 0
 	return f, nil
 }
 
 func readLockingFeature(rdr io.Reader) (*FeatureLocking, error) {
 	f := &FeatureLocking{}
+	var raw uint8
+	if err := binary.Read(rdr, binary.BigEndian, &raw); err != nil {
+		return nil, err
+	}
+	f.LockingSupported = raw&0x1 > 0
+	f.LockingEnabled = raw&0x2 > 0
+	f.Locked = raw&0x4 > 0
+	f.MediaEncryption = raw&0x8 > 0
+	f.MBREnabled = raw&0x10 > 0
+	f.MBRDone = raw&0x20 > 0
 	return f, nil
 }
 
@@ -130,6 +179,9 @@ func readDataStoreFeature(rdr io.Reader) (*FeatureDataStore, error) {
 
 func readOpalV2Feature(rdr io.Reader) (*FeatureOpalV2, error) {
 	f := &FeatureOpalV2{}
+	if err := binary.Read(rdr, binary.BigEndian, f); err != nil {
+		return nil, err
+	}
 	return f, nil
 }
 
@@ -140,11 +192,17 @@ func readOpaliteFeature(rdr io.Reader) (*FeatureOpalite, error) {
 
 func readPyriteV1Feature(rdr io.Reader) (*FeaturePyriteV1, error) {
 	f := &FeaturePyriteV1{}
+	if err := binary.Read(rdr, binary.BigEndian, f); err != nil {
+		return nil, err
+	}
 	return f, nil
 }
 
 func readPyriteV2Feature(rdr io.Reader) (*FeaturePyriteV2, error) {
 	f := &FeaturePyriteV2{}
+	if err := binary.Read(rdr, binary.BigEndian, f); err != nil {
+		return nil, err
+	}
 	return f, nil
 }
 

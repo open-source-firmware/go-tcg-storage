@@ -12,7 +12,7 @@ import (
 )
 
 var (
-	ErrNotSupported = errors.New("Operation is not supported")
+	ErrNotSupported = errors.New("operation is not supported")
 )
 
 type SecurityProtocol int
@@ -42,12 +42,12 @@ func SecurityProtocols(d driveIntf) ([]SecurityProtocol, error) {
 		Length uint16
 	}{}
 	if err := binary.Read(buf, binary.BigEndian, &hdr); err != nil {
-		return nil, fmt.Errorf("Failed to parse security protocol list header: %v", err)
+		return nil, fmt.Errorf("failed to parse security protocol list header: %v", err)
 	}
 	i := hdr.Length
 	list := make([]uint8, i)
 	if err := binary.Read(buf, binary.BigEndian, list); err != nil {
-		return nil, fmt.Errorf("Failed to read security protocol list: %v", err)
+		return nil, fmt.Errorf("failed to read security protocol list: %v", err)
 	}
 	res := []SecurityProtocol{}
 	for _, i := range list {
@@ -68,14 +68,14 @@ func Certificate(d driveIntf) (*x509.Certificate, error) {
 		Size uint16
 	}{}
 	if err := binary.Read(buf, binary.BigEndian, &hdr); err != nil {
-		return nil, fmt.Errorf("Failed to parse certificate header: %v", err)
+		return nil, fmt.Errorf("failed to parse certificate header: %v", err)
 	}
 	if hdr.Size == 0 {
 		return nil, nil
 	}
 	crtdata := make([]byte, hdr.Size)
 	if n, err := buf.Read(crtdata); n != int(hdr.Size) || err != nil {
-		return nil, fmt.Errorf("Failed to read certificate: error (%v) or underrun", err)
+		return nil, fmt.Errorf("failed to read certificate: error (%v) or underrun", err)
 	}
 	return x509.ParseCertificate(crtdata)
 }

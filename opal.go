@@ -11,27 +11,5 @@ import (
 )
 
 var (
-	ErrNoOpalV2Support = errors.New("Device does not support Opal 2.0")
+	ErrNoOpalV2Support = errors.New("device does not support Opal 2.0")
 )
-
-type opalSession struct {
-	d DriveIntf
-}
-
-func (s *opalSession) Close() error {
-	return nil
-}
-
-// TODO: This is placeholder! It is likely the session will be not bound to Opal
-// like this.
-func NewOpalSession(d DriveIntf) (*opalSession, error) {
-	// Ensure the device supports OPAL 2.0
-	d0, err := Discovery0(d)
-	if err != nil {
-		return nil, err
-	}
-	if d0.OpalV2 == nil {
-		return nil, ErrNoOpalV2Support
-	}
-	return &opalSession{d: d}, nil
-}
