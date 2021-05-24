@@ -115,14 +115,16 @@ func (c *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte)
 	if uint(compkt.Len()) > c.tp.MaxComPacketSize {
 		return ErrTooLargeComPacket
 	}
-	fmt.Printf("com.Send:\n%s\n", hex.Dump(pkt.Bytes()))
+	fmt.Printf("com.Send:\n%s\n", hex.Dump(compkt.Bytes()))
 	ses.SeqLastXmit += 1
-	return c.d.IFSend(proto, uint16(ses.ComID), pkt.Bytes())
+	// Extend buffer to be aligned to 512 byte pages which some drives like
+	compkt.Write(make([]byte, 512-(compkt.Len()%512)))
+	return c.d.IFSend(proto, uint16(ses.ComID), compkt.Bytes())
 }
 
 func (c *plainCom) Receive(proto drive.SecurityProtocol, ses *Session) ([]byte, error) {
 	// TODO: Unpacketize
-	buf := make([]byte, c.tp.MaxComPacketSize)
+	buf := make([]byte, c.hp.MaxComPacketSize)
 	err := c.d.IFRecv(proto, uint16(ses.ComID), &buf)
 	if err != nil {
 		return nil, err

@@ -101,7 +101,9 @@ type MethodCall struct {
 func NewMethodCall(iid InvokingID, mid MethodID) *MethodCall {
 	m := &MethodCall{bytes.Buffer{}}
 	m.PushToken(StreamCall)
+	m.PushRaw([]byte{0xa8})
 	m.PushRaw(iid[:])
+	m.PushRaw([]byte{0xa8})
 	m.PushRaw(mid[:])
 	return m
 }

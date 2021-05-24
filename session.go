@@ -83,13 +83,14 @@ var (
 		AckNak:           false,
 		Asynchronous:     false,
 	}
+	// Increased to match that one of the highest standard we support
 	InitialHostProperties = HostProperties{
 		MaxSubpackets:    1,
-		MaxPacketSize:    1004,
+		MaxPacketSize:    2028,
 		MaxPackets:       1,
-		MaxComPacketSize: 1024,
-		MaxIndTokenSize:  968,
-		MaxAggTokenSize:  968,
+		MaxComPacketSize: 2048,
+		MaxIndTokenSize:  1992,
+		MaxAggTokenSize:  1992,
 		MaxMethods:       1,
 		ContinuedTokens:  false,
 		SequenceNumbers:  false,
@@ -171,7 +172,7 @@ func NewSession(d DriveIntf, tper *FeatureTPer, comID ComID) (*Session, error) {
 		c:     c,
 		ComID: comID,
 		TSN:   0,
-		HSN:   1337, /* TODO: Provided by the caller? Allow "WithHSN()" modifier? */
+		HSN:   0,
 	}
 
 	var err error
@@ -181,14 +182,15 @@ func NewSession(d DriveIntf, tper *FeatureTPer, comID ComID) (*Session, error) {
 	}
 
 	// TODO: Start session
-
+	// TODO: HSN Provided by the caller? Allow "WithHSN()" modifier? */
 	return s, nil
 }
 
 func (s *Session) properties(hp *HostProperties) (HostProperties, TPerProperties, error) {
 	mc := NewMethodCall(InvokeIDSMU, MethodIDProperties)
 
-	//mc.PushToken(StreamStartList)
+	mc.PushToken(StreamStartList)
+	mc.PushToken(StreamEndList)
 
 	// TODO
 	// DtaCommand *props = new DtaCommand(OPAL_UID::OPAL_SMUID_UID, OPAL_METHOD::PROPERTIES);
