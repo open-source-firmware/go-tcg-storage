@@ -14,25 +14,56 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-func TestComID(d tcg.DriveIntf) {
+func TestComID(d tcg.DriveIntf) tcg.ComID {
 	comID, err := tcg.GetComID(d)
 	if err != nil {
-		log.Fatalf("Unable to allocate ComID: %v", err)
+		log.Printf("Unable to auto-allocate ComID: %v", err)
+		return tcg.ComIDInvalid
 	}
 	log.Printf("Allocated ComID 0x%08x", comID)
 	valid, err := tcg.IsComIDValid(d, comID)
 	if err != nil {
-		log.Fatalf("Unable to validate allocated ComID: %v", err)
+		log.Printf("Unable to validate allocated ComID: %v", err)
+		return tcg.ComIDInvalid
 	}
 	if !valid {
-		log.Fatalf("Allocated ComID not valid")
+		log.Printf("Allocated ComID not valid")
+		return tcg.ComIDInvalid
 	}
 	log.Printf("ComID validated successfully")
 
 	if err := tcg.StackReset(d, comID); err != nil {
-		log.Fatalf("Unable to reset the synchronous protocol stack: %v", err)
+		log.Printf("Unable to reset the synchronous protocol stack: %v", err)
+		return tcg.ComIDInvalid
 	}
 	log.Printf("Synchronous protocol stack reset successfully")
+	return comID
+}
+
+func TestSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg.Session {
+	if comID == tcg.ComIDInvalid {
+		log.Printf("Auto-allocation ComID test failed earlier, selecting first available base ComID")
+		if d0.OpalV2 != nil {
+			log.Printf("Selecting OpalV2 ComID")
+			comID = tcg.ComID(d0.OpalV2.BaseComID)
+		} else if d0.PyriteV1 != nil {
+			log.Printf("Selecting PyriteV1 ComID")
+			comID = tcg.ComID(d0.PyriteV1.BaseComID)
+		} else if d0.PyriteV2 != nil {
+			log.Printf("Selecting PyriteV2 ComID")
+			comID = tcg.ComID(d0.PyriteV1.BaseComID)
+		} else {
+			log.Printf("No supported feature found, giving up without a ComID ...")
+			return nil
+		}
+	}
+	log.Printf("Creating session with ComID 0x%08x\n", comID)
+	s, err := tcg.NewSession(d, d0.TPer, tcg.WithComID(tcg.ComID(d0.OpalV2.BaseComID)))
+	if err != nil {
+		log.Printf("s.NewSession failed: %v", err)
+		return nil
+	}
+	return s
 }
 
 func main() {
@@ -58,8 +89,8 @@ func main() {
 	spew.Dump(crt)
 	fmt.Printf("\n")
 
-	fmt.Printf("===> TCG ComID SELF-TEST\n")
-	TestComID(d)
+	fmt.Printf("===> TCG AUTO ComID SELF-TEST\n")
+	comID := TestComID(d)
 	fmt.Printf("\n")
 
 	fmt.Printf("===> TCG FEATURE DISCOVERY\n")
@@ -71,9 +102,7 @@ func main() {
 	fmt.Printf("\n")
 
 	fmt.Printf("===> TCG SESSION\n")
-	s, err := tcg.NewSession(d, d0.TPer)
-	if err != nil {
-		log.Fatalf("s.NewSession: %v", err)
-	}
+
+	s := TestSession(d, d0, comID)
 	spew.Dump(s)
 }

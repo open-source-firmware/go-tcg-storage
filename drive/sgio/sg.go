@@ -106,7 +106,7 @@ func execGenericIO(fd uintptr, hdr *sgIoHdr, sense []byte) error {
 	// See http://www.t10.org/lists/2status.htm for SCSI status codes
 	if hdr.info&SG_INFO_OK_MASK != SG_INFO_OK {
 		if hdr.driver_status == DRIVER_SENSE {
-			if sense[0] == 0x70 && sense[2] == SENSE_ILLEGAL_REQUEST {
+			if sense[0]&0x7f == 0x70 && sense[2] == SENSE_ILLEGAL_REQUEST {
 				return ErrIllegalRequest
 			}
 		}

@@ -215,7 +215,7 @@ func NewSession(d DriveIntf, tper *FeatureTPer, opts ...SessionOpt) (*Session, e
 		var err error
 		s.ComID, err = GetComID(d)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("unable to auto-allocate ComID: %v", err)
 		}
 	}
 
