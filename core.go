@@ -26,6 +26,7 @@ type ComID int
 type ComIDRequest [4]byte
 
 const (
+	ComIDInvalid     ComID = -1
 	ComIDDiscoveryL0 ComID = 1
 )
 
@@ -66,7 +67,7 @@ func GetComID(d DriveIntf) (ComID, error) {
 	var comID [512]byte
 	comIDs := comID[:]
 	if err := d.IFRecv(drive.SecurityProtocolTCGTPer, 0, &comIDs); err != nil {
-		return ComID(-1), err
+		return ComIDInvalid, err
 	}
 
 	c := binary.BigEndian.Uint16(comID[0:2])

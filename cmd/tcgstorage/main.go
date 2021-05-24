@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"os"
 
@@ -13,26 +14,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 )
 
-func main() {
-	spew.Config.Indent = "  "
-
-	d, err := drive.Open(os.Args[1])
-	if err != nil {
-		log.Fatalf("drive.Open: %v", err)
-	}
-	defer d.Close()
-
-	spl, err := drive.SecurityProtocols(d)
-	if err != nil {
-		log.Fatalf("drive.SecurityProtocols: %v", err)
-	}
-	spew.Dump(spl)
-	crt, err := drive.Certificate(d)
-	if err != nil {
-		log.Fatalf("drive.Certificate: %v", err)
-	}
-	spew.Dump(crt)
-
+func TestComID(d tcg.DriveIntf) {
 	comID, err := tcg.GetComID(d)
 	if err != nil {
 		log.Fatalf("Unable to allocate ComID: %v", err)
@@ -51,17 +33,45 @@ func main() {
 		log.Fatalf("Unable to reset the synchronous protocol stack: %v", err)
 	}
 	log.Printf("Synchronous protocol stack reset successfully")
+}
 
+func main() {
+	spew.Config.Indent = "  "
+
+	d, err := drive.Open(os.Args[1])
+	if err != nil {
+		log.Fatalf("drive.Open: %v", err)
+	}
+	defer d.Close()
+
+	fmt.Printf("===> DRIVE SECURITY INFORMATION\n")
+	spl, err := drive.SecurityProtocols(d)
+	if err != nil {
+		log.Fatalf("drive.SecurityProtocols: %v", err)
+	}
+	log.Printf("SecurityProtocols: %+v", spl)
+	crt, err := drive.Certificate(d)
+	if err != nil {
+		log.Fatalf("drive.Certificate: %v", err)
+	}
+	log.Printf("Drive certificate:")
+	spew.Dump(crt)
+	fmt.Printf("\n")
+
+	fmt.Printf("===> TCG ComID SELF-TEST\n")
+	TestComID(d)
+	fmt.Printf("\n")
+
+	fmt.Printf("===> TCG FEATURE DISCOVERY\n")
 	d0, err := tcg.Discovery0(d)
 	if err != nil {
 		log.Fatalf("tcg.Discovery0: %v", err)
 	}
 	spew.Dump(d0)
-	if d0.OpalV2 == nil {
-		log.Fatalf("Opal V2 not supported!")
-	}
+	fmt.Printf("\n")
 
-	s, err := tcg.NewSession(d, d0.TPer, tcg.ComID(d0.OpalV2.BaseComID))
+	fmt.Printf("===> TCG SESSION\n")
+	s, err := tcg.NewSession(d, d0.TPer)
 	if err != nil {
 		log.Fatalf("s.NewSession: %v", err)
 	}

@@ -9,12 +9,23 @@ package tcgstorage
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 
 	"github.com/bluecmd/go-tcg-storage/drive"
 )
 
 var (
 	ErrTPerSyncNotSupported = errors.New("synchronous operation not supported by TPer")
+
+	InvokeIDSMU InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF}
+
+	// Table 241 - "Session Manager Method UIDs"
+	MethodIDSMProperties          MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x01}
+	MethodIDSMStartSession        MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x02}
+	MethodIDSMSyncSession         MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x03}
+	MethodIDSMStartTrustedSession MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x04}
+	MethodIDSMSyncTrustedSession  MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x05}
+	MethodIDSMCloseSession        MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x06}
 )
 
 type Session struct {
@@ -99,6 +110,20 @@ var (
 	}
 )
 
+type SessionOpt func(s *Session)
+
+func WithComID(c ComID) SessionOpt {
+	return func(s *Session) {
+		s.ComID = c
+	}
+}
+
+func WithHSN(hsn int) SessionOpt {
+	return func(s *Session) {
+		s.HSN = hsn
+	}
+}
+
 //func NewOpalV2Session(d DriveIntf, tper *FeatureTPer, opal *FeatureOpalV2) (*Session, error) {
 //	return NewSession(d, tper, opal.BaseComID)
 //}
@@ -106,7 +131,7 @@ var (
 // Initiate a new session with a Security Provider
 //
 // TODO: Let's see if this API makes sense...
-func NewSession(d DriveIntf, tper *FeatureTPer, comID ComID) (*Session, error) {
+func NewSession(d DriveIntf, tper *FeatureTPer, opts ...SessionOpt) (*Session, error) {
 	// --- What is a Session?
 	//
 	// Quoting "3.3.7.1 Sessions"
@@ -170,10 +195,33 @@ func NewSession(d DriveIntf, tper *FeatureTPer, comID ComID) (*Session, error) {
 	s := &Session{
 		d:     d,
 		c:     c,
-		ComID: comID,
+		ComID: ComIDInvalid,
 		TSN:   0,
-		HSN:   0,
+		HSN:   -1,
 	}
+
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	if s.HSN > 0xffffffff {
+		return nil, fmt.Errorf("too large HSN provided")
+	}
+
+	if s.HSN == -1 {
+		s.HSN = int(rand.Int31())
+	}
+	if s.ComID == ComIDInvalid {
+		var err error
+		s.ComID, err = GetComID(d)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// Override HSN to 0 for the Properties call, as per the standard
+	myHSN := s.HSN
+	s.HSN = 0
 
 	var err error
 	hp, tp, err = s.properties(&hp)
@@ -181,55 +229,68 @@ func NewSession(d DriveIntf, tper *FeatureTPer, comID ComID) (*Session, error) {
 		return nil, err
 	}
 
+	// Update the communication with the active properties
+	s.c = NewPlainCommunication(d, hp, tp)
+	s.HSN = myHSN
+
 	// TODO: Start session
-	// TODO: HSN Provided by the caller? Allow "WithHSN()" modifier? */
-	return s, nil
+
+	return s, fmt.Errorf("session start-up not implemented")
 }
 
-func (s *Session) properties(hp *HostProperties) (HostProperties, TPerProperties, error) {
-	mc := NewMethodCall(InvokeIDSMU, MethodIDProperties)
+// Fetch current Host and TPer properties, optionally changing the Host properties.
+func (s *Session) properties(rhp *HostProperties) (HostProperties, TPerProperties, error) {
+	mc := NewMethodCall(InvokeIDSMU, MethodIDSMProperties)
 
 	mc.PushToken(StreamStartList)
+	// TODO: Include host parameters
+	// TOKEN::STARTLIST
+	// TOKEN::STARTNAME
+	// "HostProperties"
+	// TOKEN::STARTLIST
+	// TOKEN::STARTNAME
+	// "MaxComPacketSize"
+	// 2048
+	// TOKEN::ENDNAME
+	// TOKEN::STARTNAME
+	// "MaxPacketSize"
+	// 2028
+	// TOKEN::ENDNAME
+	// TOKEN::STARTNAME
+	// "MaxIndTokenSize"
+	// 1992
+	// TOKEN::ENDNAME
+	// TOKEN::STARTNAME
+	// "MaxPackets"
+	// 1
+	// TOKEN::ENDNAME
+	// TOKEN::STARTNAME
+	// "MaxSubpackets"
+	// 1
+	// TOKEN::ENDNAME
+	// TOKEN::STARTNAME
+	// "MaxMethods"
+	// 1
+	// TOKEN::ENDNAME
+	// TOKEN::ENDLIST
+	// TOKEN::ENDNAME
+	// TOKEN::ENDLIST
 	mc.PushToken(StreamEndList)
 
-	// TODO
-	// DtaCommand *props = new DtaCommand(OPAL_UID::OPAL_SMUID_UID, OPAL_METHOD::PROPERTIES);
-	// props->addToken(OPAL_TOKEN::STARTLIST);
-	// props->addToken(OPAL_TOKEN::STARTNAME);
-	// props->addToken("HostProperties");
-	// props->addToken(OPAL_TOKEN::STARTLIST);
-	// props->addToken(OPAL_TOKEN::STARTNAME);
-	// props->addToken("MaxComPacketSize");
-	// props->addToken(2048);
-	// props->addToken(OPAL_TOKEN::ENDNAME);
-	// props->addToken(OPAL_TOKEN::STARTNAME);
-	// props->addToken("MaxPacketSize");
-	// props->addToken(2028);
-	// props->addToken(OPAL_TOKEN::ENDNAME);
-	// props->addToken(OPAL_TOKEN::STARTNAME);
-	// props->addToken("MaxIndTokenSize");
-	// props->addToken(1992);
-	// props->addToken(OPAL_TOKEN::ENDNAME);
-	// props->addToken(OPAL_TOKEN::STARTNAME);
-	// props->addToken("MaxPackets");
-	// props->addToken(1);
-	// props->addToken(OPAL_TOKEN::ENDNAME);
-	// props->addToken(OPAL_TOKEN::STARTNAME);
-	// props->addToken("MaxSubpackets");
-	// props->addToken(1);
-	// props->addToken(OPAL_TOKEN::ENDNAME);
-	// props->addToken(OPAL_TOKEN::STARTNAME);
-	// props->addToken("MaxMethods");
-	// props->addToken(1);
-	// props->addToken(OPAL_TOKEN::ENDNAME);
-	// props->addToken(OPAL_TOKEN::ENDLIST);
-	// props->addToken(OPAL_TOKEN::ENDNAME);
-	// props->addToken(OPAL_TOKEN::ENDLIST);
 	resp, err := mc.Execute(s.c, drive.SecurityProtocolTCGManagement, s)
 	if err != nil {
 		return HostProperties{}, TPerProperties{}, err
 	}
 
-	fmt.Printf("properties resp: %+v\n", resp)
-	return HostProperties{}, TPerProperties{}, nil
+	hp := InitialHostProperties
+	tp := InitialTPerProperties
+
+	_ = resp
+	// TODO: Parse returned tokens into Host and TPer properties
+	// TODO: Ensure that the returned parameters are not lower than the minimum
+	// allowed values.
+
+	fmt.Printf("hp: %+v\n", hp)
+	fmt.Printf("tp: %+v\n", tp)
+	return hp, tp, fmt.Errorf("properties parsing not implemented")
 }
