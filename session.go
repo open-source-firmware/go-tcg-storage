@@ -29,14 +29,21 @@ var (
 )
 
 type Session struct {
-	d        DriveIntf
-	c        CommunicationIntf
-	ComID    ComID
-	TSN, HSN int
+	ControlSession *ControlSession
+	d              DriveIntf
+	c              CommunicationIntf
+	ComID          ComID
+	TSN, HSN       int
 	// See "3.2.3.3.1.2 SeqNumber"
 	SeqLastXmit     int
 	SeqLastAcked    int
 	SeqNextExpected int
+}
+
+type ControlSession struct {
+	Session
+	HostProperties HostProperties
+	TPerProperties TPerProperties
 }
 
 type HostProperties struct {
@@ -111,9 +118,10 @@ var (
 )
 
 type SessionOpt func(s *Session)
+type ControlSessionOpt func(s *ControlSession)
 
-func WithComID(c ComID) SessionOpt {
-	return func(s *Session) {
+func WithComID(c ComID) ControlSessionOpt {
+	return func(s *ControlSession) {
 		s.ComID = c
 	}
 }
@@ -128,10 +136,77 @@ func WithHSN(hsn int) SessionOpt {
 //	return NewSession(d, tper, opal.BaseComID)
 //}
 
+// Initiate a new control session with a ComID.
+func NewControlSession(d DriveIntf, tper *FeatureTPer, opts ...ControlSessionOpt) (*ControlSession, error) {
+	// --- Control Sessions
+	//
+	// Every ComID has exactly one control session. This is that session.
+	//
+	// --- Communication Properties
+	//
+	// Dyanmic ComIDs seem great from reading the spec, but sadly it seems it is not
+	// commonly implemented, which means that we will fight over a single shared ComID.
+	// I expect that this can cause issues where session ComPackets are routed to
+	// another application on the same ComID - or that another application could
+	// simply inject commands in an established session (unless the session has
+	// transitioned into a secure session).
+	//
+	// > "When an IF-RECV is sent to the TPer using a particular ComID, the TPer SHALL respond by putting
+	// > packets from the sessions associated with the ComID into the response"
+	//
+	// TODO: Investigate ComID crosstalk.
+
+	if !tper.SyncSupported {
+		return nil, ErrTPerSyncNotSupported
+	}
+
+	hp := InitialHostProperties
+	tp := InitialTPerProperties
+	c := NewPlainCommunication(d, hp, tp)
+	s := &ControlSession{
+		Session: Session{
+			d:     d,
+			c:     c,
+			ComID: ComIDInvalid,
+			TSN:   0,
+			HSN:   0,
+		},
+		HostProperties: hp,
+		TPerProperties: tp,
+	}
+
+	for _, opt := range opts {
+		opt(s)
+	}
+
+	if s.ComID == ComIDInvalid {
+		var err error
+		s.ComID, err = GetComID(d)
+		if err != nil {
+			return nil, fmt.Errorf("unable to auto-allocate ComID: %v", err)
+		}
+	}
+
+	// Try to reset the synchronous protocol stack for the ComID to minimize
+	// the dependencies on the implicit state. However, I suspect not all drives
+	// implement it so we do it best-effort.
+	StackReset(d, s.ComID)
+
+	var err error
+	hp, tp, err = s.properties(&hp)
+	if err != nil {
+		return nil, err
+	}
+
+	// Update the communication with the active properties
+	s.c = NewPlainCommunication(d, hp, tp)
+	s.HostProperties = hp
+	s.TPerProperties = tp
+	return s, nil
+}
+
 // Initiate a new session with a Security Provider
-//
-// TODO: Let's see if this API makes sense...
-func NewSession(d DriveIntf, tper *FeatureTPer, opts ...SessionOpt) (*Session, error) {
+func (cs *ControlSession) NewSession(opts ...SessionOpt) (*Session, error) {
 	// --- What is a Session?
 	//
 	// Quoting "3.3.7.1 Sessions"
@@ -169,33 +244,15 @@ func NewSession(d DriveIntf, tper *FeatureTPer, opts ...SessionOpt) (*Session, e
 	// > 168, then the TPer SHALL use the minimum value defined in Table 168 in place of the value supplied
 	// > by the host.
 
-	// This means that the first we do should be to set the HostProperties to sane (for us)
-	// values, and start a session ASAP to persist those. We assume the current HostProperties
-	// are set to the lowest values.
-	//
-	// Dyanmic ComIDs seem great from reading the spec, but sadly it seems it is not
-	// commonly implemented, which means that we will fight over a single shared ComID.
-	// I expect that this can cause issues where session ComPackets are routed to
-	// another application on the same ComID - or that another application could
-	// simply inject commands in an established session (unless the session has
-	// transitioned into a secure session).
-	//
-	// > "When an IF-RECV is sent to the TPer using a particular ComID, the TPer SHALL respond by putting
-	// > packets from the sessions associated with the ComID into the response"
-	//
-	// TODO: Investigate ComID crosstalk.
+	// This is all pretty much impossible to get to work correctly when using
+	// shared ComIDs, so let's not try too hard. We set the HostProperties when
+	// the ControlSession is created, and if something else changes it between
+	// then and the call to NewSession() we would be out of sync. Oh well...
 
-	if !tper.SyncSupported {
-		return nil, ErrTPerSyncNotSupported
-	}
-
-	hp := InitialHostProperties
-	tp := InitialTPerProperties
-	c := NewPlainCommunication(d, hp, tp)
 	s := &Session{
-		d:     d,
-		c:     c,
-		ComID: ComIDInvalid,
+		d:     cs.d,
+		c:     cs.c,
+		ComID: cs.ComID,
 		TSN:   0,
 		HSN:   -1,
 	}
@@ -211,27 +268,6 @@ func NewSession(d DriveIntf, tper *FeatureTPer, opts ...SessionOpt) (*Session, e
 	if s.HSN == -1 {
 		s.HSN = int(rand.Int31())
 	}
-	if s.ComID == ComIDInvalid {
-		var err error
-		s.ComID, err = GetComID(d)
-		if err != nil {
-			return nil, fmt.Errorf("unable to auto-allocate ComID: %v", err)
-		}
-	}
-
-	// Override HSN to 0 for the Properties call, as per the standard
-	myHSN := s.HSN
-	s.HSN = 0
-
-	var err error
-	hp, tp, err = s.properties(&hp)
-	if err != nil {
-		return nil, err
-	}
-
-	// Update the communication with the active properties
-	s.c = NewPlainCommunication(d, hp, tp)
-	s.HSN = myHSN
 
 	// TODO: Start session
 
@@ -239,7 +275,7 @@ func NewSession(d DriveIntf, tper *FeatureTPer, opts ...SessionOpt) (*Session, e
 }
 
 // Fetch current Host and TPer properties, optionally changing the Host properties.
-func (s *Session) properties(rhp *HostProperties) (HostProperties, TPerProperties, error) {
+func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerProperties, error) {
 	mc := NewMethodCall(InvokeIDSMU, MethodIDSMProperties)
 
 	mc.PushToken(StreamStartList)
@@ -277,7 +313,7 @@ func (s *Session) properties(rhp *HostProperties) (HostProperties, TPerPropertie
 	// TOKEN::ENDLIST
 	mc.PushToken(StreamEndList)
 
-	resp, err := mc.Execute(s.c, drive.SecurityProtocolTCGManagement, s)
+	resp, err := mc.Execute(cs.c, drive.SecurityProtocolTCGManagement, &cs.Session)
 	if err != nil {
 		return HostProperties{}, TPerProperties{}, err
 	}
@@ -293,4 +329,14 @@ func (s *Session) properties(rhp *HostProperties) (HostProperties, TPerPropertie
 	fmt.Printf("hp: %+v\n", hp)
 	fmt.Printf("tp: %+v\n", tp)
 	return hp, tp, fmt.Errorf("properties parsing not implemented")
+}
+
+func (cs *ControlSession) Close() error {
+	// Control sessions cannot be closed
+	return nil
+}
+
+func (s *Session) Close() error {
+	// TODO
+	return fmt.Errorf("session close not implemented")
 }
