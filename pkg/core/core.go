@@ -14,7 +14,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/bluecmd/go-tcg-storage/drive"
+	"github.com/bluecmd/go-tcg-storage/pkg/drive"
+	"github.com/bluecmd/go-tcg-storage/pkg/core/feature"
 )
 
 type DriveIntf interface {
@@ -41,24 +42,24 @@ type Level0Discovery struct {
 	MajorVersion      int
 	MinorVersion      int
 	Vendor            [32]byte
-	TPer              *FeatureTPer
-	Locking           *FeatureLocking
-	Geometry          *FeatureGeometry
-	SecureMsg         *FeatureSecureMsg
-	Enterprise        *FeatureEnterprise
-	OpalV1            *FeatureOpalV1
-	SingleUser        *FeatureSingleUser
-	DataStore         *FeatureDataStore
-	OpalV2            *FeatureOpalV2
-	Opalite           *FeatureOpalite
-	PyriteV1          *FeaturePyriteV1
-	PyriteV2          *FeaturePyriteV2
-	RubyV1            *FeatureRubyV1
-	LockingLBA        *FeatureLockingLBA
-	BlockSID          *FeatureBlockSID
-	NamespaceLocking  *FeatureNamespaceLocking
-	DataRemoval       *FeatureDataRemoval
-	NamespaceGeometry *FeatureNamespaceGeometry
+	TPer              *feature.TPer
+	Locking           *feature.Locking
+	Geometry          *feature.Geometry
+	SecureMsg         *feature.SecureMsg
+	Enterprise        *feature.Enterprise
+	OpalV1            *feature.OpalV1
+	SingleUser        *feature.SingleUser
+	DataStore         *feature.DataStore
+	OpalV2            *feature.OpalV2
+	Opalite           *feature.Opalite
+	PyriteV1          *feature.PyriteV1
+	PyriteV2          *feature.PyriteV2
+	RubyV1            *feature.RubyV1
+	LockingLBA        *feature.LockingLBA
+	BlockSID          *feature.BlockSID
+	NamespaceLocking  *feature.NamespaceLocking
+	DataRemoval       *feature.DataRemoval
+	NamespaceGeometry *feature.NamespaceGeometry
 	UnknownFeatures   []uint16
 }
 
@@ -152,7 +153,7 @@ func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 	fsize := int(d0hdr.Size) - binary.Size(d0hdr) + 4
 	for fsize > 0 {
 		fhdr := struct {
-			Code    FeatureCode
+			Code    feature.FeatureCode
 			Version uint8
 			Size    uint8
 		}{}
@@ -162,42 +163,42 @@ func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 		frdr := io.LimitReader(d0buf, int64(fhdr.Size))
 		var err error
 		switch fhdr.Code {
-		case FeatureCodeTPer:
-			d0.TPer, err = readTPerFeature(frdr)
-		case FeatureCodeLocking:
-			d0.Locking, err = readLockingFeature(frdr)
-		case FeatureCodeGeometry:
-			d0.Geometry, err = readGeometryFeature(frdr)
-		case FeatureCodeSecureMsg:
-			d0.SecureMsg, err = readSecureMsgFeature(frdr)
-		case FeatureCodeEnterprise:
-			d0.Enterprise, err = readEnterpriseFeature(frdr)
-		case FeatureCodeOpalV1:
-			d0.OpalV1, err = readOpalV1Feature(frdr)
-		case FeatureCodeSingleUser:
-			d0.SingleUser, err = readSingleUserFeature(frdr)
-		case FeatureCodeDataStore:
-			d0.DataStore, err = readDataStoreFeature(frdr)
-		case FeatureCodeOpalV2:
-			d0.OpalV2, err = readOpalV2Feature(frdr)
-		case FeatureCodeOpalite:
-			d0.Opalite, err = readOpaliteFeature(frdr)
-		case FeatureCodePyriteV1:
-			d0.PyriteV1, err = readPyriteV1Feature(frdr)
-		case FeatureCodePyriteV2:
-			d0.PyriteV2, err = readPyriteV2Feature(frdr)
-		case FeatureCodeRubyV1:
-			d0.RubyV1, err = readRubyV1Feature(frdr)
-		case FeatureCodeLockingLBA:
-			d0.LockingLBA, err = readLockingLBAFeature(frdr)
-		case FeatureCodeBlockSID:
-			d0.BlockSID, err = readBlockSIDFeature(frdr)
-		case FeatureCodeNamespaceLocking:
-			d0.NamespaceLocking, err = readNamespaceLockingFeature(frdr)
-		case FeatureCodeDataRemoval:
-			d0.DataRemoval, err = readDataRemovalFeature(frdr)
-		case FeatureCodeNamespaceGeometry:
-			d0.NamespaceGeometry, err = readNamespaceGeometryFeature(frdr)
+		case feature.CodeTPer:
+			d0.TPer, err = feature.ReadTPerFeature(frdr)
+		case feature.CodeLocking:
+			d0.Locking, err = feature.ReadLockingFeature(frdr)
+		case feature.CodeGeometry:
+			d0.Geometry, err = feature.ReadGeometryFeature(frdr)
+		case feature.CodeSecureMsg:
+			d0.SecureMsg, err = feature.ReadSecureMsgFeature(frdr)
+		case feature.CodeEnterprise:
+			d0.Enterprise, err = feature.ReadEnterpriseFeature(frdr)
+		case feature.CodeOpalV1:
+			d0.OpalV1, err = feature.ReadOpalV1Feature(frdr)
+		case feature.CodeSingleUser:
+			d0.SingleUser, err = feature.ReadSingleUserFeature(frdr)
+		case feature.CodeDataStore:
+			d0.DataStore, err = feature.ReadDataStoreFeature(frdr)
+		case feature.CodeOpalV2:
+			d0.OpalV2, err = feature.ReadOpalV2Feature(frdr)
+		case feature.CodeOpalite:
+			d0.Opalite, err = feature.ReadOpaliteFeature(frdr)
+		case feature.CodePyriteV1:
+			d0.PyriteV1, err = feature.ReadPyriteV1Feature(frdr)
+		case feature.CodePyriteV2:
+			d0.PyriteV2, err = feature.ReadPyriteV2Feature(frdr)
+		case feature.CodeRubyV1:
+			d0.RubyV1, err = feature.ReadRubyV1Feature(frdr)
+		case feature.CodeLockingLBA:
+			d0.LockingLBA, err = feature.ReadLockingLBAFeature(frdr)
+		case feature.CodeBlockSID:
+			d0.BlockSID, err = feature.ReadBlockSIDFeature(frdr)
+		case feature.CodeNamespaceLocking:
+			d0.NamespaceLocking, err = feature.ReadNamespaceLockingFeature(frdr)
+		case feature.CodeDataRemoval:
+			d0.DataRemoval, err = feature.ReadDataRemovalFeature(frdr)
+		case feature.CodeNamespaceGeometry:
+			d0.NamespaceGeometry, err = feature.ReadNamespaceGeometryFeature(frdr)
 		default:
 			// Unsupported feature
 			d0.UnknownFeatures = append(d0.UnknownFeatures, uint16(fhdr.Code))

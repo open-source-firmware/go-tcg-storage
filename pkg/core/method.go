@@ -10,8 +10,8 @@ import (
 	"bytes"
 	"fmt"
 
-	"github.com/bluecmd/go-tcg-storage/drive"
-	"github.com/bluecmd/go-tcg-storage/stream"
+	"github.com/bluecmd/go-tcg-storage/pkg/drive"
+	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
 )
 
 type InvokingID [8]byte

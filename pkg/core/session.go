@@ -11,8 +11,9 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/bluecmd/go-tcg-storage/drive"
-	"github.com/bluecmd/go-tcg-storage/stream"
+	"github.com/bluecmd/go-tcg-storage/pkg/drive"
+	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
+	"github.com/bluecmd/go-tcg-storage/pkg/core/feature"
 )
 
 var (
@@ -135,12 +136,8 @@ func WithHSN(hsn int) SessionOpt {
 	}
 }
 
-//func NewOpalV2Session(d DriveIntf, tper *FeatureTPer, opal *FeatureOpalV2) (*Session, error) {
-//	return NewSession(d, tper, opal.BaseComID)
-//}
-
 // Initiate a new control session with a ComID.
-func NewControlSession(d DriveIntf, tper *FeatureTPer, opts ...ControlSessionOpt) (*ControlSession, error) {
+func NewControlSession(d DriveIntf, tper *feature.TPer, opts ...ControlSessionOpt) (*ControlSession, error) {
 	// --- Control Sessions
 	//
 	// Every ComID has exactly one control session. This is that session.
