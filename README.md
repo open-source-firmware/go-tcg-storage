@@ -2,7 +2,7 @@
 
 [![Workflow](https://github.com/bluecmd/go-tcg-storage/workflows/Release/badge.svg)](https://github.com/bluecmd/go-tcg-storage/actions/workflows/release.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/bluecmd/go-tcg-storage)](https://goreportcard.com/report/github.com/bluecmd/go-tcg-storage)
-[![GoDoc](https://godoc.org/github.com/bluecmd/go-tcg-storage?status.svg)](https://godoc.org/github.com/bluecmd/go-tcg-storage@main)
+[![GoDoc](https://godoc.org/github.com/bluecmd/go-tcg-storage?status.svg)](https://pkg.go.dev/github.com/bluecmd/go-tcg-storage@main)
 [![Slack](https://slack.osfw.dev/badge.svg)](https://slack.osfw.dev)
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/bluecmd/go-tcg-storage/blob/master/LICENSE)
 
