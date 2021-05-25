@@ -9,8 +9,8 @@ import (
 	"log"
 	"os"
 
-	tcg "github.com/bluecmd/go-tcg-storage"
-	"github.com/bluecmd/go-tcg-storage/drive"
+	tcg "github.com/bluecmd/go-tcg-storage/pkg/core"
+	"github.com/bluecmd/go-tcg-storage/pkg/drive"
 	"github.com/davecgh/go-spew/spew"
 )
 

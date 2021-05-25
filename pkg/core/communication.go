@@ -12,7 +12,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/bluecmd/go-tcg-storage/drive"
+	"github.com/bluecmd/go-tcg-storage/pkg/drive"
 )
 
 var (

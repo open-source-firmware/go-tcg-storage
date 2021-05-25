@@ -7,7 +7,7 @@ package drive
 import (
 	"os"
 
-	"github.com/bluecmd/go-tcg-storage/drive/sgio"
+	"github.com/bluecmd/go-tcg-storage/pkg/drive/sgio"
 )
 
 type scsiDrive struct {
