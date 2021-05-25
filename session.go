@@ -12,10 +12,12 @@ import (
 	"math/rand"
 
 	"github.com/bluecmd/go-tcg-storage/drive"
+	"github.com/bluecmd/go-tcg-storage/stream"
 )
 
 var (
-	ErrTPerSyncNotSupported = errors.New("synchronous operation not supported by TPer")
+	ErrTPerSyncNotSupported      = errors.New("synchronous operation not supported by TPer")
+	ErrInvalidPropertiesResponse = errors.New("response was not the expected properties call")
 
 	InvokeIDSMU InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF}
 
@@ -278,7 +280,12 @@ func (cs *ControlSession) NewSession(opts ...SessionOpt) (*Session, error) {
 func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerProperties, error) {
 	mc := NewMethodCall(InvokeIDSMU, MethodIDSMProperties)
 
-	mc.PushToken(StreamStartList)
+	mc.PushToken(stream.StartList)
+	//mc.PushToken(stream.StartName)
+	//mc.PushBytes([]byte{0x00})
+	//mc.PushToken(stream.StartList)
+	//mc.PushToken(stream.EndList)
+	//mc.PushToken(stream.EndName)
 	// TODO: Include host parameters
 	// TOKEN::STARTLIST
 	// TOKEN::STARTNAME
@@ -311,15 +318,39 @@ func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerP
 	// TOKEN::ENDLIST
 	// TOKEN::ENDNAME
 	// TOKEN::ENDLIST
-	mc.PushToken(StreamEndList)
+	mc.PushToken(stream.EndList)
 
 	resp, err := mc.Execute(cs.c, drive.SecurityProtocolTCGManagement, &cs.Session)
 	if err != nil {
 		return HostProperties{}, TPerProperties{}, err
 	}
 
+	fmt.Printf("raw resposne: %+v\n", resp)
+	if len(resp) != 6 {
+		return HostProperties{}, TPerProperties{}, ErrInvalidPropertiesResponse
+	}
+	params, ok := resp[3].([]interface{})
+
+	fmt.Printf("params: %+v\n", params)
+
+	// See "5.2.2.1.2 Properties Response".
+	// The returned response is in the same format as if the method was called.
+	if !stream.EqualToken(resp[0], stream.Call) ||
+		!stream.EqualBytes(resp[1], InvokeIDSMU[:]) ||
+		!stream.EqualBytes(resp[2], MethodIDSMProperties[:]) ||
+		!stream.EqualToken(resp[4], stream.EndOfData) ||
+		!ok ||
+		len(params) != 2 {
+		// This is very serious, but can happen given that we might be using a shared ComID
+		return HostProperties{}, TPerProperties{}, ErrInvalidPropertiesResponse
+	}
+
 	hp := InitialHostProperties
 	tp := InitialTPerProperties
+
+	// First list is the TPer Parameters, the second list is the Host Parameters
+	//parseTPerProperties(params[1], &tp)
+	//parseTPerProperties(params[1], &tp)
 
 	_ = resp
 	// TODO: Parse returned tokens into Host and TPer properties

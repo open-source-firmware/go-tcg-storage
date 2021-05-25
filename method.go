@@ -8,9 +8,9 @@ package tcgstorage
 
 import (
 	"bytes"
-	"fmt"
 
 	"github.com/bluecmd/go-tcg-storage/drive"
+	"github.com/bluecmd/go-tcg-storage/stream"
 )
 
 type InvokingID [8]byte
@@ -25,48 +25,38 @@ type MethodCall struct {
 	buf bytes.Buffer
 }
 
+// Prepare a new method call
 func NewMethodCall(iid InvokingID, mid MethodID) *MethodCall {
 	m := &MethodCall{bytes.Buffer{}}
-	m.PushToken(StreamCall)
-	m.PushRaw([]byte{0xa8})
-	m.PushRaw(iid[:])
-	m.PushRaw([]byte{0xa8})
-	m.PushRaw(mid[:])
+	m.PushToken(stream.Call)
+	m.PushBytes(iid[:])
+	m.PushBytes(mid[:])
 	return m
 }
 
-func (m *MethodCall) PushToken(tok StreamToken) {
-	m.buf.Write([]byte(tok))
+// Add a stream-encoded token to the method call
+func (m *MethodCall) PushToken(tok stream.TokenType) {
+	m.buf.Write(stream.Token(tok))
 }
 
-func (m *MethodCall) PushRaw(b []byte) {
-	m.buf.Write(b)
-}
-
+// Add stream-encoded bytes to the method call
 func (m *MethodCall) PushBytes(b []byte) {
-	if len(b) == 0 {
-		m.buf.Write([]byte{0xa0}) // Short atom with length of 0 ("3.2.2.3.1.2 Short atoms")
-	} else if len(b) == 1 && b[0] < 64 {
-		m.buf.Write(b) // Tiny atom
-	} else {
-		panic("atom not implemented")
-		// Large atom
-		// ...
-	}
+	m.buf.Write(stream.Bytes(b))
 }
 
+// Marshal the complete method call to the data stream representation
 func (m *MethodCall) MarshalBinary() ([]byte, error) {
-	m.PushToken(StreamEndOfData) // Finish method call
-	m.PushToken(StreamStartList) // Status code list
-	m.PushBytes([]byte{0})       // Expected status code
-	m.PushBytes([]byte{0})       // Reserved
-	m.PushBytes([]byte{0})       // Reserved
-	m.PushToken(StreamEndList)   // Status code list
+	m.PushToken(stream.EndOfData) // Finish method call
+	m.PushToken(stream.StartList) // Status code list
+	m.PushBytes([]byte{0})        // Expected status code
+	m.PushBytes([]byte{0})        // Reserved
+	m.PushBytes([]byte{0})        // Reserved
+	m.PushToken(stream.EndList)   // Status code list
 	return m.buf.Bytes(), nil
 }
 
 // Execute a prepared Method call, returns a list of tokens returned from call.
-func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, ses *Session) ([][]byte, error) {
+func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, ses *Session) ([]interface{}, error) {
 	b, err := m.MarshalBinary()
 	if err != nil {
 		return nil, err
@@ -80,7 +70,5 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 		return nil, err
 	}
 
-	fmt.Printf("method response: %+v\n", resp)
-	// TODO: Decode into atom arrays
-	return [][]byte{resp}, nil
+	return stream.Decode(resp)
 }
