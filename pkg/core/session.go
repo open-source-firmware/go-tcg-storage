@@ -11,9 +11,9 @@ import (
 	"fmt"
 	"math/rand"
 
-	"github.com/bluecmd/go-tcg-storage/pkg/drive"
-	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
 	"github.com/bluecmd/go-tcg-storage/pkg/core/feature"
+	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
+	"github.com/bluecmd/go-tcg-storage/pkg/drive"
 )
 
 var (
