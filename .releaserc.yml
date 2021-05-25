@@ -12,3 +12,4 @@ plugins:
           label: "tcgstorage (Linux AMD64)"
         - path: "tcgstorage.linux.arm64"
           label: "tcgstorage (Linux ARM64)"
+
