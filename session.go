@@ -195,8 +195,14 @@ func NewControlSession(d DriveIntf, tper *FeatureTPer, opts ...ControlSessionOpt
 	// implement it so we do it best-effort.
 	StackReset(d, s.ComID)
 
+	// Set preferred options
+	rhp := InitialHostProperties
+	// TODO: These are not fully implemented yet, so let's not advertise them
+	//rhp.SequenceNumbers = true
+	//rhp.AckNak = true
+
 	var err error
-	hp, tp, err = s.properties(&hp)
+	hp, tp, err = s.properties(&rhp)
 	if err != nil {
 		return nil, err
 	}
@@ -283,12 +289,20 @@ func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerP
 
 	mc.StartOptionalParameter(0) /* HostProperties */
 	mc.StartList()
-	mc.NamedUInt("MaxComPacketSize", 2048)
-	mc.NamedUInt("MaxPacketSize", 2028)
-	mc.NamedUInt("MaxIndTokenSize", 1992)
-	mc.NamedUInt("MaxPackets", 1)
-	mc.NamedUInt("MaxSubpackets", 1)
-	mc.NamedUInt("MaxMethods", 1)
+	mc.NamedUInt("MaxMethods", rhp.MaxMethods)
+	mc.NamedUInt("MaxSubpackets", rhp.MaxSubpackets)
+	mc.NamedUInt("MaxPacketSize", rhp.MaxPacketSize)
+	mc.NamedUInt("MaxPackets", rhp.MaxPackets)
+	mc.NamedUInt("MaxComPacketSize", rhp.MaxComPacketSize)
+	if rhp.MaxResponseComPacketSize != nil {
+		mc.NamedUInt("MaxResponseComPacketSize", *rhp.MaxResponseComPacketSize)
+	}
+	mc.NamedUInt("MaxIndTokenSize", rhp.MaxIndTokenSize)
+	mc.NamedUInt("MaxAggTokenSize", rhp.MaxAggTokenSize)
+	mc.NamedBool("ContinuedTokens", rhp.ContinuedTokens)
+	mc.NamedBool("SequenceNumbers", rhp.SequenceNumbers)
+	mc.NamedBool("AckNak", rhp.AckNak)
+	mc.NamedBool("Asynchronous", rhp.Asynchronous)
 	mc.EndList()
 	mc.EndOptionalParameter()
 

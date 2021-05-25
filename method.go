@@ -67,6 +67,14 @@ func (m *MethodCall) NamedUInt(name string, val uint) {
 	m.buf.Write(stream.Token(stream.EndName))
 }
 
+func (m *MethodCall) NamedBool(name string, val bool) {
+	if val {
+		m.NamedUInt(name, 1)
+	} else {
+		m.NamedUInt(name, 0)
+	}
+}
+
 func (m *MethodCall) EndOptionalParameter() {
 	m.depth--
 	m.buf.Write(stream.Token(stream.EndName))

@@ -95,6 +95,9 @@ func (c *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte)
 		AckType:   0, /* TODO */
 		Length:    uint32(subpkt.Len()),
 	}
+	if !c.tp.SequenceNumbers || !c.hp.SequenceNumbers {
+		pkthdr.SeqNumber = 0
+	}
 	if err := binary.Write(&pkt, binary.BigEndian, &pkthdr); err != nil {
 		return err
 	}
@@ -115,7 +118,9 @@ func (c *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte)
 	if uint(compkt.Len()) > c.tp.MaxComPacketSize {
 		return ErrTooLargeComPacket
 	}
-	ses.SeqLastXmit += 1
+	if c.tp.SequenceNumbers && c.hp.SequenceNumbers {
+		ses.SeqLastXmit += 1
+	}
 	// Extend buffer to be aligned to 512 byte pages which some drives like
 	compkt.Write(make([]byte, 512-(compkt.Len()%512)))
 	return c.d.IFSend(proto, uint16(ses.ComID), compkt.Bytes())
