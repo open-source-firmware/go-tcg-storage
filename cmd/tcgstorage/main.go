@@ -57,8 +57,18 @@ func TestSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg
 			return nil
 		}
 	}
-	log.Printf("Creating session with ComID 0x%08x\n", comID)
-	s, err := tcg.NewSession(d, d0.TPer, tcg.WithComID(tcg.ComID(d0.OpalV2.BaseComID)))
+	log.Printf("Creating control session with ComID 0x%08x\n", comID)
+	cs, err := tcg.NewControlSession(d, d0.TPer, tcg.WithComID(tcg.ComID(d0.OpalV2.BaseComID)))
+	if err != nil {
+		log.Printf("s.NewControlSession failed: %v", err)
+		return nil
+	}
+	spew.Dump(cs)
+	// TODO: Move this to a test case instead
+	if err := cs.Close(); err != nil {
+		log.Fatalf("Test of ControlSession Close failed: %v", err)
+	}
+	s, err := cs.NewSession()
 	if err != nil {
 		log.Printf("s.NewSession failed: %v", err)
 		return nil
@@ -104,5 +114,13 @@ func main() {
 	fmt.Printf("===> TCG SESSION\n")
 
 	s := TestSession(d, d0, comID)
+	if s == nil {
+		log.Printf("No session, unable to continue")
+		return
+	}
 	spew.Dump(s)
+
+	if err := s.Close(); err != nil {
+		log.Fatalf("Session.Close failed: %v", err)
+	}
 }

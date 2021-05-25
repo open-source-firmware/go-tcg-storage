@@ -79,8 +79,10 @@ func (c *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte)
 		return err
 	}
 	subpkt.Write(data)
-	pad := 4 - (len(data) % 4)
-	subpkt.Write(make([]byte, pad))
+	if (len(data) % 4) > 0 {
+		pad := 4 - (len(data) % 4)
+		subpkt.Write(make([]byte, pad))
+	}
 
 	pkt := bytes.Buffer{}
 	if uint(pkt.Len()) > c.tp.MaxPacketSize {
