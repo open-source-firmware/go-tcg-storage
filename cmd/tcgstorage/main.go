@@ -63,6 +63,7 @@ func TestSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg
 		log.Printf("s.NewControlSession failed: %v", err)
 		return nil
 	}
+	spew.Dump(cs)
 	// TODO: Move this to a test case instead
 	if err := cs.Close(); err != nil {
 		log.Fatalf("Test of ControlSession Close failed: %v", err)

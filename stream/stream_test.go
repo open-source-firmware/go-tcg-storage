@@ -21,8 +21,8 @@ func TestBytes(t *testing.T) {
 		want string
 	}{
 		{"Null", "", "A0"},
-		{"Tiny byte", "2F", "2F"},
-		{"Short byte", "3F", "3F"},
+		{"Tiny byte", "2F", "A1 2F"}, // 3.2.2.3.1 Simple Tokens – Atoms Overview ("Tiny atoms only represent integers")
+		{"Short byte", "8F", "A1 8F"},
 		{"8 bytes", "01 02 03 04 05 06 07 08", "A8 01 02 03 04 05 06 07 08"},
 		{"60 bytes",
 			"464f4f424152464f4f424152464f4f424152464f4f424152464f4f424152464f4f424152464f4f424152464f4f424152464f4f424152464f4f424152",
@@ -49,8 +49,10 @@ func TestDecode(t *testing.T) {
 	}{
 		{"Null", "A0", []interface{}{BytesData{[]byte{}}}, nil},
 		{"Call", "F8", []interface{}{TokenData{Call}}, nil},
-		{"Tiny byte", "2F", []interface{}{BytesData{[]byte{0x2f}}}, nil},
-		{"Short byte", "3F", []interface{}{BytesData{[]byte{0x3f}}}, nil},
+		{"Tiny byte", "A1 2F", []interface{}{BytesData{[]byte{0x2f}}}, nil},
+		{"Tiny uint", "2F", []interface{}{UIntData{0x2f}}, nil},
+		{"Short byte", "A1 8F", []interface{}{BytesData{[]byte{0x8f}}}, nil},
+		{"Short uint", "81 8F", []interface{}{UIntData{0x8f}}, nil},
 		{"8 bytes", "A8 01 02 03 04 05 06 07 08", []interface{}{BytesData{[]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}}}, nil},
 		{"16 bytes", "D0 10 01 02 03 04 05 06 07 08 01 02 03 04 05 06 07 08",
 			[]interface{}{BytesData{[]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}}}, nil},

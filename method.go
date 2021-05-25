@@ -8,6 +8,7 @@ package tcgstorage
 
 import (
 	"bytes"
+	"fmt"
 
 	"github.com/bluecmd/go-tcg-storage/drive"
 	"github.com/bluecmd/go-tcg-storage/stream"
@@ -23,35 +24,73 @@ var (
 
 type MethodCall struct {
 	buf bytes.Buffer
+	// Used to verify detect programming errors
+	depth int
 }
 
 // Prepare a new method call
 func NewMethodCall(iid InvokingID, mid MethodID) *MethodCall {
-	m := &MethodCall{bytes.Buffer{}}
-	m.PushToken(stream.Call)
+	m := &MethodCall{bytes.Buffer{}, 0}
+	m.buf.Write(stream.Token(stream.Call))
 	m.PushBytes(iid[:])
 	m.PushBytes(mid[:])
+	// Start argument list
+	m.StartList()
 	return m
 }
 
-// Add a stream-encoded token to the method call
-func (m *MethodCall) PushToken(tok stream.TokenType) {
-	m.buf.Write(stream.Token(tok))
+func (m *MethodCall) StartList() {
+	m.depth++
+	m.buf.Write(stream.Token(stream.StartList))
 }
 
-// Add stream-encoded bytes to the method call
+func (m *MethodCall) EndList() {
+	m.depth--
+	m.buf.Write(stream.Token(stream.EndList))
+}
+
+// From "3.2.1.2 Method Signature Pseudo-code"
+// Optional parameters are submitted to the method invocation as Named value pairs.
+// The Name portion of the Named value pair SHALL be a uinteger. Starting at zero,
+// these uinteger values are assigned based on the ordering of the optional parameters
+// as defined in this document.
+func (m *MethodCall) StartOptionalParameter(id uint) {
+	m.depth++
+	m.buf.Write(stream.Token(stream.StartName))
+	m.buf.Write(stream.UInt(id))
+}
+
+func (m *MethodCall) NamedUInt(name string, val uint) {
+	m.buf.Write(stream.Token(stream.StartName))
+	m.buf.Write(stream.Bytes([]byte(name)))
+	m.buf.Write(stream.UInt(val))
+	m.buf.Write(stream.Token(stream.EndName))
+}
+
+func (m *MethodCall) EndOptionalParameter() {
+	m.depth--
+	m.buf.Write(stream.Token(stream.EndName))
+}
+
+// Add bytes to the method call
 func (m *MethodCall) PushBytes(b []byte) {
 	m.buf.Write(stream.Bytes(b))
 }
 
 // Marshal the complete method call to the data stream representation
-func (m *MethodCall) MarshalBinary() ([]byte, error) {
-	m.PushToken(stream.EndOfData) // Finish method call
-	m.PushToken(stream.StartList) // Status code list
-	m.PushBytes([]byte{0})        // Expected status code
-	m.PushBytes([]byte{0})        // Reserved
-	m.PushBytes([]byte{0})        // Reserved
-	m.PushToken(stream.EndList)   // Status code list
+func (mo *MethodCall) MarshalBinary() ([]byte, error) {
+	m := *mo
+	m.EndList() // End argument list
+	// Finish method call
+	m.buf.Write(stream.Token(stream.EndOfData))
+	m.StartList()          // Status code list
+	m.buf.Write([]byte{0}) // Expected status code
+	m.buf.Write([]byte{0}) // Reserved
+	m.buf.Write([]byte{0}) // Reserved
+	m.EndList()
+	if m.depth != 0 {
+		return nil, fmt.Errorf("method argument list is unbalanced")
+	}
 	return m.buf.Bytes(), nil
 }
 

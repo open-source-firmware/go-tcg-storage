@@ -18,6 +18,7 @@ import (
 var (
 	ErrTPerSyncNotSupported      = errors.New("synchronous operation not supported by TPer")
 	ErrInvalidPropertiesResponse = errors.New("response was not the expected properties call")
+	ErrPropertiesCallFailed      = errors.New("the properties call returned non-zero")
 
 	InvokeIDSMU InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF}
 
@@ -280,58 +281,26 @@ func (cs *ControlSession) NewSession(opts ...SessionOpt) (*Session, error) {
 func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerProperties, error) {
 	mc := NewMethodCall(InvokeIDSMU, MethodIDSMProperties)
 
-	mc.PushToken(stream.StartList)
-	//mc.PushToken(stream.StartName)
-	//mc.PushBytes([]byte{0x00})
-	//mc.PushToken(stream.StartList)
-	//mc.PushToken(stream.EndList)
-	//mc.PushToken(stream.EndName)
-	// TODO: Include host parameters
-	// TOKEN::STARTLIST
-	// TOKEN::STARTNAME
-	// "HostProperties"
-	// TOKEN::STARTLIST
-	// TOKEN::STARTNAME
-	// "MaxComPacketSize"
-	// 2048
-	// TOKEN::ENDNAME
-	// TOKEN::STARTNAME
-	// "MaxPacketSize"
-	// 2028
-	// TOKEN::ENDNAME
-	// TOKEN::STARTNAME
-	// "MaxIndTokenSize"
-	// 1992
-	// TOKEN::ENDNAME
-	// TOKEN::STARTNAME
-	// "MaxPackets"
-	// 1
-	// TOKEN::ENDNAME
-	// TOKEN::STARTNAME
-	// "MaxSubpackets"
-	// 1
-	// TOKEN::ENDNAME
-	// TOKEN::STARTNAME
-	// "MaxMethods"
-	// 1
-	// TOKEN::ENDNAME
-	// TOKEN::ENDLIST
-	// TOKEN::ENDNAME
-	// TOKEN::ENDLIST
-	mc.PushToken(stream.EndList)
+	mc.StartOptionalParameter(0) /* HostProperties */
+	mc.StartList()
+	mc.NamedUInt("MaxComPacketSize", 2048)
+	mc.NamedUInt("MaxPacketSize", 2028)
+	mc.NamedUInt("MaxIndTokenSize", 1992)
+	mc.NamedUInt("MaxPackets", 1)
+	mc.NamedUInt("MaxSubpackets", 1)
+	mc.NamedUInt("MaxMethods", 1)
+	mc.EndList()
+	mc.EndOptionalParameter()
 
 	resp, err := mc.Execute(cs.c, drive.SecurityProtocolTCGManagement, &cs.Session)
 	if err != nil {
 		return HostProperties{}, TPerProperties{}, err
 	}
 
-	fmt.Printf("raw resposne: %+v\n", resp)
 	if len(resp) != 6 {
 		return HostProperties{}, TPerProperties{}, ErrInvalidPropertiesResponse
 	}
 	params, ok := resp[3].([]interface{})
-
-	fmt.Printf("params: %+v\n", params)
 
 	// See "5.2.2.1.2 Properties Response".
 	// The returned response is in the same format as if the method was called.
@@ -340,26 +309,31 @@ func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerP
 		!stream.EqualBytes(resp[2], MethodIDSMProperties[:]) ||
 		!stream.EqualToken(resp[4], stream.EndOfData) ||
 		!ok ||
-		len(params) != 2 {
+		len(params) != 5 {
 		// This is very serious, but can happen given that we might be using a shared ComID
 		return HostProperties{}, TPerProperties{}, ErrInvalidPropertiesResponse
+	}
+
+	result, ok := resp[5].([]interface{})
+	if !ok || !stream.EqualUInt(result[0], 0) {
+		return HostProperties{}, TPerProperties{}, ErrPropertiesCallFailed
 	}
 
 	hp := InitialHostProperties
 	tp := InitialTPerProperties
 
-	// First list is the TPer Parameters, the second list is the Host Parameters
-	//parseTPerProperties(params[1], &tp)
-	//parseTPerProperties(params[1], &tp)
+	// First parameter, required, TPer properties
+	if err := parseTPerProperties(params[0].([]interface{}), &tp); err != nil {
+		return HostProperties{}, TPerProperties{}, err
+	}
+	// Second parameter is optional, skip the BeginName + param ID
+	if err := parseHostProperties(params[3].([]interface{}), &hp); err != nil {
+		return HostProperties{}, TPerProperties{}, err
+	}
 
-	_ = resp
-	// TODO: Parse returned tokens into Host and TPer properties
 	// TODO: Ensure that the returned parameters are not lower than the minimum
 	// allowed values.
-
-	fmt.Printf("hp: %+v\n", hp)
-	fmt.Printf("tp: %+v\n", tp)
-	return hp, tp, fmt.Errorf("properties parsing not implemented")
+	return hp, tp, nil
 }
 
 func (cs *ControlSession) Close() error {
@@ -370,4 +344,104 @@ func (cs *ControlSession) Close() error {
 func (s *Session) Close() error {
 	// TODO
 	return fmt.Errorf("session close not implemented")
+}
+
+func parseTPerProperties(params []interface{}, tp *TPerProperties) error {
+	for i, p := range params {
+		if stream.EqualToken(p, stream.StartName) {
+			n, ok1 := params[i+1].(stream.BytesData)
+			v, ok2 := params[i+2].(stream.UIntData)
+			if !ok1 || !ok2 {
+				return fmt.Errorf("tper properties malformed")
+			}
+			switch string(n.Data) {
+			case "MaxMethods":
+				tp.MaxMethods = v.Value
+			case "MaxSubpackets":
+				tp.MaxSubpackets = v.Value
+			case "MaxPacketSize":
+				tp.MaxPacketSize = v.Value
+			case "MaxPackets":
+				tp.MaxPackets = v.Value
+			case "MaxComPacketSize":
+				tp.MaxComPacketSize = v.Value
+			case "MaxResponseComPacketSize":
+				tp.MaxResponseComPacketSize = &v.Value
+			case "MaxSessions":
+				tp.MaxSessions = &v.Value
+			case "MaxReadSessions":
+				tp.MaxReadSessions = &v.Value
+			case "MaxIndTokenSize":
+				tp.MaxIndTokenSize = v.Value
+			case "MaxAggTokenSize":
+				tp.MaxAggTokenSize = v.Value
+			case "MaxAuthentications":
+				tp.MaxAuthentications = &v.Value
+			case "MaxTransactionLimit":
+				tp.MaxTransactionLimit = &v.Value
+			case "DefSessionTimeout":
+				tp.DefSessionTimeout = &v.Value
+			case "MaxSessionTimeout":
+				tp.MaxSessionTimeout = &v.Value
+			case "MinSessionTimeout":
+				tp.MinSessionTimeout = &v.Value
+			case "DefTransTimeout":
+				tp.DefTransTimeout = &v.Value
+			case "MaxTransTimeout":
+				tp.MaxTransTimeout = &v.Value
+			case "MinTransTimeout":
+				tp.MinTransTimeout = &v.Value
+			case "MaxComIDTime":
+				tp.MaxComIDTime = &v.Value
+			case "ContinuedTokens":
+				tp.ContinuedTokens = v.Value > 0
+			case "SequenceNumbers":
+				tp.SequenceNumbers = v.Value > 0
+			case "AckNak":
+				tp.AckNak = v.Value > 0
+			case "Asynchronous":
+				tp.Asynchronous = v.Value > 0
+			}
+		}
+	}
+	return nil
+}
+
+func parseHostProperties(params []interface{}, hp *HostProperties) error {
+	for i, p := range params {
+		if stream.EqualToken(p, stream.StartName) {
+			n, ok1 := params[i+1].(stream.BytesData)
+			v, ok2 := params[i+2].(stream.UIntData)
+			if !ok1 || !ok2 {
+				return fmt.Errorf("host properties malformed")
+			}
+			switch string(n.Data) {
+			case "MaxMethods":
+				hp.MaxMethods = v.Value
+			case "MaxSubpackets":
+				hp.MaxSubpackets = v.Value
+			case "MaxPacketSize":
+				hp.MaxPacketSize = v.Value
+			case "MaxPackets":
+				hp.MaxPackets = v.Value
+			case "MaxComPacketSize":
+				hp.MaxComPacketSize = v.Value
+			case "MaxResponseComPacketSize":
+				hp.MaxResponseComPacketSize = &v.Value
+			case "MaxIndTokenSize":
+				hp.MaxIndTokenSize = v.Value
+			case "MaxAggTokenSize":
+				hp.MaxAggTokenSize = v.Value
+			case "ContinuedTokens":
+				hp.ContinuedTokens = v.Value > 0
+			case "SequenceNumbers":
+				hp.SequenceNumbers = v.Value > 0
+			case "AckNak":
+				hp.AckNak = v.Value > 0
+			case "Asynchronous":
+				hp.Asynchronous = v.Value > 0
+			}
+		}
+	}
+	return nil
 }

@@ -8,6 +8,7 @@ package stream
 
 import (
 	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
 )
@@ -33,6 +34,10 @@ type BytesData struct {
 	Data []byte
 }
 
+type UIntData struct {
+	Value uint
+}
+
 type TokenData struct {
 	Token TokenType
 }
@@ -41,11 +46,25 @@ func Token(tok TokenType) []byte {
 	return []byte{byte(tok)}
 }
 
+func UInt(val uint) []byte {
+	if val < 64 {
+		return []byte{uint8(val)}
+	}
+	if val < 65536 {
+		x := make([]byte, 3)
+		x[0] = 0x82
+		binary.BigEndian.PutUint16(x[1:], uint16(val))
+		return x
+	}
+	x := make([]byte, 5)
+	x[0] = 0x84
+	binary.BigEndian.PutUint32(x[1:], uint32(val))
+	return x
+}
+
 func Bytes(b []byte) []byte {
-	if len(b) == 1 && b[0] < 64 {
-		// Tiny atom
-		return b
-	} else if len(b) < 16 {
+	// Tiny atom are not used for binary ("3.2.2.3.1 Simple Tokens – Atoms Overview")
+	if len(b) < 16 {
 		// Short Atom and 0-Length Atom
 		return append([]byte{0xa0 | uint8(len(b))}, b...)
 	} else if len(b) < 2048 {
@@ -73,20 +92,34 @@ func internalDecode(b []byte, depth int) ([]interface{}, []byte, error) {
 		var x interface{}
 		if b[0]&0x80 == 0 {
 			// Tiny atom
-			x = BytesData{[]byte{b[0]}}
+			x = UIntData{uint(b[0])}
 		} else if b[0]&0xC0 == 0x80 {
+			isbyte := b[0]&0x20 > 0
 			// Short atom
 			s = int(b[0] & 0xf)
-			bc := make([]byte, s)
-			copy(bc, b[1:1+s])
-			x = BytesData{bc}
+			if isbyte {
+				bc := make([]byte, s)
+				copy(bc, b[1:1+s])
+				x = BytesData{bc}
+			} else {
+				var v uint
+				for _, i := range b[1 : 1+s] {
+					v = v<<8 | uint(i)
+				}
+				x = UIntData{v}
+			}
 			s += 1
 		} else if b[0]&0xE0 == 0xC0 { // Medium atom
+			isbyte := b[0]&0x10 > 0
 			s = int(b[0]&0x7)<<8 | int(b[1])
-			bc := make([]byte, s)
-			copy(bc, b[2:2+s])
-			x = BytesData{bc}
-			s += 2
+			if isbyte {
+				bc := make([]byte, s)
+				copy(bc, b[2:2+s])
+				x = BytesData{bc}
+				s += 2
+			} else {
+				return nil, nil, fmt.Errorf("medium integer not implemented")
+			}
 		} else if b[0] == byte(StartList) {
 			list, rest, err := internalDecode(b[1:], depth+1)
 			if err != nil {
@@ -130,4 +163,12 @@ func EqualToken(obj interface{}, b TokenType) bool {
 		return false
 	}
 	return bd.Token == b
+}
+
+func EqualUInt(obj interface{}, b uint) bool {
+	bd, ok := obj.(UIntData)
+	if !ok {
+		return false
+	}
+	return bd.Value == b
 }
