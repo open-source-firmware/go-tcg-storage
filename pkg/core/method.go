@@ -202,7 +202,7 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 		if !ok {
 			return nil, fmt.Errorf("method returned unknown status code 0x%02x", sc)
 		}
-		return nil, fmt.Errorf("method returned status %s", str)
+		return nil, fmt.Errorf("method returned status 0x%02x (%s)", sc, str)
 	}
 
 	return reply[:len(reply)-1], nil
