@@ -15,6 +15,8 @@ import (
 
 type TokenType uint8
 
+type List []interface{}
+
 var (
 	StartList        TokenType = 0xF0
 	EndList          TokenType = 0xF1
@@ -30,16 +32,30 @@ var (
 	ErrUnbalancedList = errors.New("message contained unbalanced list structures")
 )
 
-type BytesData struct {
-	Data []byte
-}
-
-type UIntData struct {
-	Value uint
-}
-
-type TokenData struct {
-	Token TokenType
+func (t *TokenType) String() string {
+	switch *t {
+	case (StartList):
+		return "StartList"
+	case (EndList):
+		return "EndList"
+	case (StartName):
+		return "StartName"
+	case (EndName):
+		return "EndName"
+	case (Call):
+		return "Call"
+	case (EndOfData):
+		return "EndOfData"
+	case (EndOfSession):
+		return "EndOfSession"
+	case (StartTransaction):
+		return "StartTransaction"
+	case (EndTransaction):
+		return "EndTransaction"
+	case (EmptyAtom):
+		return "EmptyAtom"
+	}
+	return "<Unknown>"
 }
 
 func Token(tok TokenType) []byte {
@@ -77,7 +93,7 @@ func Bytes(b []byte) []byte {
 	}
 }
 
-func Decode(b []byte) ([]interface{}, error) {
+func Decode(b []byte) (List, error) {
 	res, rest, err := internalDecode(b, 0)
 	if len(rest) > 0 {
 		return nil, ErrUnbalancedList
@@ -85,14 +101,14 @@ func Decode(b []byte) ([]interface{}, error) {
 	return res, err
 }
 
-func internalDecode(b []byte, depth int) ([]interface{}, []byte, error) {
-	res := []interface{}{}
+func internalDecode(b []byte, depth int) (List, []byte, error) {
+	res := List{}
 	for len(b) > 0 {
 		s := 1
 		var x interface{}
 		if b[0]&0x80 == 0 {
 			// Tiny atom
-			x = UIntData{uint(b[0])}
+			x = uint(b[0])
 		} else if b[0]&0xC0 == 0x80 {
 			isbyte := b[0]&0x20 > 0
 			// Short atom
@@ -100,13 +116,13 @@ func internalDecode(b []byte, depth int) ([]interface{}, []byte, error) {
 			if isbyte {
 				bc := make([]byte, s)
 				copy(bc, b[1:1+s])
-				x = BytesData{bc}
+				x = bc
 			} else {
 				var v uint
 				for _, i := range b[1 : 1+s] {
 					v = v<<8 | uint(i)
 				}
-				x = UIntData{v}
+				x = v
 			}
 			s += 1
 		} else if b[0]&0xE0 == 0xC0 { // Medium atom
@@ -115,7 +131,7 @@ func internalDecode(b []byte, depth int) ([]interface{}, []byte, error) {
 			if isbyte {
 				bc := make([]byte, s)
 				copy(bc, b[2:2+s])
-				x = BytesData{bc}
+				x = bc
 				s += 2
 			} else {
 				return nil, nil, fmt.Errorf("medium integer not implemented")
@@ -135,7 +151,7 @@ func internalDecode(b []byte, depth int) ([]interface{}, []byte, error) {
 			break
 		} else if b[0]&0xF0 == 0xF0 {
 			// Token
-			x = TokenData{TokenType(uint8(b[0]))}
+			x = TokenType(uint8(b[0]))
 		} else {
 			return nil, nil, fmt.Errorf("unknown atom 0x%02x", b[0])
 		}
@@ -146,29 +162,29 @@ func internalDecode(b []byte, depth int) ([]interface{}, []byte, error) {
 }
 
 func EqualBytes(obj interface{}, b []byte) bool {
-	bd, ok := obj.(BytesData)
+	bd, ok := obj.([]byte)
 	if !ok {
 		return false
 	}
 	// Special nil case
-	if len(b) == 0 && len(bd.Data) == 0 {
+	if len(b) == 0 && len(bd) == 0 {
 		return true
 	}
-	return bytes.Equal(b, bd.Data)
+	return bytes.Equal(b, bd)
 }
 
 func EqualToken(obj interface{}, b TokenType) bool {
-	bd, ok := obj.(TokenData)
+	bd, ok := obj.(TokenType)
 	if !ok {
 		return false
 	}
-	return bd.Token == b
+	return bd == b
 }
 
 func EqualUInt(obj interface{}, b uint) bool {
-	bd, ok := obj.(UIntData)
+	bd, ok := obj.(uint)
 	if !ok {
 		return false
 	}
-	return bd.Value == b
+	return bd == b
 }
