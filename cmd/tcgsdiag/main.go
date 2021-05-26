@@ -40,7 +40,7 @@ func TestComID(d tcg.DriveIntf) tcg.ComID {
 	return comID
 }
 
-func TestSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg.Session {
+func TestAdminSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg.Session {
 	if comID == tcg.ComIDInvalid {
 		log.Printf("Auto-allocation ComID test failed earlier, selecting first available base ComID")
 		if d0.OpalV2 != nil {
@@ -71,11 +71,12 @@ func TestSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg
 	if err := cs.Close(); err != nil {
 		log.Fatalf("Test of ControlSession Close failed: %v", err)
 	}
-	s, err := cs.NewSession()
+	s, err := cs.NewSession(tcg.AdminSP)
 	if err != nil {
 		log.Printf("s.NewSession failed: %v", err)
 		return nil
 	}
+	log.Printf("Session (HSN=0x%x, TSN=%0x) opened", s.HSN, s.TSN)
 	return s
 }
 
@@ -121,14 +122,14 @@ func main() {
 
 	fmt.Printf("===> TCG SESSION\n")
 
-	s := TestSession(d, d0, comID)
+	s := TestAdminSession(d, d0, comID)
 	if s == nil {
 		log.Printf("No session, unable to continue")
 		return
 	}
-	spew.Dump(s)
 
 	if err := s.Close(); err != nil {
 		log.Fatalf("Session.Close failed: %v", err)
 	}
+	log.Printf("Session closed")
 }

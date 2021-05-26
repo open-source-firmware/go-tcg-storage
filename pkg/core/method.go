@@ -25,6 +25,29 @@ var (
 	ErrMalformedMethodResponse = errors.New("method response was malformed")
 	ErrEmptyMethodResponse     = errors.New("method response was empty")
 	ErrMethodListUnbalanced    = errors.New("method argument list is unbalanced")
+
+	MethodStatusSuccess uint = 0x00
+	MethodStatusCodeMap      = map[uint]string{
+		0x00: "SUCCESS",
+		0x01: "NOT_AUTHORIZED",
+		0x02: "OBSOLETE",
+		0x03: "SP_BUSY",
+		0x04: "SP_FAILED",
+		0x05: "SP_DISABLED",
+		0x06: "SP_FROZEN",
+		0x07: "NO_SESSIONS_AVAILABLE",
+		0x08: "UNIQUENESS_CONFLICT",
+		0x09: "INSUFFICIENT_SPACE",
+		0x0A: "INSUFFICIENT_ROWS",
+		0x0C: "INVALID_PARAMETER",
+		0x0D: "OBSOLETE",
+		0x0E: "OBSOLETE",
+		0x0F: "TPER_MALFUNCTION",
+		0x10: "TRANSACTION_FAILURE",
+		0x11: "RESPONSE_OVERFLOW",
+		0x12: "AUTHORITY_LOCKED_OUT",
+		0x3F: "FAIL",
+	}
 )
 
 type MethodCall struct {
@@ -37,8 +60,8 @@ type MethodCall struct {
 func NewMethodCall(iid InvokingID, mid MethodID) *MethodCall {
 	m := &MethodCall{bytes.Buffer{}, 0}
 	m.buf.Write(stream.Token(stream.Call))
-	m.PushBytes(iid[:])
-	m.PushBytes(mid[:])
+	m.Bytes(iid[:])
+	m.Bytes(mid[:])
 	// Start argument list
 	m.StartList()
 	return m
@@ -54,6 +77,8 @@ func (m *MethodCall) EndList() {
 	m.buf.Write(stream.Token(stream.EndList))
 }
 
+// Start an optional parameters group
+//
 // From "3.2.1.2 Method Signature Pseudo-code"
 // Optional parameters are submitted to the method invocation as Named value pairs.
 // The Name portion of the Named value pair SHALL be a uinteger. Starting at zero,
@@ -65,6 +90,7 @@ func (m *MethodCall) StartOptionalParameter(id uint) {
 	m.buf.Write(stream.UInt(id))
 }
 
+// Add a named value (uint) pair
 func (m *MethodCall) NamedUInt(name string, val uint) {
 	m.buf.Write(stream.Token(stream.StartName))
 	m.buf.Write(stream.Bytes([]byte(name)))
@@ -72,6 +98,7 @@ func (m *MethodCall) NamedUInt(name string, val uint) {
 	m.buf.Write(stream.Token(stream.EndName))
 }
 
+// Add a named value (bool) pair
 func (m *MethodCall) NamedBool(name string, val bool) {
 	if val {
 		m.NamedUInt(name, 1)
@@ -80,14 +107,29 @@ func (m *MethodCall) NamedBool(name string, val bool) {
 	}
 }
 
+// End the current optional parameter group
 func (m *MethodCall) EndOptionalParameter() {
 	m.depth--
 	m.buf.Write(stream.Token(stream.EndName))
 }
 
-// Add bytes to the method call
-func (m *MethodCall) PushBytes(b []byte) {
+// Add a bytes atom
+func (m *MethodCall) Bytes(b []byte) {
 	m.buf.Write(stream.Bytes(b))
+}
+
+// Add an uint atom
+func (m *MethodCall) UInt(v uint) {
+	m.buf.Write(stream.UInt(v))
+}
+
+// Add a bool atom (as uint)
+func (m *MethodCall) Bool(v bool) {
+	if v {
+		m.UInt(1)
+	} else {
+		m.UInt(0)
+	}
 }
 
 // Marshal the complete method call to the data stream representation
@@ -96,8 +138,8 @@ func (m *MethodCall) MarshalBinary() ([]byte, error) {
 	mn.EndList() // End argument list
 	// Finish method call
 	mn.buf.Write(stream.Token(stream.EndOfData))
-	mn.StartList()               // Status code list
-	mn.buf.Write(stream.UInt(0)) // Expected status code
+	mn.StartList() // Status code list
+	mn.buf.Write(stream.UInt(MethodStatusSuccess))
 	mn.buf.Write(stream.UInt(0)) // Reserved
 	mn.buf.Write(stream.UInt(0)) // Reserved
 	mn.EndList()
@@ -105,6 +147,18 @@ func (m *MethodCall) MarshalBinary() ([]byte, error) {
 		return nil, ErrMethodListUnbalanced
 	}
 	return mn.buf.Bytes(), nil
+}
+
+// Execute a prepared Method call but do not expect anything in return.
+func (m *MethodCall) Notify(c CommunicationIntf, proto drive.SecurityProtocol, ses *Session) error {
+	b, err := m.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	if err = c.Send(proto, ses, b); err != nil {
+		return err
+	}
+	return nil
 }
 
 // Execute a prepared Method call, returns a list of tokens returned from call.
@@ -122,7 +176,7 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 		return nil, err
 	}
 
-	if len(resp) == 0 {
+	if len(resp) < 2 {
 		return nil, ErrEmptyMethodResponse
 	}
 
@@ -133,8 +187,9 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 	// While the normal method result format is known, the Session Manager
 	// methods use a different format. What is in common however is that
 	// the last element should be the status code list.
-	status, ok := reply[len(reply)-1].(stream.List)
-	if !ok {
+	tok, ok1 := reply[len(reply)-2].(stream.TokenType)
+	status, ok2 := reply[len(reply)-1].(stream.List)
+	if !ok1 || !ok2 || tok != stream.EndOfData {
 		return nil, ErrMalformedMethodResponse
 	}
 
@@ -142,8 +197,12 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 	if !ok {
 		return nil, ErrMalformedMethodResponse
 	}
-	if sc != 0 {
-		return nil, fmt.Errorf("method returned status code 0x%02x", sc)
+	if sc != MethodStatusSuccess {
+		str, ok := MethodStatusCodeMap[sc]
+		if !ok {
+			return nil, fmt.Errorf("method returned unknown status code 0x%02x", sc)
+		}
+		return nil, fmt.Errorf("method returned status 0x%02x (%s)", sc, str)
 	}
 
 	return reply[:len(reply)-1], nil

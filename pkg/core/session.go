@@ -10,16 +10,20 @@ import (
 	"errors"
 	"fmt"
 	"math/rand"
+	"time"
 
 	"github.com/bluecmd/go-tcg-storage/pkg/core/feature"
 	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
 	"github.com/bluecmd/go-tcg-storage/pkg/drive"
 )
 
+type SPID [8]byte
+
 var (
-	ErrTPerSyncNotSupported      = errors.New("synchronous operation not supported by TPer")
-	ErrInvalidPropertiesResponse = errors.New("response was not the expected properties call")
-	ErrPropertiesCallFailed      = errors.New("the properties call returned non-zero")
+	ErrTPerSyncNotSupported        = errors.New("synchronous operation not supported by TPer")
+	ErrInvalidPropertiesResponse   = errors.New("response was not the expected Properties call format")
+	ErrInvalidStartSessionResponse = errors.New("response was not the expected SyncSession format")
+	ErrPropertiesCallFailed        = errors.New("the properties call returned non-zero")
 
 	InvokeIDSMU InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF}
 
@@ -30,6 +34,10 @@ var (
 	MethodIDSMStartTrustedSession MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x04}
 	MethodIDSMSyncTrustedSession  MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x05}
 	MethodIDSMCloseSession        MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x06}
+
+	AdminSP SPID = [8]byte{0x00, 0x00, 0x02, 0x05, 0x00, 0x00, 0x00, 0x01}
+
+	sessionRand *rand.Rand
 )
 
 type Session struct {
@@ -42,6 +50,7 @@ type Session struct {
 	SeqLastXmit     int
 	SeqLastAcked    int
 	SeqNextExpected int
+	ReadOnly        bool // Ignored for Control Sessions
 }
 
 type ControlSession struct {
@@ -136,6 +145,12 @@ func WithHSN(hsn int) SessionOpt {
 	}
 }
 
+func WithReadOnly() SessionOpt {
+	return func(s *Session) {
+		s.ReadOnly = true
+	}
+}
+
 // Initiate a new control session with a ComID.
 func NewControlSession(d DriveIntf, tper *feature.TPer, opts ...ControlSessionOpt) (*ControlSession, error) {
 	// --- Control Sessions
@@ -212,7 +227,11 @@ func NewControlSession(d DriveIntf, tper *feature.TPer, opts ...ControlSessionOp
 }
 
 // Initiate a new session with a Security Provider
-func (cs *ControlSession) NewSession(opts ...SessionOpt) (*Session, error) {
+//
+// The session will be a read-write by default, but can be changed by passing
+// a SessionOpt from WithReadOnly() as argument. The session HSN will be random
+// unless passed with WithHSN(x).
+func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, error) {
 	// --- What is a Session?
 	//
 	// Quoting "3.3.7.1 Sessions"
@@ -256,11 +275,12 @@ func (cs *ControlSession) NewSession(opts ...SessionOpt) (*Session, error) {
 	// then and the call to NewSession() we would be out of sync. Oh well...
 
 	s := &Session{
-		d:     cs.d,
-		c:     cs.c,
-		ComID: cs.ComID,
-		TSN:   0,
-		HSN:   -1,
+		d:              cs.d,
+		c:              cs.c,
+		ControlSession: cs,
+		ComID:          cs.ComID,
+		TSN:            0,
+		HSN:            -1,
 	}
 
 	for _, opt := range opts {
@@ -272,12 +292,46 @@ func (cs *ControlSession) NewSession(opts ...SessionOpt) (*Session, error) {
 	}
 
 	if s.HSN == -1 {
-		s.HSN = int(rand.Int31())
+		s.HSN = int(sessionRand.Int31())
 	}
 
-	// TODO: Start session
+	mc := NewMethodCall(InvokeIDSMU, MethodIDSMStartSession)
+	mc.UInt(uint(s.HSN))
+	mc.Bytes(spid[:])
+	mc.Bool(!s.ReadOnly)
+	// TODO: There are more things here like challenge etc
+	resp, err := mc.Execute(cs.c, drive.SecurityProtocolTCGManagement, &cs.Session)
+	if err != nil {
+		return nil, err
+	}
 
-	return s, fmt.Errorf("session start-up not implemented")
+	if len(resp) != 5 {
+		return nil, ErrInvalidStartSessionResponse
+	}
+	params, ok := resp[3].(stream.List)
+
+	// See "5.2.2.1.2 Properties Response".
+	// The returned response is in the same format as if the method was called.
+	if !stream.EqualToken(resp[0], stream.Call) ||
+		!stream.EqualBytes(resp[1], InvokeIDSMU[:]) ||
+		!stream.EqualBytes(resp[2], MethodIDSMSyncSession[:]) ||
+		len(params) < 2 ||
+		!ok {
+		// This is very serious, but can happen given that we might be using a shared ComID
+		return nil, ErrInvalidStartSessionResponse
+	}
+
+	// First parameter, required, TPer properties
+	hsn, ok1 := params[0].(uint)
+	tsn, ok2 := params[1].(uint)
+	// TODO: other properties may be returned here
+
+	if !ok1 || !ok2 || int(hsn) != s.HSN {
+		return nil, ErrInvalidStartSessionResponse
+	}
+
+	s.TSN = int(tsn)
+	return s, nil
 }
 
 // Fetch current Host and TPer properties, optionally changing the Host properties.
@@ -318,7 +372,6 @@ func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerP
 	if !stream.EqualToken(resp[0], stream.Call) ||
 		!stream.EqualBytes(resp[1], InvokeIDSMU[:]) ||
 		!stream.EqualBytes(resp[2], MethodIDSMProperties[:]) ||
-		!stream.EqualToken(resp[4], stream.EndOfData) ||
 		!ok ||
 		len(params) != 5 {
 		// This is very serious, but can happen given that we might be using a shared ComID
@@ -352,9 +405,15 @@ func (cs *ControlSession) Close() error {
 	return nil
 }
 
+func (cs *ControlSession) closeSession(s *Session) error {
+	mc := NewMethodCall(InvokeIDSMU, MethodIDSMCloseSession)
+	mc.UInt(uint(s.HSN))
+	mc.UInt(uint(s.TSN))
+	return mc.Notify(cs.c, drive.SecurityProtocolTCGManagement, &cs.Session)
+}
+
 func (s *Session) Close() error {
-	// TODO
-	return fmt.Errorf("session close not implemented")
+	return s.ControlSession.closeSession(s)
 }
 
 func parseTPerProperties(params []interface{}, tp *TPerProperties) error {
@@ -455,4 +514,8 @@ func parseHostProperties(params []interface{}, hp *HostProperties) error {
 		}
 	}
 	return nil
+}
+
+func init() {
+	sessionRand = rand.New(rand.NewSource(time.Now().UTC().UnixNano()))
 }
