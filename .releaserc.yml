@@ -8,8 +8,8 @@ plugins:
     - prepareCmd: "make build-release"
   - - "@semantic-release/github"
     - assets:
-        - path: "tcgstorage.linux.amd64"
-          label: "tcgstorage (Linux AMD64)"
-        - path: "tcgstorage.linux.arm64"
-          label: "tcgstorage (Linux ARM64)"
+        - path: "tcgsdiag.linux.amd64"
+          label: "tcgsdiag (Linux AMD64)"
+        - path: "tcgsdiag.linux.arm64"
+          label: "tcgsdiag (Linux ARM64)"
 
