@@ -205,5 +205,5 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 		return nil, fmt.Errorf("method returned status 0x%02x (%s)", sc, str)
 	}
 
-	return reply[:len(reply)-1], nil
+	return reply[:len(reply)-2], nil
 }
