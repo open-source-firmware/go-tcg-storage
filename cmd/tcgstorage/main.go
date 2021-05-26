@@ -51,14 +51,14 @@ func TestSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg
 			comID = tcg.ComID(d0.PyriteV1.BaseComID)
 		} else if d0.PyriteV2 != nil {
 			log.Printf("Selecting PyriteV2 ComID")
-			comID = tcg.ComID(d0.PyriteV1.BaseComID)
+			comID = tcg.ComID(d0.PyriteV2.BaseComID)
 		} else {
 			log.Printf("No supported feature found, giving up without a ComID ...")
 			return nil
 		}
 	}
 	log.Printf("Creating control session with ComID 0x%08x\n", comID)
-	cs, err := tcg.NewControlSession(d, d0.TPer, tcg.WithComID(tcg.ComID(d0.OpalV2.BaseComID)))
+	cs, err := tcg.NewControlSession(d, d0.TPer, tcg.WithComID(comID))
 	if err != nil {
 		log.Printf("s.NewControlSession failed: %v", err)
 		return nil
