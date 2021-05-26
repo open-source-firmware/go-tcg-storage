@@ -34,6 +34,14 @@ func (d *scsiDrive) IFSend(proto SecurityProtocol, sps uint16, data []byte) erro
 	return err
 }
 
+func (d *scsiDrive) Identify() (string, error) {
+	id, err := sgio.SCSIInquiry(d.fd)
+	if err != nil {
+		return "", err
+	}
+	return "Protocol=SCSI, " + id.String(), nil
+}
+
 func (d *scsiDrive) Close() error {
 	return os.NewFile(d.fd, "").Close()
 }

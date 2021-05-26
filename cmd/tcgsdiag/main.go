@@ -89,6 +89,11 @@ func main() {
 	defer d.Close()
 
 	fmt.Printf("===> DRIVE SECURITY INFORMATION\n")
+	id, err := d.Identify()
+	if err != nil {
+		log.Fatalf("drive.Identity: %v", err)
+	}
+	log.Printf("Drive identity: %s", id)
 	spl, err := drive.SecurityProtocols(d)
 	if err != nil {
 		log.Fatalf("drive.SecurityProtocols: %v", err)

@@ -5,7 +5,11 @@
 package drive
 
 import (
+	"bytes"
+	"encoding/binary"
+	"fmt"
 	"os"
+	"strings"
 	"unsafe"
 
 	"github.com/bluecmd/go-tcg-storage/pkg/drive/ioctl"
@@ -75,6 +79,14 @@ func (d *nvmeDrive) IFSend(proto SecurityProtocol, sps uint16, data []byte) erro
 	return ioctl.Ioctl(d.fd, NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
 }
 
+func (d *nvmeDrive) Identify() (string, error) {
+	i, err := identifyNvme(d.fd)
+	if err != nil {
+		return "", err
+	}
+	return i.String(), err
+}
+
 func (d *nvmeDrive) Close() error {
 	return os.NewFile(d.fd, "").Close()
 }
@@ -83,18 +95,49 @@ func NVMEDrive(fd FdIntf) *nvmeDrive {
 	return &nvmeDrive{fd: fd.Fd()}
 }
 
-func isNVME(f FdIntf) bool {
-	buf := make([]byte, 4096)
+type nvmeIdentity struct {
+	_            uint16 /* Vid */
+	_            uint16 /* Ssvid */
+	SerialNumber [20]byte
+	ModelNumber  [40]byte
+	Firmware     [8]byte
+}
+
+func (i *nvmeIdentity) String() string {
+	return fmt.Sprintf("Protocol=NVMe, Model=%s, Serial=%s, Revision=%s",
+		strings.TrimSpace(string(i.ModelNumber[:])),
+		strings.TrimSpace(string(i.SerialNumber[:])),
+		strings.TrimSpace(string(i.Firmware[:])))
+}
+
+func identifyNvme(fd uintptr) (*nvmeIdentity, error) {
+	raw := make([]byte, 4096)
 
 	cmd := nvmePassthruCommand{
 		opcode:   NVME_ADMIN_IDENTIFY,
 		nsid:     0, // Namespace 0, since we are identifying the controller
-		addr:     uint64(uintptr(unsafe.Pointer(&buf[0]))),
-		data_len: uint32(len(buf)),
+		addr:     uint64(uintptr(unsafe.Pointer(&raw[0]))),
+		data_len: uint32(len(raw)),
 		cdw10:    1, // Identify controller
 	}
 
 	// TODO: Replace with https://go-review.googlesource.com/c/sys/+/318210/ if accepted
-	err := ioctl.Ioctl(f.Fd(), NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
-	return err == nil
+	err := ioctl.Ioctl(fd, NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
+	if err != nil {
+		return nil, err
+	}
+
+	info := nvmeIdentity{}
+	buf := bytes.NewBuffer(raw)
+	// NVMe *seems* to use little endian, no experience though - but since we are
+	// reading byte arrays it matters not.
+	if err := binary.Read(buf, binary.LittleEndian, &info); err != nil {
+		return nil, err
+	}
+	return &info, nil
+}
+
+func isNVME(f FdIntf) bool {
+	i, err := identifyNvme(f.Fd())
+	return err == nil && i != nil
 }

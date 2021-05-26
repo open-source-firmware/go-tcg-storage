@@ -27,6 +27,8 @@ type driveIntf interface {
 	IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) error
 	IFSend(proto SecurityProtocol, sps uint16, data []byte) error
 
+	Identify() (string, error)
+
 	Close() error
 }
 
