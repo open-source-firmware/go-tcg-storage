@@ -308,10 +308,10 @@ func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerP
 		return HostProperties{}, TPerProperties{}, err
 	}
 
-	if len(resp) != 6 {
+	if len(resp) != 5 {
 		return HostProperties{}, TPerProperties{}, ErrInvalidPropertiesResponse
 	}
-	params, ok := resp[3].([]interface{})
+	params, ok := resp[3].(stream.List)
 
 	// See "5.2.2.1.2 Properties Response".
 	// The returned response is in the same format as if the method was called.
@@ -325,20 +325,20 @@ func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerP
 		return HostProperties{}, TPerProperties{}, ErrInvalidPropertiesResponse
 	}
 
-	result, ok := resp[5].([]interface{})
-	if !ok || !stream.EqualUInt(result[0], 0) {
-		return HostProperties{}, TPerProperties{}, ErrPropertiesCallFailed
-	}
-
 	hp := InitialHostProperties
 	tp := InitialTPerProperties
 
 	// First parameter, required, TPer properties
-	if err := parseTPerProperties(params[0].([]interface{}), &tp); err != nil {
+	tpParams, ok1 := params[0].(stream.List)
+	// Second parameter is optional, skip the BeginName + param ID
+	hpParams, ok2 := params[3].(stream.List)
+	if !ok1 || !ok2 {
+		return HostProperties{}, TPerProperties{}, ErrInvalidPropertiesResponse
+	}
+	if err := parseTPerProperties(tpParams, &tp); err != nil {
 		return HostProperties{}, TPerProperties{}, err
 	}
-	// Second parameter is optional, skip the BeginName + param ID
-	if err := parseHostProperties(params[3].([]interface{}), &hp); err != nil {
+	if err := parseHostProperties(hpParams, &hp); err != nil {
 		return HostProperties{}, TPerProperties{}, err
 	}
 
@@ -360,58 +360,58 @@ func (s *Session) Close() error {
 func parseTPerProperties(params []interface{}, tp *TPerProperties) error {
 	for i, p := range params {
 		if stream.EqualToken(p, stream.StartName) {
-			n, ok1 := params[i+1].(stream.BytesData)
-			v, ok2 := params[i+2].(stream.UIntData)
+			n, ok1 := params[i+1].([]byte)
+			v, ok2 := params[i+2].(uint)
 			if !ok1 || !ok2 {
 				return fmt.Errorf("tper properties malformed")
 			}
-			switch string(n.Data) {
+			switch string(n) {
 			case "MaxMethods":
-				tp.MaxMethods = v.Value
+				tp.MaxMethods = v
 			case "MaxSubpackets":
-				tp.MaxSubpackets = v.Value
+				tp.MaxSubpackets = v
 			case "MaxPacketSize":
-				tp.MaxPacketSize = v.Value
+				tp.MaxPacketSize = v
 			case "MaxPackets":
-				tp.MaxPackets = v.Value
+				tp.MaxPackets = v
 			case "MaxComPacketSize":
-				tp.MaxComPacketSize = v.Value
+				tp.MaxComPacketSize = v
 			case "MaxResponseComPacketSize":
-				tp.MaxResponseComPacketSize = &v.Value
+				tp.MaxResponseComPacketSize = &v
 			case "MaxSessions":
-				tp.MaxSessions = &v.Value
+				tp.MaxSessions = &v
 			case "MaxReadSessions":
-				tp.MaxReadSessions = &v.Value
+				tp.MaxReadSessions = &v
 			case "MaxIndTokenSize":
-				tp.MaxIndTokenSize = v.Value
+				tp.MaxIndTokenSize = v
 			case "MaxAggTokenSize":
-				tp.MaxAggTokenSize = v.Value
+				tp.MaxAggTokenSize = v
 			case "MaxAuthentications":
-				tp.MaxAuthentications = &v.Value
+				tp.MaxAuthentications = &v
 			case "MaxTransactionLimit":
-				tp.MaxTransactionLimit = &v.Value
+				tp.MaxTransactionLimit = &v
 			case "DefSessionTimeout":
-				tp.DefSessionTimeout = &v.Value
+				tp.DefSessionTimeout = &v
 			case "MaxSessionTimeout":
-				tp.MaxSessionTimeout = &v.Value
+				tp.MaxSessionTimeout = &v
 			case "MinSessionTimeout":
-				tp.MinSessionTimeout = &v.Value
+				tp.MinSessionTimeout = &v
 			case "DefTransTimeout":
-				tp.DefTransTimeout = &v.Value
+				tp.DefTransTimeout = &v
 			case "MaxTransTimeout":
-				tp.MaxTransTimeout = &v.Value
+				tp.MaxTransTimeout = &v
 			case "MinTransTimeout":
-				tp.MinTransTimeout = &v.Value
+				tp.MinTransTimeout = &v
 			case "MaxComIDTime":
-				tp.MaxComIDTime = &v.Value
+				tp.MaxComIDTime = &v
 			case "ContinuedTokens":
-				tp.ContinuedTokens = v.Value > 0
+				tp.ContinuedTokens = v > 0
 			case "SequenceNumbers":
-				tp.SequenceNumbers = v.Value > 0
+				tp.SequenceNumbers = v > 0
 			case "AckNak":
-				tp.AckNak = v.Value > 0
+				tp.AckNak = v > 0
 			case "Asynchronous":
-				tp.Asynchronous = v.Value > 0
+				tp.Asynchronous = v > 0
 			}
 		}
 	}
@@ -421,36 +421,36 @@ func parseTPerProperties(params []interface{}, tp *TPerProperties) error {
 func parseHostProperties(params []interface{}, hp *HostProperties) error {
 	for i, p := range params {
 		if stream.EqualToken(p, stream.StartName) {
-			n, ok1 := params[i+1].(stream.BytesData)
-			v, ok2 := params[i+2].(stream.UIntData)
+			n, ok1 := params[i+1].([]byte)
+			v, ok2 := params[i+2].(uint)
 			if !ok1 || !ok2 {
 				return fmt.Errorf("host properties malformed")
 			}
-			switch string(n.Data) {
+			switch string(n) {
 			case "MaxMethods":
-				hp.MaxMethods = v.Value
+				hp.MaxMethods = v
 			case "MaxSubpackets":
-				hp.MaxSubpackets = v.Value
+				hp.MaxSubpackets = v
 			case "MaxPacketSize":
-				hp.MaxPacketSize = v.Value
+				hp.MaxPacketSize = v
 			case "MaxPackets":
-				hp.MaxPackets = v.Value
+				hp.MaxPackets = v
 			case "MaxComPacketSize":
-				hp.MaxComPacketSize = v.Value
+				hp.MaxComPacketSize = v
 			case "MaxResponseComPacketSize":
-				hp.MaxResponseComPacketSize = &v.Value
+				hp.MaxResponseComPacketSize = &v
 			case "MaxIndTokenSize":
-				hp.MaxIndTokenSize = v.Value
+				hp.MaxIndTokenSize = v
 			case "MaxAggTokenSize":
-				hp.MaxAggTokenSize = v.Value
+				hp.MaxAggTokenSize = v
 			case "ContinuedTokens":
-				hp.ContinuedTokens = v.Value > 0
+				hp.ContinuedTokens = v > 0
 			case "SequenceNumbers":
-				hp.SequenceNumbers = v.Value > 0
+				hp.SequenceNumbers = v > 0
 			case "AckNak":
-				hp.AckNak = v.Value > 0
+				hp.AckNak = v > 0
 			case "Asynchronous":
-				hp.Asynchronous = v.Value > 0
+				hp.Asynchronous = v > 0
 			}
 		}
 	}

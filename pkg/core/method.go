@@ -8,6 +8,7 @@ package tcgstorage
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 
 	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
@@ -20,6 +21,10 @@ type MethodID [8]byte
 var (
 	InvokeIDNull   InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 	InvokeIDThisSP InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}
+
+	ErrMalformedMethodResponse = errors.New("method response was malformed")
+	ErrEmptyMethodResponse     = errors.New("method response was empty")
+	ErrMethodListUnbalanced    = errors.New("method argument list is unbalanced")
 )
 
 type MethodCall struct {
@@ -86,24 +91,24 @@ func (m *MethodCall) PushBytes(b []byte) {
 }
 
 // Marshal the complete method call to the data stream representation
-func (mo *MethodCall) MarshalBinary() ([]byte, error) {
-	m := *mo
-	m.EndList() // End argument list
+func (m *MethodCall) MarshalBinary() ([]byte, error) {
+	mn := *m
+	mn.EndList() // End argument list
 	// Finish method call
-	m.buf.Write(stream.Token(stream.EndOfData))
-	m.StartList()          // Status code list
-	m.buf.Write([]byte{0}) // Expected status code
-	m.buf.Write([]byte{0}) // Reserved
-	m.buf.Write([]byte{0}) // Reserved
-	m.EndList()
-	if m.depth != 0 {
-		return nil, fmt.Errorf("method argument list is unbalanced")
+	mn.buf.Write(stream.Token(stream.EndOfData))
+	mn.StartList()               // Status code list
+	mn.buf.Write(stream.UInt(0)) // Expected status code
+	mn.buf.Write(stream.UInt(0)) // Reserved
+	mn.buf.Write(stream.UInt(0)) // Reserved
+	mn.EndList()
+	if mn.depth != 0 {
+		return nil, ErrMethodListUnbalanced
 	}
-	return m.buf.Bytes(), nil
+	return mn.buf.Bytes(), nil
 }
 
 // Execute a prepared Method call, returns a list of tokens returned from call.
-func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, ses *Session) ([]interface{}, error) {
+func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, ses *Session) (stream.List, error) {
 	b, err := m.MarshalBinary()
 	if err != nil {
 		return nil, err
@@ -117,5 +122,29 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 		return nil, err
 	}
 
-	return stream.Decode(resp)
+	if len(resp) == 0 {
+		return nil, ErrEmptyMethodResponse
+	}
+
+	reply, err := stream.Decode(resp)
+	if err != nil {
+		return nil, err
+	}
+	// While the normal method result format is known, the Session Manager
+	// methods use a different format. What is in common however is that
+	// the last element should be the status code list.
+	status, ok := reply[len(reply)-1].(stream.List)
+	if !ok {
+		return nil, ErrMalformedMethodResponse
+	}
+
+	sc, ok := status[0].(uint)
+	if !ok {
+		return nil, ErrMalformedMethodResponse
+	}
+	if sc != 0 {
+		return nil, fmt.Errorf("method returned status code 0x%02x", sc)
+	}
+
+	return reply[:len(reply)-1], nil
 }
