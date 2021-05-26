@@ -305,7 +305,7 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 		return nil, err
 	}
 
-	if len(resp) != 5 {
+	if len(resp) != 4 {
 		return nil, ErrInvalidStartSessionResponse
 	}
 	params, ok := resp[3].(stream.List)
@@ -362,7 +362,7 @@ func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerP
 		return HostProperties{}, TPerProperties{}, err
 	}
 
-	if len(resp) != 5 {
+	if len(resp) != 4 {
 		return HostProperties{}, TPerProperties{}, ErrInvalidPropertiesResponse
 	}
 	params, ok := resp[3].(stream.List)
