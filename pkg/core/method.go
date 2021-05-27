@@ -27,27 +27,32 @@ var (
 	ErrMethodListUnbalanced    = errors.New("method argument list is unbalanced")
 
 	MethodStatusSuccess uint = 0x00
-	MethodStatusCodeMap      = map[uint]string{
-		0x00: "SUCCESS",
-		0x01: "NOT_AUTHORIZED",
-		0x02: "OBSOLETE",
-		0x03: "SP_BUSY",
-		0x04: "SP_FAILED",
-		0x05: "SP_DISABLED",
-		0x06: "SP_FROZEN",
-		0x07: "NO_SESSIONS_AVAILABLE",
-		0x08: "UNIQUENESS_CONFLICT",
-		0x09: "INSUFFICIENT_SPACE",
-		0x0A: "INSUFFICIENT_ROWS",
-		0x0C: "INVALID_PARAMETER",
-		0x0D: "OBSOLETE",
-		0x0E: "OBSOLETE",
-		0x0F: "TPER_MALFUNCTION",
-		0x10: "TRANSACTION_FAILURE",
-		0x11: "RESPONSE_OVERFLOW",
-		0x12: "AUTHORITY_LOCKED_OUT",
-		0x3F: "FAIL",
+	MethodStatusCodeMap      = map[uint]error{
+		0x00: errors.New("method returned status SUCCESS"),
+		0x01: errors.New("method returned status NOT_AUTHORIZED"),
+		0x02: errors.New("method returned status OBSOLETE"),
+		0x03: errors.New("method returned status SP_BUSY"),
+		0x04: errors.New("method returned status SP_FAILED"),
+		0x05: errors.New("method returned status SP_DISABLED"),
+		0x06: errors.New("method returned status SP_FROZEN"),
+		0x07: errors.New("method returned status NO_SESSIONS_AVAILABLE"),
+		0x08: errors.New("method returned status UNIQUENESS_CONFLICT"),
+		0x09: errors.New("method returned status INSUFFICIENT_SPACE"),
+		0x0A: errors.New("method returned status INSUFFICIENT_ROWS"),
+		0x0C: errors.New("method returned status INVALID_PARAMETER"),
+		0x0D: errors.New("method returned status OBSOLETE (0x0D)"),
+		0x0E: errors.New("method returned status OBSOLETE (0x0E)"),
+		0x0F: errors.New("method returned status TPER_MALFUNCTION"),
+		0x10: errors.New("method returned status TRANSACTION_FAILURE"),
+		0x11: errors.New("method returned status RESPONSE_OVERFLOW"),
+		0x12: errors.New("method returned status AUTHORITY_LOCKED_OUT"),
+		0x3F: errors.New("method returned status FAIL"),
 	}
+
+	ErrMethodStatusNotAuthorized       = MethodStatusCodeMap[0x01]
+	ErrMethodStatusNoSessionsAvailable = MethodStatusCodeMap[0x07]
+	ErrMethodStatusInvalidParameter    = MethodStatusCodeMap[0x0C]
+	ErrMethodStatusAuthorityLockedOut  = MethodStatusCodeMap[0x12]
 )
 
 type MethodCall struct {
@@ -198,11 +203,11 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 		return nil, ErrMalformedMethodResponse
 	}
 	if sc != MethodStatusSuccess {
-		str, ok := MethodStatusCodeMap[sc]
+		err, ok := MethodStatusCodeMap[sc]
 		if !ok {
 			return nil, fmt.Errorf("method returned unknown status code 0x%02x", sc)
 		}
-		return nil, fmt.Errorf("method returned status 0x%02x (%s)", sc, str)
+		return nil, err
 	}
 
 	return reply[:len(reply)-2], nil

@@ -21,6 +21,7 @@ type SPID [8]byte
 
 var (
 	ErrTPerSyncNotSupported        = errors.New("synchronous operation not supported by TPer")
+	ErrTPerBufferMgmtNotSupported  = errors.New("TPer supports buffer management, but that is not implemented in this library")
 	ErrInvalidPropertiesResponse   = errors.New("response was not the expected Properties call format")
 	ErrInvalidStartSessionResponse = errors.New("response was not the expected SyncSession format")
 	ErrPropertiesCallFailed        = errors.New("the properties call returned non-zero")
@@ -175,6 +176,10 @@ func NewControlSession(d DriveIntf, tper *feature.TPer, opts ...ControlSessionOp
 		return nil, ErrTPerSyncNotSupported
 	}
 
+	if tper.BufferMgmtSupported {
+		return nil, ErrTPerBufferMgmtNotSupported
+	}
+
 	hp := InitialHostProperties
 	tp := InitialTPerProperties
 	c := NewPlainCommunication(d, hp, tp)
@@ -325,6 +330,7 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 	hsn, ok1 := params[0].(uint)
 	tsn, ok2 := params[1].(uint)
 	// TODO: other properties may be returned here
+	// TODO: Send InitialCredits if required
 
 	if !ok1 || !ok2 || int(hsn) != s.HSN {
 		return nil, ErrInvalidStartSessionResponse

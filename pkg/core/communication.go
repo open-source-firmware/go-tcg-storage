@@ -153,6 +153,7 @@ func (c *plainCom) Receive(proto drive.SecurityProtocol, ses *Session) ([]byte, 
 	if err := binary.Read(rdr, binary.BigEndian, &subpkthdr); err != nil {
 		return nil, err
 	}
+	// TODO: Implement buffer management
 	if subpkthdr.Kind != 0 {
 		return nil, fmt.Errorf("only data subpackets are implemented")
 	}

@@ -40,7 +40,7 @@ func TestComID(d tcg.DriveIntf) tcg.ComID {
 	return comID
 }
 
-func TestAdminSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg.Session {
+func TestControlSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg.ControlSession {
 	if comID == tcg.ComIDInvalid {
 		log.Printf("Auto-allocation ComID test failed earlier, selecting first available base ComID")
 		if d0.OpalV2 != nil {
@@ -71,13 +71,7 @@ func TestAdminSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID)
 	if err := cs.Close(); err != nil {
 		log.Fatalf("Test of ControlSession Close failed: %v", err)
 	}
-	s, err := cs.NewSession(tcg.AdminSP)
-	if err != nil {
-		log.Printf("s.NewSession failed: %v", err)
-		return nil
-	}
-	log.Printf("Session (HSN=0x%x, TSN=%0x) opened", s.HSN, s.TSN)
-	return s
+	return cs
 }
 
 func main() {
@@ -122,14 +116,43 @@ func main() {
 
 	fmt.Printf("===> TCG SESSION\n")
 
-	s := TestAdminSession(d, d0, comID)
-	if s == nil {
-		log.Printf("No session, unable to continue")
+	cs := TestControlSession(d, d0, comID)
+	if cs == nil {
+		log.Printf("No control session, unable to continue")
 		return
 	}
 
-	if err := s.Close(); err != nil {
-		log.Fatalf("Session.Close failed: %v", err)
+	var sessions []*tcg.Session
+	// Try to open as many sessions as we can
+	maxSessions := 10
+	if cs.TPerProperties.MaxSessions != nil {
+		maxSessions += int(*cs.TPerProperties.MaxSessions)
 	}
-	log.Printf("Session closed")
+	for i := 0; i < maxSessions; i++ {
+		s, err := cs.NewSession(tcg.AdminSP)
+		if err == tcg.ErrMethodStatusNoSessionsAvailable {
+			break
+		}
+		if err != nil {
+			log.Fatalf("s.NewSession (#%d) failed: %v", i, err)
+			return
+		}
+		sessions = append(sessions, s)
+		log.Printf("Session #%d (HSN=0x%x, TSN=%0x) opened", i, s.HSN, s.TSN)
+	}
+
+	if len(sessions) == 0 {
+		log.Printf("No session, unable to continue")
+		return
+	}
+	log.Printf("Opened %d sessions", len(sessions))
+	s := sessions[0]
+	_ = s
+
+	for i, s := range sessions {
+		if err := s.Close(); err != nil {
+			log.Fatalf("Session.Close (#%d) failed: %v", i, err)
+		}
+		log.Printf("Session #%d closed", i)
+	}
 }
