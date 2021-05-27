@@ -18,6 +18,7 @@ import (
 )
 
 type SPID [8]byte
+type AuthorityObjectUID [8]byte
 
 var (
 	ErrTPerSyncNotSupported        = errors.New("synchronous operation not supported by TPer")
@@ -37,6 +38,9 @@ var (
 	MethodIDSMCloseSession        MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x06}
 
 	AdminSP SPID = [8]byte{0x00, 0x00, 0x02, 0x05, 0x00, 0x00, 0x00, 0x01}
+
+	AuthorityAnybody AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x01}
+	AuthoritySID     AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x06}
 
 	sessionRand *rand.Rand
 )
@@ -304,7 +308,11 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 	mc.UInt(uint(s.HSN))
 	mc.Bytes(spid[:])
 	mc.Bool(!s.ReadOnly)
-	// TODO: There are more things here like challenge etc
+	// "5.3.4.1.2.1 Anybody"
+	// > The Anybody authority is always considered "authenticated" within a session, even if the Anybody
+	// > authority was not specifically called out during session startup.
+	// Thus, we do not specify any authority here and let the users call ThisSP_Authenticate
+	// to elevate the session.
 	resp, err := cs.ExecuteMethod(mc)
 	if err != nil {
 		return nil, err

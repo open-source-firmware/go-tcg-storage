@@ -22,9 +22,11 @@ var (
 	InvokeIDNull   InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
 	InvokeIDThisSP InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}
 
-	ErrMalformedMethodResponse = errors.New("method response was malformed")
-	ErrEmptyMethodResponse     = errors.New("method response was empty")
-	ErrMethodListUnbalanced    = errors.New("method argument list is unbalanced")
+	ErrMalformedMethodResponse    = errors.New("method response was malformed")
+	ErrEmptyMethodResponse        = errors.New("method response was empty")
+	ErrMethodListUnbalanced       = errors.New("method argument list is unbalanced")
+	ErrTPerClosedSession          = errors.New("TPer forcefully closed our session")
+	ErrReceivedUnexpectedResponse = errors.New("method response was unexpected")
 
 	MethodStatusSuccess uint = 0x00
 	MethodStatusCodeMap      = map[uint]error{
@@ -181,14 +183,35 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 		return nil, err
 	}
 
-	if len(resp) < 2 {
-		return nil, ErrEmptyMethodResponse
-	}
-
 	reply, err := stream.Decode(resp)
 	if err != nil {
 		return nil, err
 	}
+
+	if len(reply) < 2 {
+		return nil, ErrEmptyMethodResponse
+	}
+
+	// Check for special CloseSession response
+	if len(reply) >= 4 {
+		tok, ok1 := reply[0].(stream.TokenType)
+		iid, ok2 := reply[1].([]byte)
+		mid, ok3 := reply[2].([]byte)
+		params, ok4 := reply[3].(stream.List)
+		if ok1 && ok2 && ok3 && ok4 &&
+			tok == stream.Call &&
+			bytes.Equal(iid, InvokeIDSMU[:]) &&
+			bytes.Equal(mid, MethodIDSMCloseSession[:]) {
+			hsn, ok1 := params[0].(uint)
+			tsn, ok2 := params[1].(uint)
+			if ok1 && ok2 && int(hsn) == ses.HSN && int(tsn) == ses.TSN {
+				return nil, ErrTPerClosedSession
+			} else {
+				return nil, ErrReceivedUnexpectedResponse
+			}
+		}
+	}
+
 	// While the normal method result format is known, the Session Manager
 	// methods use a different format. What is in common however is that
 	// the last element should be the status code list.

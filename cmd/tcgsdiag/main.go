@@ -5,11 +5,13 @@
 package main
 
 import (
+	"encoding/hex"
 	"fmt"
 	"log"
 	"os"
 
 	tcg "github.com/bluecmd/go-tcg-storage/pkg/core"
+	"github.com/bluecmd/go-tcg-storage/pkg/core/table"
 	"github.com/bluecmd/go-tcg-storage/pkg/drive"
 	"github.com/davecgh/go-spew/spew"
 )
@@ -149,6 +151,35 @@ func main() {
 	s := sessions[0]
 	_ = s
 
+	rand, err := table.ThisSP_Random(s, 8)
+	if err != nil {
+		log.Printf("table.ThisSP_Random failed: %v", err)
+	} else {
+		log.Printf("Generated random numbers: %v", rand)
+	}
+
+	tperInfo, err := table.Admin_TPerInfo(s)
+	if err != nil {
+		log.Printf("table.Admin_TPerInfo failed: %v", err)
+	} else {
+		log.Printf("TPerInfo table:")
+		spew.Dump(tperInfo)
+	}
+
+	msidPin, err := table.Admin_C_PIN_MSID_GetPIN(s)
+	if err != nil {
+		log.Printf("table.Admin_C_PIN_MSID_GetPIN failed: %v", err)
+	} else {
+		log.Printf("MSID PIN: %s", hex.Dump(msidPin))
+	}
+
+	if err := table.ThisSP_Authenticate(s, tcg.AuthoritySID, msidPin); err != nil {
+		log.Printf("table.ThisSP_Authenticate failed: %v", err)
+	} else {
+		log.Printf("Successfully authenticated as SID")
+	}
+
+	log.Printf("Diagnostics done, cleaning up")
 	for i, s := range sessions {
 		if err := s.Close(); err != nil {
 			log.Fatalf("Session.Close (#%d) failed: %v", i, err)
