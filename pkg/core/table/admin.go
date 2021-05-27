@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/bluecmd/go-tcg-storage/pkg/core"
+	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
 )
 
 var (
@@ -60,7 +61,7 @@ type Admin_TPerInfoRow struct {
 	FirmwareVersion         *uint32
 	ProtocolVersion         *uint32
 	SpaceForIssuance        *uint64
-	SSC                     *string
+	SSC                     []string
 	ProgrammaticResetEnable *bool
 }
 
@@ -131,12 +132,17 @@ func Admin_TPerInfo(s *core.Session) (map[RowUID]Admin_TPerInfoRow, error) {
 			vv := uint64(v)
 			row.SpaceForIssuance = &vv
 		case 7:
-			v, ok := val.([]byte)
+			vl, ok := val.(stream.List)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				vl = stream.List{val}
 			}
-			vv := string(v)
-			row.SSC = &vv
+			for _, val := range vl {
+				v, ok := val.([]byte)
+				if !ok {
+					return nil, core.ErrMalformedMethodResponse
+				}
+				row.SSC = append(row.SSC, string(v))
+			}
 		case 8:
 			v, ok := val.(uint)
 			if !ok {

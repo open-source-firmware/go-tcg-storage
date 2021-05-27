@@ -136,8 +136,8 @@ func main() {
 			break
 		}
 		if err != nil {
-			log.Fatalf("s.NewSession (#%d) failed: %v", i, err)
-			return
+			log.Printf("s.NewSession (#%d) failed: %v", i, err)
+			break
 		}
 		sessions = append(sessions, s)
 		log.Printf("Session #%d (HSN=0x%x, TSN=%0x) opened", i, s.HSN, s.TSN)
@@ -170,7 +170,7 @@ func main() {
 	if err != nil {
 		log.Printf("table.Admin_C_PIN_MSID_GetPIN failed: %v", err)
 	} else {
-		log.Printf("MSID PIN: %s", hex.Dump(msidPin))
+		log.Printf("MSID PIN:\n%s", hex.Dump(msidPin))
 	}
 
 	if err := table.ThisSP_Authenticate(s, tcg.AuthoritySID, msidPin); err != nil {
