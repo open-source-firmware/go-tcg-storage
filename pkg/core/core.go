@@ -4,7 +4,7 @@
 
 // Implements TCG Storage Architecture Core Specification TCG Specification Version 2.01
 
-package tcgstorage
+package core
 
 import (
 	"bytes"

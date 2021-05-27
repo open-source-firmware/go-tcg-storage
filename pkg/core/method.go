@@ -4,7 +4,7 @@
 
 // Implements TCG Storage Core Method calling
 
-package tcgstorage
+package core
 
 import (
 	"bytes"

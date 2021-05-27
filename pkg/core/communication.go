@@ -4,7 +4,7 @@
 
 // Implements TCG Storage Core packetization for communication
 
-package tcgstorage
+package core
 
 import (
 	"bytes"

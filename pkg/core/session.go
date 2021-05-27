@@ -4,7 +4,7 @@
 
 // Implements TCG Storage Core - Session Manager and Session
 
-package tcgstorage
+package core
 
 import (
 	"errors"
@@ -305,7 +305,7 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 	mc.Bytes(spid[:])
 	mc.Bool(!s.ReadOnly)
 	// TODO: There are more things here like challenge etc
-	resp, err := mc.Execute(cs.c, drive.SecurityProtocolTCGManagement, &cs.Session)
+	resp, err := cs.ExecuteMethod(mc)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +363,7 @@ func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerP
 	mc.EndList()
 	mc.EndOptionalParameter()
 
-	resp, err := mc.Execute(cs.c, drive.SecurityProtocolTCGManagement, &cs.Session)
+	resp, err := cs.ExecuteMethod(mc)
 	if err != nil {
 		return HostProperties{}, TPerProperties{}, err
 	}
@@ -420,6 +420,10 @@ func (cs *ControlSession) closeSession(s *Session) error {
 
 func (s *Session) Close() error {
 	return s.ControlSession.closeSession(s)
+}
+
+func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
+	return mc.Execute(s.c, drive.SecurityProtocolTCGManagement, s)
 }
 
 func parseTPerProperties(params []interface{}, tp *TPerProperties) error {

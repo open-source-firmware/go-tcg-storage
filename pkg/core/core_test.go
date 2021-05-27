@@ -1,4 +1,4 @@
-package tcgstorage
+package core
 
 // TODO
 
