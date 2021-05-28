@@ -54,7 +54,7 @@ type Admin_TPerInfoRow struct {
 
 func Admin_TPerInfo(s *core.Session) (map[RowUID]Admin_TPerInfoRow, error) {
 	res := map[RowUID]Admin_TPerInfoRow{}
-	val, err := GetTableFullRow(s, Admin_TPerInfoObj)
+	val, err := GetFullRow(s, Admin_TPerInfoObj)
 	if err != nil {
 		return nil, err
 	}

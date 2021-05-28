@@ -412,7 +412,6 @@ func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerP
 	mc.EndList()
 	mc.EndOptionalParameter()
 
-	fmt.Printf("--- EXECUTING Properties \n")
 	resp, err := cs.ExecuteMethod(mc)
 	if err != nil {
 		return HostProperties{}, TPerProperties{}, err

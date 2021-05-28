@@ -36,7 +36,7 @@ var (
 )
 
 func GetCell(s *core.Session, row RowUID, column uint, columnName string) (interface{}, error) {
-	m, err := GetTablePartialRow(s, row, column, columnName, column, columnName)
+	m, err := GetPartialRow(s, row, column, columnName, column, columnName)
 	if err != nil {
 		return nil, err
 	}
@@ -46,8 +46,7 @@ func GetCell(s *core.Session, row RowUID, column uint, columnName string) (inter
 	return nil, fmt.Errorf("cell not found")
 }
 
-// TODO: s/GetTablePar../GetPartialRow/
-func GetTablePartialRow(s *core.Session, row RowUID, startCol uint, startColName string, endCol uint, endColName string) (map[string]interface{}, error) {
+func GetPartialRow(s *core.Session, row RowUID, startCol uint, startColName string, endCol uint, endColName string) (map[string]interface{}, error) {
 	getUID := core.MethodID{}
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
 		copy(getUID[:], MethodIDEnterpriseGet[:])
@@ -93,7 +92,7 @@ func GetTablePartialRow(s *core.Session, row RowUID, startCol uint, startColName
 	return val, nil
 }
 
-func GetTableFullRow(s *core.Session, row RowUID) (map[string]interface{}, error) {
+func GetFullRow(s *core.Session, row RowUID) (map[string]interface{}, error) {
 	getUID := core.MethodID{}
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
 		copy(getUID[:], MethodIDEnterpriseGet[:])
@@ -143,6 +142,10 @@ func parseGetResult(res stream.List) (map[string]interface{}, error) {
 	return parseRowValues(inner)
 }
 
+// Parse a RowValues return value into a map.
+//
+// Due to the Enterprise SSC relying on sending ASCII column names instead of
+// uinteger IDs as the Core V2.0 spec does, we have to support both.
 func parseRowValues(rv stream.List) (map[string]interface{}, error) {
 	res := map[string]interface{}{}
 	for i := range rv {
