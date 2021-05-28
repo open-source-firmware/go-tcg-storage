@@ -32,5 +32,35 @@ Need another transport? You can do one of two things:
 
 ## Usage
 
-TODO
+```go
+import (
+	tcg "github.com/bluecmd/go-tcg-storage/pkg/core"
+	"github.com/bluecmd/go-tcg-storage/pkg/core/table"
+	"github.com/bluecmd/go-tcg-storage/pkg/drive"
+)
+
+func main() {
+	d, err := drive.Open("/dev/sda")
+	defer d.Close()
+
+	d0, err := tcg.Discovery0(d)
+        // This will work if your drive implements GET_COMID,
+        // otherwise you will need to figure out the ComID and
+        // pass it in with WithComID(x)
+        cs, err := tcg.NewControlSession(d, d0)
+        defer cs.Close()
+        s, err := cs.NewSession(tcg.AdminSP)
+        defer s.Close()
+
+        // This is how you call a method on your SP:
+        rand, err := table.ThisSP_Random(s, 8 /* bytes to generate */)
+        
+        // You can authenticate using the MSID like this:
+        msidPin, err := table.Admin_C_PIN_MSID_GetPIN(s)
+        if err := table.ThisSP_Authenticate(s, tcg.AuthoritySID, msidPin); err != nil {
+        	log.Fatalf("Authentication as SID failed!")
+        }
+        // Session is now elevated
+}
+```
 
