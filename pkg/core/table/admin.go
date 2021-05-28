@@ -17,11 +17,15 @@ var (
 	Admin_TPerInfoTable = TableUID{0x00, 0x00, 0x02, 0x01, 0x00, 0x00, 0x00, 0x00}
 	Admin_C_PINTable    = TableUID{0x00, 0x00, 0x00, 0x0B, 0x00, 0x00, 0x00, 0x00}
 
-	Admin_C_PIN_ColumnPIN uint = 3
+	Admin_C_PIN_ColumnPIN         uint = 3
+	Admin_SP_ColumnLifeCycleState uint = 6
 
 	// TODO: This is taken from the Opal spec, not sure how to dynamically find it...
 	Admin_TPerInfoObj   RowUID = Admin_TPerInfoTable.Row([4]byte{0x00, 0x03, 0x00, 0x01})
 	Admin_C_PIN_MSIDRow RowUID = Admin_C_PINTable.Row([4]byte{0x00, 0x00, 0x84, 0x02})
+
+	// Opal 2.0 Method
+	MethodIDAdmin_Activate core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x02, 0x03}
 )
 
 func Admin_C_PIN_MSID_GetPIN(s *core.Session) ([]byte, error) {
@@ -158,4 +162,35 @@ func Admin_TPerInfo(s *core.Session) (map[RowUID]Admin_TPerInfoRow, error) {
 
 	res[row.UID] = row
 	return res, nil
+}
+
+type LifeCycleState int
+
+func Admin_SP_GetLifeCycleState(s *core.Session, spid core.SPID) (LifeCycleState, error) {
+	mc := core.NewMethodCall(core.InvokingID(spid), MethodIDGet)
+	mc.StartList()
+	mc.StartOptionalParameter(CellBlock_StartColumn)
+	mc.UInt(Admin_SP_ColumnLifeCycleState)
+	mc.EndOptionalParameter()
+	mc.StartOptionalParameter(CellBlock_EndColumn)
+	mc.UInt(Admin_SP_ColumnLifeCycleState)
+	mc.EndOptionalParameter()
+	mc.EndList()
+	resp, err := s.ExecuteMethod(mc)
+	if err != nil {
+		return -1, err
+	}
+	val, err := parseGetResult(resp)
+	if err != nil {
+		return -1, err
+	}
+	raw, ok := val[Admin_SP_ColumnLifeCycleState]
+	if !ok {
+		return -1, fmt.Errorf("no LifeCycleState column in result")
+	}
+	v, ok := raw.(uint)
+	if !ok {
+		return -1, fmt.Errorf("malformed LifeCycleState column")
+	}
+	return LifeCycleState(v), nil
 }

@@ -52,6 +52,7 @@ var (
 	}
 
 	ErrMethodStatusNotAuthorized       = MethodStatusCodeMap[0x01]
+	ErrMethodStatusSPBusy              = MethodStatusCodeMap[0x03]
 	ErrMethodStatusNoSessionsAvailable = MethodStatusCodeMap[0x07]
 	ErrMethodStatusInvalidParameter    = MethodStatusCodeMap[0x0C]
 	ErrMethodStatusAuthorityLockedOut  = MethodStatusCodeMap[0x12]

@@ -131,8 +131,14 @@ func main() {
 		maxSessions += int(*cs.TPerProperties.MaxSessions)
 	}
 	for i := 0; i < maxSessions; i++ {
-		s, err := cs.NewSession(tcg.AdminSP)
-		if err == tcg.ErrMethodStatusNoSessionsAvailable {
+		var s *tcg.Session
+		var err error
+		if i == 0 || cs.TPerProperties.MaxReadSessions == nil || *cs.TPerProperties.MaxReadSessions == 0 {
+			s, err = cs.NewSession(tcg.AdminSP)
+		} else {
+			s, err = cs.NewSession(tcg.AdminSP, tcg.WithReadOnly())
+		}
+		if err == tcg.ErrMethodStatusNoSessionsAvailable || err == tcg.ErrMethodStatusSPBusy {
 			break
 		}
 		if err != nil {
@@ -148,14 +154,33 @@ func main() {
 		return
 	}
 	log.Printf("Opened %d sessions", len(sessions))
+
+	defer func() {
+		log.Printf("Diagnostics done, cleaning up")
+		for i, s := range sessions {
+			if s == nil {
+				log.Printf("Session #%d already closed", i)
+				continue
+			}
+			if err := s.Close(); err != nil {
+				log.Fatalf("Session.Close (#%d) failed: %v", i, err)
+			}
+			log.Printf("Session #%d closed", i)
+		}
+	}()
+
 	s := sessions[0]
 	_ = s
 
-	rand, err := table.ThisSP_Random(s, 8)
-	if err != nil {
-		log.Printf("table.ThisSP_Random failed: %v", err)
+	if table.Base_Method_IsSupported(s, table.MethodIDRandom) {
+		rand, err := table.ThisSP_Random(s, 8)
+		if err != nil {
+			log.Printf("table.ThisSP_Random failed: %v", err)
+		} else {
+			log.Printf("Generated random numbers: %v", rand)
+		}
 	} else {
-		log.Printf("Generated random numbers: %v", rand)
+		log.Printf("ThisSP.Random is not supported")
 	}
 
 	tperInfo, err := table.Admin_TPerInfo(s)
@@ -173,17 +198,29 @@ func main() {
 		log.Printf("MSID PIN:\n%s", hex.Dump(msidPin))
 	}
 
+	llcs, err := table.Admin_SP_GetLifeCycleState(s, tcg.LockingSP)
+	if err == nil {
+		log.Printf("Life cycle state on Locking SP: %d", llcs)
+	}
+
+	if table.Base_Method_IsSupported(s, table.MethodIDAdmin_Activate) {
+		log.Printf("Admin.Activate (Opal) is supported")
+	} else {
+		log.Printf("Admin.Activate (Opal) is not supported")
+	}
+
+	s.Close()
+	sessions[0] = nil
+	s, err = cs.NewSession(tcg.LockingSP)
+	if err != nil {
+		log.Printf("Failed to login to LockingSP")
+		return
+	}
+	sessions[0] = s
+
 	if err := table.ThisSP_Authenticate(s, tcg.AuthoritySID, msidPin); err != nil {
 		log.Printf("table.ThisSP_Authenticate failed: %v", err)
 	} else {
 		log.Printf("Successfully authenticated as SID")
-	}
-
-	log.Printf("Diagnostics done, cleaning up")
-	for i, s := range sessions {
-		if err := s.Close(); err != nil {
-			log.Fatalf("Session.Close (#%d) failed: %v", i, err)
-		}
-		log.Printf("Session #%d closed", i)
 	}
 }

@@ -37,7 +37,8 @@ var (
 	MethodIDSMSyncTrustedSession  MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x05}
 	MethodIDSMCloseSession        MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x06}
 
-	AdminSP SPID = [8]byte{0x00, 0x00, 0x02, 0x05, 0x00, 0x00, 0x00, 0x01}
+	AdminSP   SPID = [8]byte{0x00, 0x00, 0x02, 0x05, 0x00, 0x00, 0x00, 0x01}
+	LockingSP SPID = [8]byte{0x00, 0x00, 0x02, 0x05, 0x00, 0x00, 0x00, 0x02}
 
 	AuthorityAnybody AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x01}
 	AuthoritySID     AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x06}
@@ -419,15 +420,18 @@ func (cs *ControlSession) Close() error {
 	return nil
 }
 
-func (cs *ControlSession) closeSession(s *Session) error {
-	mc := NewMethodCall(InvokeIDSMU, MethodIDSMCloseSession)
-	mc.UInt(uint(s.HSN))
-	mc.UInt(uint(s.TSN))
-	return mc.Notify(cs.c, drive.SecurityProtocolTCGManagement, &cs.Session)
-}
-
 func (s *Session) Close() error {
-	return s.ControlSession.closeSession(s)
+	if err := s.c.Send(drive.SecurityProtocolTCGManagement, s, stream.Token(stream.EndOfSession)); err != nil {
+		return err
+	}
+	b, err := s.c.Receive(drive.SecurityProtocolTCGManagement, s)
+	if err != nil {
+		return err
+	}
+	if !stream.EqualToken(b, stream.EndOfSession) {
+		return fmt.Errorf("expected EOS, received other data")
+	}
+	return nil
 }
 
 func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
