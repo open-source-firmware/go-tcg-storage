@@ -186,7 +186,7 @@ func ATATrustedSend(fd uintptr, proto uint8, comID uint16, in []byte) error {
 
 // SCSI SECURITY IN
 func SCSISecurityIn(fd uintptr, proto uint8, sps uint16, resp *[]byte) error {
-	if len(*resp) & 0x1ff > 0 {
+	if len(*resp)&0x1ff > 0 {
 		return fmt.Errorf("SCSISecurityIn only supports 512-byte aligned buffers")
 	}
 	cdb := CDB12{SCSI_SECURITY_IN}
@@ -207,7 +207,7 @@ func SCSISecurityIn(fd uintptr, proto uint8, sps uint16, resp *[]byte) error {
 
 // SCSI SECURITY OUT
 func SCSISecurityOut(fd uintptr, proto uint8, sps uint16, in []byte) error {
-	if len(in) & 0x1ff > 0 {
+	if len(in)&0x1ff > 0 {
 		return fmt.Errorf("SCSISecurityOut only supports 512-byte aligned buffers")
 	}
 	cdb := CDB12{SCSI_SECURITY_OUT}
