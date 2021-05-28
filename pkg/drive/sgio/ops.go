@@ -186,12 +186,18 @@ func ATATrustedSend(fd uintptr, proto uint8, comID uint16, in []byte) error {
 
 // SCSI SECURITY IN
 func SCSISecurityIn(fd uintptr, proto uint8, sps uint16, resp *[]byte) error {
+	if len(*resp) & 0x1ff > 0 {
+		return fmt.Errorf("SCSISecurityIn only supports 512-byte aligned buffers")
+	}
 	cdb := CDB12{SCSI_SECURITY_IN}
 	cdb[1] = proto
 	cdb[2] = uint8((sps & 0xff00) >> 8)
 	cdb[3] = uint8(sps & 0xff)
-	cdb[4] = 0 // INC_512 = 0
-	binary.BigEndian.PutUint32(cdb[6:], uint32(len(*resp)))
+	//
+	// Seagate 7E200 series seems to require INC_512 to be set, and all other
+	// drives tested seem to be fine with it, so we only support 512 byte aligned
+	cdb[4] = 1 << 7 // INC_512 = 1
+	binary.BigEndian.PutUint32(cdb[6:], uint32(len(*resp)/512))
 
 	if err := SendCDB(fd, cdb[:], CDBFromDevice, resp); err != nil {
 		return err
@@ -201,12 +207,19 @@ func SCSISecurityIn(fd uintptr, proto uint8, sps uint16, resp *[]byte) error {
 
 // SCSI SECURITY OUT
 func SCSISecurityOut(fd uintptr, proto uint8, sps uint16, in []byte) error {
+	if len(in) & 0x1ff > 0 {
+		return fmt.Errorf("SCSISecurityOut only supports 512-byte aligned buffers")
+	}
 	cdb := CDB12{SCSI_SECURITY_OUT}
 	cdb[1] = proto
 	cdb[2] = uint8((sps & 0xff00) >> 8)
 	cdb[3] = uint8(sps & 0xff)
-	cdb[4] = 0 // INC_512 = 0
-	binary.BigEndian.PutUint32(cdb[6:], uint32(len(in)))
+	//
+	// Seagate 7E200 series seems to require INC_512 to be set, and all other
+	// drives tested seem to be fine with it, so we only support 512 byte aligned
+	// buffers.
+	cdb[4] = 1 << 7 // INC_512 = 1
+	binary.BigEndian.PutUint32(cdb[6:], uint32(len(in)/512))
 
 	if err := SendCDB(fd, cdb[:], CDBToDevice, &in); err != nil {
 		return err

@@ -29,28 +29,11 @@ var (
 )
 
 func Admin_C_PIN_MSID_GetPIN(s *core.Session) ([]byte, error) {
-	mc := core.NewMethodCall(core.InvokingID(Admin_C_PIN_MSIDRow), MethodIDGet)
-	mc.StartList()
-	mc.StartOptionalParameter(CellBlock_StartColumn)
-	mc.UInt(Admin_C_PIN_ColumnPIN)
-	mc.EndOptionalParameter()
-	mc.StartOptionalParameter(CellBlock_EndColumn)
-	mc.UInt(Admin_C_PIN_ColumnPIN)
-	mc.EndOptionalParameter()
-	mc.EndList()
-	resp, err := s.ExecuteMethod(mc)
+	val, err := GetCell(s, Admin_C_PIN_MSIDRow, Admin_C_PIN_ColumnPIN, "PIN")
 	if err != nil {
 		return nil, err
 	}
-	val, err := parseGetResult(resp)
-	if err != nil {
-		return nil, err
-	}
-	raw, ok := val[Admin_C_PIN_ColumnPIN]
-	if !ok {
-		return nil, fmt.Errorf("no PIN column in result")
-	}
-	pin, ok := raw.([]byte)
+	pin, ok := val.([]byte)
 	if !ok {
 		return nil, fmt.Errorf("malformed PIN column")
 	}
@@ -71,14 +54,7 @@ type Admin_TPerInfoRow struct {
 
 func Admin_TPerInfo(s *core.Session) (map[RowUID]Admin_TPerInfoRow, error) {
 	res := map[RowUID]Admin_TPerInfoRow{}
-	mc := core.NewMethodCall(core.InvokingID(Admin_TPerInfoObj), MethodIDGet)
-	mc.StartList()
-	mc.EndList()
-	resp, err := s.ExecuteMethod(mc)
-	if err != nil {
-		return nil, err
-	}
-	val, err := parseGetResult(resp)
+	val, err := GetFullRow(s, Admin_TPerInfoObj)
 	if err != nil {
 		return nil, err
 	}
@@ -86,20 +62,20 @@ func Admin_TPerInfo(s *core.Session) (map[RowUID]Admin_TPerInfoRow, error) {
 	row := Admin_TPerInfoRow{}
 	for col, val := range val {
 		switch col {
-		case 0:
+		case "0", "UID":
 			v, ok := val.([]byte)
 			if !ok {
 				return nil, core.ErrMalformedMethodResponse
 			}
 			copy(row.UID[:], v[:8])
-		case 1:
+		case "1":
 			v, ok := val.(uint)
 			if !ok {
 				return nil, core.ErrMalformedMethodResponse
 			}
 			vv := uint64(v)
 			row.Bytes = &vv
-		case 2:
+		case "2":
 			v, ok := val.([]byte)
 			if !ok {
 				return nil, core.ErrMalformedMethodResponse
@@ -107,35 +83,35 @@ func Admin_TPerInfo(s *core.Session) (map[RowUID]Admin_TPerInfoRow, error) {
 			vv := [12]byte{}
 			copy(vv[:], v)
 			row.GUDID = &vv
-		case 3:
+		case "3":
 			v, ok := val.(uint)
 			if !ok {
 				return nil, core.ErrMalformedMethodResponse
 			}
 			vv := uint32(v)
 			row.Generation = &vv
-		case 4:
+		case "4":
 			v, ok := val.(uint)
 			if !ok {
 				return nil, core.ErrMalformedMethodResponse
 			}
 			vv := uint32(v)
 			row.FirmwareVersion = &vv
-		case 5:
+		case "5":
 			v, ok := val.(uint)
 			if !ok {
 				return nil, core.ErrMalformedMethodResponse
 			}
 			vv := uint32(v)
 			row.ProtocolVersion = &vv
-		case 6:
+		case "6":
 			v, ok := val.(uint)
 			if !ok {
 				return nil, core.ErrMalformedMethodResponse
 			}
 			vv := uint64(v)
 			row.SpaceForIssuance = &vv
-		case 7:
+		case "7":
 			vl, ok := val.(stream.List)
 			if !ok {
 				vl = stream.List{val}
@@ -147,7 +123,7 @@ func Admin_TPerInfo(s *core.Session) (map[RowUID]Admin_TPerInfoRow, error) {
 				}
 				row.SSC = append(row.SSC, string(v))
 			}
-		case 8:
+		case "8":
 			v, ok := val.(uint)
 			if !ok {
 				return nil, core.ErrMalformedMethodResponse
@@ -167,28 +143,11 @@ func Admin_TPerInfo(s *core.Session) (map[RowUID]Admin_TPerInfoRow, error) {
 type LifeCycleState int
 
 func Admin_SP_GetLifeCycleState(s *core.Session, spid core.SPID) (LifeCycleState, error) {
-	mc := core.NewMethodCall(core.InvokingID(spid), MethodIDGet)
-	mc.StartList()
-	mc.StartOptionalParameter(CellBlock_StartColumn)
-	mc.UInt(Admin_SP_ColumnLifeCycleState)
-	mc.EndOptionalParameter()
-	mc.StartOptionalParameter(CellBlock_EndColumn)
-	mc.UInt(Admin_SP_ColumnLifeCycleState)
-	mc.EndOptionalParameter()
-	mc.EndList()
-	resp, err := s.ExecuteMethod(mc)
+	val, err := GetCell(s, RowUID(spid), Admin_SP_ColumnLifeCycleState, "LifeCycleState")
 	if err != nil {
 		return -1, err
 	}
-	val, err := parseGetResult(resp)
-	if err != nil {
-		return -1, err
-	}
-	raw, ok := val[Admin_SP_ColumnLifeCycleState]
-	if !ok {
-		return -1, fmt.Errorf("no LifeCycleState column in result")
-	}
-	v, ok := raw.(uint)
+	v, ok := val.(uint)
 	if !ok {
 		return -1, fmt.Errorf("malformed LifeCycleState column")
 	}

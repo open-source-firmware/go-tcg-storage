@@ -14,7 +14,7 @@ import (
 )
 
 func ThisSP_Random(s *core.Session, count uint) ([]byte, error) {
-	mc := core.NewMethodCall(core.InvokeIDThisSP, MethodIDRandom)
+	mc := s.NewMethodCall(core.InvokeIDThisSP, MethodIDRandom)
 	mc.UInt(count)
 	resp, err := s.ExecuteMethod(mc)
 	if err != nil {
@@ -32,9 +32,15 @@ func ThisSP_Random(s *core.Session, count uint) ([]byte, error) {
 }
 
 func ThisSP_Authenticate(s *core.Session, authority core.AuthorityObjectUID, proof []byte) error {
-	mc := core.NewMethodCall(core.InvokeIDThisSP, MethodIDAuthenticate)
+	authUID := core.MethodID{}
+	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
+		copy(authUID[:], MethodIDEnterpriseAuthenticate[:])
+	} else {
+		copy(authUID[:], MethodIDAuthenticate[:])
+	}
+	mc := s.NewMethodCall(core.InvokeIDThisSP, authUID)
 	mc.Bytes(authority[:])
-	mc.StartOptionalParameter(0)
+	mc.StartOptionalParameter(0, "Challenge")
 	mc.Bytes(proof)
 	mc.EndOptionalParameter()
 	resp, err := s.ExecuteMethod(mc)

@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
 	"github.com/bluecmd/go-tcg-storage/pkg/drive"
@@ -17,6 +18,12 @@ import (
 
 type InvokingID [8]byte
 type MethodID [8]byte
+
+type MethodFlag int
+
+const (
+	MethodFlagOptionalAsName MethodFlag = 1
+)
 
 var (
 	InvokeIDNull   InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
@@ -27,6 +34,7 @@ var (
 	ErrMethodListUnbalanced       = errors.New("method argument list is unbalanced")
 	ErrTPerClosedSession          = errors.New("TPer forcefully closed our session")
 	ErrReceivedUnexpectedResponse = errors.New("method response was unexpected")
+	ErrMethodTimeout              = errors.New("method call timed out waiting for a response")
 
 	MethodStatusSuccess uint = 0x00
 	MethodStatusCodeMap      = map[uint]error{
@@ -41,9 +49,10 @@ var (
 		0x08: errors.New("method returned status UNIQUENESS_CONFLICT"),
 		0x09: errors.New("method returned status INSUFFICIENT_SPACE"),
 		0x0A: errors.New("method returned status INSUFFICIENT_ROWS"),
+		0x0B: errors.New("method returned status INVALID_COMMAND"), /* from Core Revision 0.9 Draft */
 		0x0C: errors.New("method returned status INVALID_PARAMETER"),
-		0x0D: errors.New("method returned status OBSOLETE (0x0D)"),
-		0x0E: errors.New("method returned status OBSOLETE (0x0E)"),
+		0x0D: errors.New("method returned status INVALID_REFERENCE"),         /* from Core Revision 0.9 Draft */
+		0x0E: errors.New("method returned status INVALID_SECMSG_PROPERTIES"), /* from Core Revision 0.9 Draft */
 		0x0F: errors.New("method returned status TPER_MALFUNCTION"),
 		0x10: errors.New("method returned status TRANSACTION_FAILURE"),
 		0x11: errors.New("method returned status RESPONSE_OVERFLOW"),
@@ -62,11 +71,12 @@ type MethodCall struct {
 	buf bytes.Buffer
 	// Used to verify detect programming errors
 	depth int
+	flags MethodFlag
 }
 
 // Prepare a new method call
-func NewMethodCall(iid InvokingID, mid MethodID) *MethodCall {
-	m := &MethodCall{bytes.Buffer{}, 0}
+func NewMethodCall(iid InvokingID, mid MethodID, flags MethodFlag) *MethodCall {
+	m := &MethodCall{bytes.Buffer{}, 0, flags}
 	m.buf.Write(stream.Token(stream.Call))
 	m.Bytes(iid[:])
 	m.Bytes(mid[:])
@@ -88,14 +98,20 @@ func (m *MethodCall) EndList() {
 // Start an optional parameters group
 //
 // From "3.2.1.2 Method Signature Pseudo-code"
-// Optional parameters are submitted to the method invocation as Named value pairs.
-// The Name portion of the Named value pair SHALL be a uinteger. Starting at zero,
-// these uinteger values are assigned based on the ordering of the optional parameters
-// as defined in this document.
-func (m *MethodCall) StartOptionalParameter(id uint) {
+// > Optional parameters are submitted to the method invocation as Named value pairs.
+// > The Name portion of the Named value pair SHALL be a uinteger. Starting at zero,
+// > these uinteger values are assigned based on the ordering of the optional parameters
+// > as defined in this document.
+// The above is true for Core 2.0 things like OpalV2 but not for e.g. Enterprise.
+// Thus, we provide a way for the code to switch between using uint or string.
+func (m *MethodCall) StartOptionalParameter(id uint, name string) {
 	m.depth++
 	m.buf.Write(stream.Token(stream.StartName))
-	m.buf.Write(stream.UInt(id))
+	if m.flags&MethodFlagOptionalAsName > 0 {
+		m.buf.Write(stream.Bytes([]byte(name)))
+	} else {
+		m.buf.Write(stream.UInt(id))
+	}
 }
 
 // Add a named value (uint) pair
@@ -175,13 +191,41 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 	if err != nil {
 		return nil, err
 	}
+
+	// Synchronous mode specific: Ensure that there is no pending message
+	// before we start.
+	resp, err := c.Receive(proto, ses)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp) > 0 {
+		return nil, ErrReceivedUnexpectedResponse
+	}
+
 	if err = c.Send(proto, ses, b); err != nil {
 		return nil, err
 	}
 
-	resp, err := c.Receive(proto, ses)
-	if err != nil {
-		return nil, err
+	// There are a couple of reasons why we might receive empty data from c.Receive.
+	//
+	// Most relevant is this one:
+	// "3.3.10.2.1 Restrictions (3.b)"
+	// > If the TPer has not sufficiently processed the command payload and prepared a
+	// > response, any IF-RECV command for that ComID SHALL receive a ComPacket with a
+	// > Length field value of zero (no payload), an OutstandingData field value of 0x01, and a
+	// > MinTransfer field value of zero.
+	for i := 100; i != 0; i-- {
+		resp, err = c.Receive(proto, ses)
+		if err != nil {
+			return nil, err
+		}
+		if len(resp) > 0 {
+			break
+		}
+		if i == 0 {
+			return nil, ErrMethodTimeout
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 
 	reply, err := stream.Decode(resp)

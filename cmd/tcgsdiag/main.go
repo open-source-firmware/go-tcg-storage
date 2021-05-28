@@ -54,17 +54,21 @@ func TestControlSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComI
 		} else if d0.PyriteV2 != nil {
 			log.Printf("Selecting PyriteV2 ComID")
 			comID = tcg.ComID(d0.PyriteV2.BaseComID)
+		} else if d0.Enterprise != nil {
+			log.Printf("Selecting Enterprise ComID")
+			comID = tcg.ComID(d0.Enterprise.BaseComID)
 		} else {
 			log.Printf("No supported feature found, giving up without a ComID ...")
 			return nil
 		}
 	}
 	log.Printf("Creating control session with ComID 0x%08x\n", comID)
-	cs, err := tcg.NewControlSession(d, d0.TPer, tcg.WithComID(comID))
+	cs, err := tcg.NewControlSession(d, d0, tcg.WithComID(comID))
 	if err != nil {
 		log.Printf("s.NewControlSession failed: %v", err)
 		return nil
 	}
+	log.Printf("Operating using protocol %q", cs.ProtocolLevel.String())
 	log.Printf("Negotiated TPerProperties:")
 	spew.Dump(cs.TPerProperties)
 	log.Printf("Negotiated HostProperties:")
@@ -172,30 +176,25 @@ func main() {
 	s := sessions[0]
 	_ = s
 
-	if table.Base_Method_IsSupported(s, table.MethodIDRandom) {
-		rand, err := table.ThisSP_Random(s, 8)
-		if err != nil {
-			log.Printf("table.ThisSP_Random failed: %v", err)
-		} else {
-			log.Printf("Generated random numbers: %v", rand)
-		}
-	} else {
-		log.Printf("ThisSP.Random is not supported")
-	}
-
-	tperInfo, err := table.Admin_TPerInfo(s)
-	if err != nil {
-		log.Printf("table.Admin_TPerInfo failed: %v", err)
-	} else {
-		log.Printf("TPerInfo table:")
-		spew.Dump(tperInfo)
-	}
-
 	msidPin, err := table.Admin_C_PIN_MSID_GetPIN(s)
 	if err != nil {
 		log.Printf("table.Admin_C_PIN_MSID_GetPIN failed: %v", err)
+		msidPin = nil
 	} else {
 		log.Printf("MSID PIN:\n%s", hex.Dump(msidPin))
+	}
+
+	rand, err := table.ThisSP_Random(s, 8)
+	if err != nil {
+		log.Printf("table.ThisSP_Random failed: %v", err)
+	} else {
+		log.Printf("Generated random numbers: %v", rand)
+	}
+
+	tperInfo, err := table.Admin_TPerInfo(s)
+	if err == nil {
+		log.Printf("TPerInfo table:")
+		spew.Dump(tperInfo)
 	}
 
 	llcs, err := table.Admin_SP_GetLifeCycleState(s, tcg.LockingSP)
@@ -203,24 +202,11 @@ func main() {
 		log.Printf("Life cycle state on Locking SP: %d", llcs)
 	}
 
-	if table.Base_Method_IsSupported(s, table.MethodIDAdmin_Activate) {
-		log.Printf("Admin.Activate (Opal) is supported")
-	} else {
-		log.Printf("Admin.Activate (Opal) is not supported")
-	}
-
-	s.Close()
-	sessions[0] = nil
-	s, err = cs.NewSession(tcg.LockingSP)
-	if err != nil {
-		log.Printf("Failed to login to LockingSP")
-		return
-	}
-	sessions[0] = s
-
-	if err := table.ThisSP_Authenticate(s, tcg.AuthoritySID, msidPin); err != nil {
-		log.Printf("table.ThisSP_Authenticate failed: %v", err)
-	} else {
-		log.Printf("Successfully authenticated as SID")
+	if msidPin != nil {
+		if err := table.ThisSP_Authenticate(s, tcg.AuthoritySID, msidPin); err != nil {
+			log.Printf("table.ThisSP_Authenticate failed: %v", err)
+		} else {
+			log.Printf("Successfully authenticated as Admin SID")
+		}
 	}
 }

@@ -12,7 +12,6 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/bluecmd/go-tcg-storage/pkg/core/feature"
 	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
 	"github.com/bluecmd/go-tcg-storage/pkg/drive"
 )
@@ -46,8 +45,28 @@ var (
 	sessionRand *rand.Rand
 )
 
+type ProtocolLevel uint
+
+const (
+	ProtocolLevelEnterprise = 1
+	ProtocolLevelCore       = 2
+)
+
+func (p *ProtocolLevel) String() string {
+	switch *p {
+	case ProtocolLevelEnterprise:
+		return "Enterprise"
+	case ProtocolLevelCore:
+		return "Core V2.0"
+	default:
+		return "<Unknown>"
+	}
+}
+
 type Session struct {
 	ControlSession *ControlSession
+	MethodFlags    MethodFlag
+	ProtocolLevel  ProtocolLevel
 	d              DriveIntf
 	c              CommunicationIntf
 	ComID          ComID
@@ -158,7 +177,7 @@ func WithReadOnly() SessionOpt {
 }
 
 // Initiate a new control session with a ComID.
-func NewControlSession(d DriveIntf, tper *feature.TPer, opts ...ControlSessionOpt) (*ControlSession, error) {
+func NewControlSession(d DriveIntf, d0 *Level0Discovery, opts ...ControlSessionOpt) (*ControlSession, error) {
 	// --- Control Sessions
 	//
 	// Every ComID has exactly one control session. This is that session.
@@ -177,11 +196,11 @@ func NewControlSession(d DriveIntf, tper *feature.TPer, opts ...ControlSessionOp
 	//
 	// TODO: Investigate ComID crosstalk.
 
-	if !tper.SyncSupported {
+	if !d0.TPer.SyncSupported {
 		return nil, ErrTPerSyncNotSupported
 	}
 
-	if tper.BufferMgmtSupported {
+	if d0.TPer.BufferMgmtSupported {
 		return nil, ErrTPerBufferMgmtNotSupported
 	}
 
@@ -212,6 +231,15 @@ func NewControlSession(d DriveIntf, tper *feature.TPer, opts ...ControlSessionOp
 		}
 	}
 
+	if d0.Enterprise != nil {
+		// The Enterprise SSC implements optional parameters with explicit variable
+		// names, while the core spec says to use uintegers instead. This is likely
+		// the fact that it is the oldest spec and based on the draft of TCG Core 0.9
+		s.MethodFlags |= MethodFlagOptionalAsName
+		s.ProtocolLevel = ProtocolLevelEnterprise
+	} else {
+		s.ProtocolLevel = ProtocolLevelCore
+	}
 	// Try to reset the synchronous protocol stack for the ComID to minimize
 	// the dependencies on the implicit state. However, I suspect not all drives
 	// implement it so we do it best-effort.
@@ -285,6 +313,8 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 	// then and the call to NewSession() we would be out of sync. Oh well...
 
 	s := &Session{
+		MethodFlags:    cs.MethodFlags,
+		ProtocolLevel:  cs.ProtocolLevel,
 		d:              cs.d,
 		c:              cs.c,
 		ControlSession: cs,
@@ -305,7 +335,7 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 		s.HSN = int(sessionRand.Int31())
 	}
 
-	mc := NewMethodCall(InvokeIDSMU, MethodIDSMStartSession)
+	mc := s.NewMethodCall(InvokeIDSMU, MethodIDSMStartSession)
 	mc.UInt(uint(s.HSN))
 	mc.Bytes(spid[:])
 	mc.Bool(!s.ReadOnly)
@@ -314,6 +344,16 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 	// > authority was not specifically called out during session startup.
 	// Thus, we do not specify any authority here and let the users call ThisSP_Authenticate
 	// to elevate the session.
+
+	if s.ProtocolLevel == ProtocolLevelEnterprise {
+		// sedutil recommends setting a timeout for session on Enterprise protocol
+		// level. For normal Core devices I can't get it to work (INVALID_PARAMETER)
+		// so only do it for Enterprise drives for now.
+		mc.StartOptionalParameter(5, "SessionTimeout")
+		mc.UInt(30000 /* 30 sec */)
+		mc.EndOptionalParameter()
+	}
+
 	resp, err := cs.ExecuteMethod(mc)
 	if err != nil {
 		return nil, err
@@ -351,9 +391,9 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 
 // Fetch current Host and TPer properties, optionally changing the Host properties.
 func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerProperties, error) {
-	mc := NewMethodCall(InvokeIDSMU, MethodIDSMProperties)
+	mc := cs.NewMethodCall(InvokeIDSMU, MethodIDSMProperties)
 
-	mc.StartOptionalParameter(0) /* HostProperties */
+	mc.StartOptionalParameter(0, "HostProperties")
 	mc.StartList()
 	mc.NamedUInt("MaxMethods", rhp.MaxMethods)
 	mc.NamedUInt("MaxSubpackets", rhp.MaxSubpackets)
@@ -436,6 +476,10 @@ func (s *Session) Close() error {
 
 func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 	return mc.Execute(s.c, drive.SecurityProtocolTCGManagement, s)
+}
+
+func (s *Session) NewMethodCall(iid InvokingID, mid MethodID) *MethodCall {
+	return NewMethodCall(iid, mid, s.MethodFlags)
 }
 
 func parseTPerProperties(params []interface{}, tp *TPerProperties) error {
