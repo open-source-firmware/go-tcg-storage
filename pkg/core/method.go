@@ -98,12 +98,12 @@ func (m *MethodCall) EndList() {
 // Start an optional parameters group
 //
 // From "3.2.1.2 Method Signature Pseudo-code"
-// Optional parameters are submitted to the method invocation as Named value pairs.
-// The Name portion of the Named value pair SHALL be a uinteger. Starting at zero,
-// these uinteger values are assigned based on the ordering of the optional parameters
-// as defined in this document.
-//
-// TODO: Explain Enterprise usage
+// > Optional parameters are submitted to the method invocation as Named value pairs.
+// > The Name portion of the Named value pair SHALL be a uinteger. Starting at zero,
+// > these uinteger values are assigned based on the ordering of the optional parameters
+// > as defined in this document.
+// The above is true for Core 2.0 things like OpalV2 but not for e.g. Enterprise.
+// Thus, we provide a way for the code to switch between using uint or string.
 func (m *MethodCall) StartOptionalParameter(id uint, name string) {
 	m.depth++
 	m.buf.Write(stream.Token(stream.StartName))
@@ -206,6 +206,14 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 		return nil, err
 	}
 
+	// There are a couple of reasons why we might receive empty data from c.Receive.
+	//
+	// Most relevant is this one:
+	// "3.3.10.2.1 Restrictions (3.b)"
+	// > If the TPer has not sufficiently processed the command payload and prepared a
+	// > response, any IF-RECV command for that ComID SHALL receive a ComPacket with a
+	// > Length field value of zero (no payload), an OutstandingData field value of 0x01, and a
+	// > MinTransfer field value of zero.
 	for i := 100; i != 0; i-- {
 		resp, err = c.Receive(proto, ses)
 		if err != nil {
