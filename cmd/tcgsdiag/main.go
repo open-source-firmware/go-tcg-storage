@@ -204,9 +204,18 @@ func main() {
 
 	if msidPin != nil {
 		if err := table.ThisSP_Authenticate(s, tcg.AuthoritySID, msidPin); err != nil {
-			log.Printf("table.ThisSP_Authenticate failed: %v", err)
+			log.Printf("table.ThisSP_Authenticate (SID) failed: %v", err)
 		} else {
 			log.Printf("Successfully authenticated as Admin SID")
+		}
+	}
+
+	psidPin := os.Getenv("TCGSDIAG_PSID")
+	if psidPin != "" {
+		if err := table.ThisSP_Authenticate(s, tcg.AuthorityPSID, []byte(psidPin)); err != nil {
+			log.Printf("table.ThisSP_Authenticate (PSID) failed: %v", err)
+		} else {
+			log.Printf("Successfully authenticated as PSID SID")
 		}
 	}
 }
