@@ -52,15 +52,23 @@ type Locking struct {
 	MBRDone          bool
 }
 
+type CommonSSC struct {
+	BaseComID uint16
+	NumComID  uint16
+}
+
 type Geometry struct {
 	// TODO
 }
 type SecureMsg struct {
 	// TODO
 }
+
 type Enterprise struct {
-	// TODO
+	CommonSSC
+	RangeCrossingBehavior bool
 }
+
 type OpalV1 struct {
 	// TODO
 }
@@ -72,8 +80,8 @@ type DataStore struct {
 }
 
 type OpalV2 struct {
-	BaseComID                     uint16
-	NumComID                      uint16
+	CommonSSC
+	RangeCrossingBehavior         bool
 	NumLockingSPAdminSupported    uint16
 	NumLockingSPUserSupported     uint16
 	InitialCPINSIDIndicator       uint8
@@ -85,15 +93,15 @@ type Opalite struct {
 }
 
 type PyriteV1 struct {
-	BaseComID                     uint16
-	NumComID                      uint16
+	CommonSSC
+	_                             [4]byte
 	InitialCPINSIDIndicator       uint8
 	BehaviorCPINSIDuponTPerRevert uint8
 }
 
 type PyriteV2 struct {
-	BaseComID                     uint16
-	NumComID                      uint16
+	CommonSSC
+	_                             [4]byte
 	InitialCPINSIDIndicator       uint8
 	BehaviorCPINSIDuponTPerRevert uint8
 }
@@ -159,6 +167,9 @@ func ReadSecureMsgFeature(rdr io.Reader) (*SecureMsg, error) {
 
 func ReadEnterpriseFeature(rdr io.Reader) (*Enterprise, error) {
 	f := &Enterprise{}
+	if err := binary.Read(rdr, binary.BigEndian, f); err != nil {
+		return nil, err
+	}
 	return f, nil
 }
 

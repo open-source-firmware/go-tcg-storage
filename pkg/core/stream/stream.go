@@ -174,6 +174,10 @@ func EqualBytes(obj interface{}, b []byte) bool {
 }
 
 func EqualToken(obj interface{}, b TokenType) bool {
+	byt, ok := obj.([]byte)
+	if ok {
+		return bytes.Equal(byt, []byte{uint8(b)})
+	}
 	bd, ok := obj.(TokenType)
 	if !ok {
 		return false
