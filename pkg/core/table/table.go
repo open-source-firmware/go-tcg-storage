@@ -124,6 +124,33 @@ func GetFullRow(s *core.Session, row RowUID) (map[string]interface{}, error) {
 	return val, nil
 }
 
+func Enumerate(s *core.Session, table TableUID) ([]RowUID, error) {
+	mc := s.NewMethodCall(core.InvokingID(table), MethodIDNext)
+	resp, err := s.ExecuteMethod(mc)
+	if err != nil {
+		return nil, err
+	}
+	result, ok := resp[0].(stream.List)
+	if !ok {
+		return nil, core.ErrMalformedMethodResponse
+	}
+	uidrefs, ok := result[0].(stream.List)
+	if !ok {
+		return nil, core.ErrMalformedMethodResponse
+	}
+	res := []RowUID{}
+	for _, ur := range uidrefs {
+		br, ok := ur.([]byte)
+		if !ok || len(br) != 8 {
+			return nil, core.ErrMalformedMethodResponse
+		}
+		r := RowUID{}
+		copy(r[:], br)
+		res = append(res, r)
+	}
+	return res, nil
+}
+
 func parseGetResult(res stream.List) (map[string]interface{}, error) {
 	methodResult, ok := res[0].(stream.List)
 	if !ok {
