@@ -120,7 +120,7 @@ func main() {
 	spew.Dump(d0)
 	fmt.Printf("\n")
 
-	fmt.Printf("===> TCG SESSION\n")
+	fmt.Printf("===> TCG ADMIN SP SESSION\n")
 
 	cs := TestControlSession(d, d0, comID)
 	if cs == nil {
@@ -200,13 +200,27 @@ func main() {
 	llcs, err := table.Admin_SP_GetLifeCycleState(s, tcg.LockingSP)
 	if err == nil {
 		log.Printf("Life cycle state on Locking SP: %d", llcs)
+	} else {
+		llcs = -1
 	}
 
+	msidOk := false
 	if msidPin != nil {
 		if err := table.ThisSP_Authenticate(s, tcg.AuthoritySID, msidPin); err != nil {
 			log.Printf("table.ThisSP_Authenticate (SID) failed: %v", err)
 		} else {
 			log.Printf("Successfully authenticated as Admin SID")
+			msidOk = true
+		}
+		if llcs == 8 /* Manufactured-Inactive */ && os.Getenv("TCGSDIAG_ACTIVATE") != "" {
+			var MethodIDActivate tcg.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x02, 0x03}
+			mc := s.NewMethodCall(tcg.InvokingID(tcg.LockingSP), MethodIDActivate)
+			if _, err := s.ExecuteMethod(mc); err != nil {
+				log.Printf("LockingSP.Activate failed: %v", err)
+			} else {
+				log.Printf("Locking SP activated")
+				llcs = 9
+			}
 		}
 	}
 
@@ -216,6 +230,69 @@ func main() {
 			log.Printf("table.ThisSP_Authenticate (PSID) failed: %v", err)
 		} else {
 			log.Printf("Successfully authenticated as PSID SID")
+		}
+	}
+
+	log.Printf("Admin SP testing done")
+	s.Close()
+	sessions[0] = nil
+
+	fmt.Printf("\n")
+	fmt.Printf("===> TCG LOCKING SP SESSION\n")
+	if !msidOk {
+		log.Printf("SID is changed from MSID, will not continue")
+		return
+	}
+
+	if llcs == 8 /* Manufactured-Inactive */ {
+		log.Printf("Locking SP not activated")
+		return
+	}
+
+	auth := [8]byte{}
+	username := ""
+	if cs.ProtocolLevel == tcg.ProtocolLevelEnterprise {
+		s, err = cs.NewSession(tcg.EnterpriseLockingSP)
+		copy(auth[:], []byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x80, 0x01}) // BandMaster0
+		username = "BandMaster0"
+	} else {
+		s, err = cs.NewSession(tcg.LockingSP)
+		if os.Getenv("TCGSDIAG_AS_USER") == "" {
+			copy(auth[:], []byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x01, 0x00, 0x01}) // Admin1
+			username = "Admin1"
+		} else {
+			copy(auth[:], []byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x03, 0x00, 0x01}) // User1
+			username = "User1"
+		}
+	}
+	if err != nil {
+		log.Printf("Could not open Locking SP session: %v", err)
+		return
+	}
+	sessions[0] = s
+	if err := table.ThisSP_Authenticate(s, auth, msidPin); err != nil {
+		log.Printf("table.ThisSP_Authenticate (Locking SP, %s) failed: %v", username, err)
+		return
+	} else {
+		log.Printf("Successfully authenticated as %s", username)
+		msidOk = true
+	}
+
+	log.Printf("Locking SP LockingInfo:")
+	spew.Dump(table.LockingInfo(s))
+
+	lockList, err := table.Locking_Enumerate(s)
+	if err != nil {
+		log.Printf("table.Locking_Enumerate failed: %v", err)
+	} else {
+		log.Printf("Locking regions:")
+		for _, luid := range lockList {
+			lr, err := table.Locking_Get(s, luid)
+			if err != nil {
+				spew.Printf("Region %v: <UNKNOWN> (%v)\n", hex.EncodeToString(luid[:]), err)
+			} else {
+				spew.Printf("Region %v: %+v\n", hex.EncodeToString(luid[:]), lr)
+			}
 		}
 	}
 }
