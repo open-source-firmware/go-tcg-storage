@@ -25,6 +25,7 @@ var (
 	ErrInvalidPropertiesResponse   = errors.New("response was not the expected Properties call format")
 	ErrInvalidStartSessionResponse = errors.New("response was not the expected SyncSession format")
 	ErrPropertiesCallFailed        = errors.New("the properties call returned non-zero")
+	ErrSessionAlreadyClosed        = errors.New("the session has been closed by us")
 
 	InvokeIDSMU InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF}
 
@@ -71,6 +72,7 @@ type Session struct {
 	ProtocolLevel  ProtocolLevel
 	d              DriveIntf
 	c              CommunicationIntf
+	closed         bool
 	ComID          ComID
 	TSN, HSN       int
 	// See "3.2.3.3.1.2 SeqNumber"
@@ -463,6 +465,10 @@ func (cs *ControlSession) Close() error {
 }
 
 func (s *Session) Close() error {
+	if s.closed {
+		return ErrSessionAlreadyClosed
+	}
+	s.closed = true
 	if err := s.c.Send(drive.SecurityProtocolTCGManagement, s, stream.Token(stream.EndOfSession)); err != nil {
 		return err
 	}
@@ -477,6 +483,9 @@ func (s *Session) Close() error {
 }
 
 func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
+	if s.closed {
+		return nil, ErrSessionAlreadyClosed
+	}
 	return mc.Execute(s.c, drive.SecurityProtocolTCGManagement, s)
 }
 
