@@ -214,7 +214,7 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 	// > response, any IF-RECV command for that ComID SHALL receive a ComPacket with a
 	// > Length field value of zero (no payload), an OutstandingData field value of 0x01, and a
 	// > MinTransfer field value of zero.
-	for i := 100; i != 0; i-- {
+	for i := 100; i >= 0; i-- {
 		resp, err = c.Receive(proto, ses)
 		if err != nil {
 			return nil, err
