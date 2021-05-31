@@ -27,8 +27,10 @@ var (
 	Table_ColumnUID uint = 0
 
 	MethodIDEnterpriseGet          core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x06}
+	MethodIDEnterpriseSet          core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x07}
 	MethodIDGetACL                 core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x0D}
 	MethodIDGet                    core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x16}
+	MethodIDSet                    core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x17}
 	MethodIDNext                   core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x08}
 	MethodIDAuthenticate           core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x1C}
 	MethodIDEnterpriseAuthenticate core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x0C}
@@ -195,4 +197,35 @@ func parseRowValues(rv stream.List) (map[string]interface{}, error) {
 		}
 	}
 	return res, nil
+}
+
+func NewSetCall(s *core.Session, row RowUID) *core.MethodCall {
+	setUID := core.MethodID{}
+	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
+		copy(setUID[:], MethodIDEnterpriseSet[:])
+	} else {
+		copy(setUID[:], MethodIDSet[:])
+	}
+	mc := s.NewMethodCall(core.InvokingID(row), setUID)
+	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
+		// The two first arguments in ESET are required, and RowValues has an extra list
+		mc.StartList()
+		mc.EndList()
+		mc.StartList()
+		mc.StartList()
+	} else {
+		mc.StartOptionalParameter(1, "Values")
+		mc.StartList()
+	}
+	return mc
+}
+
+func FinishSetCall(s *core.Session, mc *core.MethodCall) {
+	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
+		mc.EndList()
+		mc.EndList()
+	} else {
+		mc.EndList()
+		mc.EndOptionalParameter()
+	}
 }

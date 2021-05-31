@@ -31,8 +31,9 @@ type LockingSP struct {
 	Ranges      []*Range // Ranges[0] == GlobalRange
 
 	// These are always false on SSC Enterprise
-	MBREnabled bool
-	MBRDone    bool
+	MBREnabled     bool
+	MBRDone        bool
+	MBRDoneOnReset []table.ResetType
 }
 
 func (l *LockingSP) Close() error {
@@ -122,8 +123,12 @@ func NewSession(cs *core.ControlSession, lmeta *LockingSPMeta, auth LockingSPAut
 
 	l := &LockingSP{Session: s}
 
+	// TODO: These can be read from the LockingSP instead, it would be cleaner
+	// to not have to drag D0 in the SPMeta.
 	l.MBRDone = lmeta.D0.Locking.MBRDone
 	l.MBREnabled = lmeta.D0.Locking.MBREnabled
+	// TODO: Set MBRDoneOnReset to real value
+	l.MBRDoneOnReset = []table.ResetType{table.ResetPowerOff}
 
 	if err := fillRanges(s, l); err != nil {
 		return nil, err
@@ -271,4 +276,9 @@ func initializeOpalFamily(s *core.Session, d0 *core.Level0Discovery, ic *initial
 
 	// TODO: lockdown
 	return nil
+}
+
+func (l *LockingSP) SetMBRDone(v bool) error {
+	mbr := &table.MBRControl{Done: &v}
+	return table.MBRControl_Set(l.Session, mbr)
 }

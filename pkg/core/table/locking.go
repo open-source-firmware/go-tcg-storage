@@ -15,12 +15,19 @@ var (
 	Locking_LockingTable            = TableUID{0x00, 0x00, 0x08, 0x02, 0x00, 0x00, 0x00, 0x00}
 	LockingInfoObj           RowUID = [8]byte{0x00, 0x00, 0x08, 0x01, 0x00, 0x00, 0x00, 0x01}
 	EnterpriseLockingInfoObj RowUID = [8]byte{0x00, 0x00, 0x08, 0x01, 0x00, 0x00, 0x00, 0x00}
+	MBRControlObj            RowUID = [8]byte{0x00, 0x00, 0x08, 0x03, 0x00, 0x00, 0x00, 0x01}
 )
 
 type EncryptSupport uint
 type KeysAvailableConds uint
 
 type ResetType uint
+
+const (
+	ResetPowerOff ResetType = 0
+	ResetHardware ResetType = 1
+	ResetHotPlug  ResetType = 2
+)
 
 type LockingInfoRow struct {
 	UID                  RowUID
@@ -251,4 +258,84 @@ func Locking_Get(s *core.Session, row RowUID) (*LockingRow, error) {
 		}
 	}
 	return &lr, nil
+}
+
+func Locking_Set(s *core.Session, row *LockingRow) error {
+	mc := NewSetCall(s, row.UID)
+
+	if row.Name != nil {
+		mc.StartOptionalParameter(1, "Name")
+		mc.Bytes([]byte(*row.Name))
+		mc.EndOptionalParameter()
+	}
+
+	// TODO: Add these columns
+	//mc.StartOptionalParameter(3, "RangeStart")
+	//mc.StartOptionalParameter(4, "RangeLength")
+	//mc.StartOptionalParameter(5, "ReadLockEnabled")
+	//mc.StartOptionalParameter(6, "WriteLockEnabled")
+
+	if row.ReadLockEnabled != nil {
+		mc.StartOptionalParameter(5, "ReadLockEnabled")
+		mc.Bool(*row.ReadLockEnabled)
+		mc.EndOptionalParameter()
+	}
+	if row.WriteLockEnabled != nil {
+		mc.StartOptionalParameter(6, "WriteLockEnabled")
+		mc.Bool(*row.WriteLockEnabled)
+		mc.EndOptionalParameter()
+	}
+	if row.ReadLocked != nil {
+		mc.StartOptionalParameter(7, "ReadLocked")
+		mc.Bool(*row.ReadLocked)
+		mc.EndOptionalParameter()
+	}
+
+	if row.WriteLocked != nil {
+		mc.StartOptionalParameter(8, "WriteLocked")
+		mc.Bool(*row.WriteLocked)
+		mc.EndOptionalParameter()
+	}
+
+	// TODO: Add these columns
+	//mc.StartOptionalParameter(8, "WriteLocked")
+	//mc.StartOptionalParameter(9, "LockOnReset")
+	//mc.StartOptionalParameter(10, "ActiveKey")
+
+	FinishSetCall(s, mc)
+	_, err := s.ExecuteMethod(mc)
+	return err
+}
+
+type MBRControl struct {
+	Enable         *bool
+	Done           *bool
+	MBRDoneOnReset *[]ResetType
+}
+
+func MBRControl_Set(s *core.Session, row *MBRControl) error {
+	mc := NewSetCall(s, MBRControlObj)
+
+	if row.Enable != nil {
+		mc.StartOptionalParameter(1, "Enable")
+		mc.Bool(*row.Enable)
+		mc.EndOptionalParameter()
+	}
+	if row.Done != nil {
+		mc.StartOptionalParameter(2, "Done")
+		mc.Bool(*row.Done)
+		mc.EndOptionalParameter()
+	}
+	if row.MBRDoneOnReset != nil {
+		mc.StartOptionalParameter(3, "MBRDoneOnReset")
+		mc.StartList()
+		for _, x := range *row.MBRDoneOnReset {
+			mc.UInt(uint(x))
+		}
+		mc.EndList()
+		mc.EndOptionalParameter()
+	}
+	FinishSetCall(s, mc)
+	_, err := s.ExecuteMethod(mc)
+	return err
 }

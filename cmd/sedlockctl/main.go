@@ -27,7 +27,12 @@ func main() {
 	flag.Parse()
 
 	if flag.NArg() == 0 {
-		fmt.Printf("Usage: %s [-flags ..] device\n", os.Args[0])
+		fmt.Printf("Usage: %s [-flags ..] device [verb...]\n", os.Args[0])
+		fmt.Printf("\nVerbs:\n")
+		fmt.Printf("  list               List all ranges (default)\n")
+		fmt.Printf("  unlock-all         Unlocks all ranges completely\n")
+		fmt.Printf("  lock-all           Lock all ranges completely\n")
+		fmt.Printf("  mbr-done on|off    Sets the MBRDone property (hide/show Shadow MBR)\n")
 		return
 	}
 	d, err := drive.Open(flag.Arg(0))
@@ -95,6 +100,37 @@ func main() {
 	}
 	defer l.Close()
 
+	args := flag.Args()[1:]
+	verb := "list"
+	if len(args) > 0 {
+		verb = args[0]
+	}
+	switch verb {
+	case "list":
+		list(l)
+	case "unlock-all":
+		unlockAll(l)
+	case "lock-all":
+		lockAll(l)
+	case "mbr-done":
+		if len(args) < 2 {
+			log.Fatalf("Missing argument to mbr-done verb")
+		}
+		var v bool
+		if args[1] == "on" {
+			v = true
+		} else if args[1] == "off" {
+			v = false
+		} else {
+			log.Fatalf("Argument %q is not 'on' or 'off'", args[1])
+		}
+		setMBRDone(l, v)
+	default:
+		log.Fatalf("Unknown verb %q", verb)
+	}
+}
+
+func list(l *locking.LockingSP) {
 	if len(l.Ranges) == 0 {
 		log.Fatalf("No available locking ranges as this user\n")
 	}
@@ -113,6 +149,40 @@ func main() {
 				strr += " [read locked]"
 			}
 		}
+		if r == l.GlobalRange {
+			strr += " [global]"
+		}
+		if r.Name != nil {
+			strr += fmt.Sprintf(" [name=%q]", *r.Name)
+		}
 		fmt.Printf("Range %3d: %s\n", i, strr)
+	}
+}
+
+func unlockAll(l *locking.LockingSP) {
+	for i, r := range l.Ranges {
+		if err := r.UnlockRead(); err != nil {
+			log.Printf("Read unlock range %d failed: %v", i, err)
+		}
+		if err := r.UnlockWrite(); err != nil {
+			log.Printf("Write unlock range %d failed: %v", i, err)
+		}
+	}
+}
+
+func lockAll(l *locking.LockingSP) {
+	for i, r := range l.Ranges {
+		if err := r.LockRead(); err != nil {
+			log.Printf("Read lock range %d failed: %v", i, err)
+		}
+		if err := r.LockWrite(); err != nil {
+			log.Printf("Write lock range %d failed: %v", i, err)
+		}
+	}
+}
+
+func setMBRDone(l *locking.LockingSP, v bool) {
+	if err := l.SetMBRDone(v); err != nil {
+		log.Fatalf("SetMBRDone failed: %v", err)
 	}
 }
