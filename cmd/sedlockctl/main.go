@@ -16,6 +16,8 @@ import (
 
 var (
 	sidPIN      = flag.String("sid", "", "PIN to authenticate to the AdminSP as SID")
+	sidPINMSID  = flag.Bool("try-sid-msid", false, "Try to use the MSID as PIN to authenticate to the AdminSP in addition to other methods")
+	sidPINHash  = flag.String("sid-hash", "sedutil-dta", "If set, transform the SID PIN using the specified hash function")
 	user        = flag.String("user", "", "Username to authenticate to the LockingSP (admin1 or bandmaster0 is the default)")
 	userPIN     = flag.String("password", "", "PIN used to authenticate ot the LockingSP (MSID is the default)")
 	userPINHash = flag.String("hash", "sedutil-dta", "If set, transform the PIN using the specified hash function")
@@ -39,14 +41,32 @@ func main() {
 	}
 	sn := string(snRaw)
 
-	cs, lmeta, err := locking.Initialize(d)
+	spin := []byte{}
+	if *sidPIN != "" {
+		switch *sidPINHash {
+		case "sedutil-dta":
+			spin = HashSedutilDTA(*sidPIN, sn)
+		default:
+			log.Fatalf("Unknown hash method %q", *sidPINHash)
+		}
+	}
+
+	initOps := []locking.InitializeOpt{}
+	if len(spin) > 0 {
+		initOps = append(initOps, locking.WithAuth(locking.DefaultAdminAuthority(spin)))
+	}
+	if *sidPINMSID {
+		initOps = append(initOps, locking.WithAuth(locking.DefaultAuthorityWithMSID))
+	}
+
+	cs, lmeta, err := locking.Initialize(d, initOps...)
 	if err != nil {
 		log.Fatalf("locking.Initalize: %v", err)
 	}
 	defer cs.Close()
 
 	var auth locking.LockingSPAuthenticator
-	pin := lmeta.MSID
+	pin := []byte{}
 	if *userPIN != "" {
 		switch *userPINHash {
 		case "sedutil-dta":
@@ -62,7 +82,11 @@ func main() {
 			log.Fatalf("Authority %q is not known for this device", *user)
 		}
 	} else {
-		auth = locking.DefaultAuthority(pin)
+		if len(pin) == 0 {
+			auth = locking.DefaultAuthorityWithMSID
+		} else {
+			auth = locking.DefaultAuthority(pin)
+		}
 	}
 
 	l, err := locking.NewSession(cs, lmeta, auth)

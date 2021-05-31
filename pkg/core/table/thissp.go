@@ -7,10 +7,15 @@
 package table
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/bluecmd/go-tcg-storage/pkg/core"
 	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
+)
+
+var (
+	ErrAuthenticationFailed = errors.New("authentication failed")
 )
 
 func ThisSP_Random(s *core.Session, count uint) ([]byte, error) {
@@ -60,7 +65,7 @@ func ThisSP_Authenticate(s *core.Session, authority core.AuthorityObjectUID, pro
 		return core.ErrMalformedMethodResponse
 	}
 	if success == 0 {
-		return fmt.Errorf("authentication failed")
+		return ErrAuthenticationFailed
 	}
 	return nil
 }

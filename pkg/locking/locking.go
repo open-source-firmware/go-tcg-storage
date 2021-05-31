@@ -47,15 +47,34 @@ type LockingSPAuthenticator interface {
 }
 
 var (
-	DefaultAuthorityWithMSID = &defLockingAuthority{}
+	DefaultAuthorityWithMSID = &authority{}
 )
 
-type defLockingAuthority struct {
+type authority struct {
 	auth  []byte
 	proof []byte
 }
 
-func (a *defLockingAuthority) AuthenticateLockingSP(s *core.Session, lmeta *LockingSPMeta) error {
+func (a *authority) AuthenticateAdminSP(s *core.Session) error {
+	var auth core.AuthorityObjectUID
+	if len(a.auth) == 0 {
+		copy(auth[:], core.AuthoritySID[:])
+	} else {
+		copy(auth[:], a.auth)
+	}
+	if len(a.proof) == 0 {
+		// TODO: Verify with C_PIN behavior and Block SID
+		msidPin, err := table.Admin_C_PIN_MSID_GetPIN(s)
+		if err != nil {
+			return err
+		}
+		return table.ThisSP_Authenticate(s, auth, msidPin)
+	} else {
+		return table.ThisSP_Authenticate(s, auth, a.proof)
+	}
+}
+
+func (a *authority) AuthenticateLockingSP(s *core.Session, lmeta *LockingSPMeta) error {
 	var auth core.AuthorityObjectUID
 	if len(a.auth) == 0 {
 		if s.ProtocolLevel == core.ProtocolLevelEnterprise {
@@ -76,11 +95,15 @@ func (a *defLockingAuthority) AuthenticateLockingSP(s *core.Session, lmeta *Lock
 	}
 }
 
-func DefaultAuthority(proof []byte) *defLockingAuthority {
-	return &defLockingAuthority{proof: proof}
+func DefaultAuthority(proof []byte) *authority {
+	return &authority{proof: proof}
 }
 
-func AuthorityFromName(user string, proof []byte) (*defLockingAuthority, bool) {
+func DefaultAdminAuthority(proof []byte) *authority {
+	return &authority{proof: proof}
+}
+
+func AuthorityFromName(user string, proof []byte) (*authority, bool) {
 	return nil, false
 }
 
@@ -115,9 +138,9 @@ type initializeConfig struct {
 	activate bool
 }
 
-type InitializeOpts func(ic *initializeConfig)
+type InitializeOpt func(ic *initializeConfig)
 
-func WithAuth(auth AdminSPAuthenticator) InitializeOpts {
+func WithAuth(auth AdminSPAuthenticator) InitializeOpt {
 	return func(ic *initializeConfig) {
 		ic.auths = append(ic.auths, auth)
 	}
@@ -163,7 +186,7 @@ type LockingSPMeta struct {
 	D0   *core.Level0Discovery
 }
 
-func Initialize(d core.DriveIntf, opts ...InitializeOpts) (*core.ControlSession, *LockingSPMeta, error) {
+func Initialize(d core.DriveIntf, opts ...InitializeOpt) (*core.ControlSession, *LockingSPMeta, error) {
 	var ic initializeConfig
 	for _, o := range opts {
 		o(&ic)
@@ -188,10 +211,19 @@ func Initialize(d core.DriveIntf, opts ...InitializeOpts) (*core.ControlSession,
 	}
 	defer as.Close()
 
-	// TODO:
-	//if err := auth.Authenticate(s); err != nil {
-	//	return nil, fmt.Errorf("admin authentication failed: %v", err)
-	//}
+	err = nil
+	for _, x := range ic.auths {
+		if err = x.AuthenticateAdminSP(as); err == table.ErrAuthenticationFailed {
+			continue
+		}
+		if err != nil {
+			return nil, nil, err
+		}
+		break
+	}
+	if err != nil {
+		return nil, nil, fmt.Errorf("all authentications failed")
+	}
 
 	if proto == core.ProtocolLevelEnterprise {
 		copy(lmeta.SPID[:], core.EnterpriseLockingSP[:])
