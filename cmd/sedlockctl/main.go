@@ -5,22 +5,39 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"os"
 
 	"github.com/bluecmd/go-tcg-storage/pkg/drive"
 	"github.com/bluecmd/go-tcg-storage/pkg/locking"
-	"github.com/davecgh/go-spew/spew"
+)
+
+var (
+	sidPIN      = flag.String("sid", "", "PIN to authenticate to the AdminSP as SID")
+	user        = flag.String("user", "", "Username to authenticate to the LockingSP (admin1 or bandmaster0 is the default)")
+	userPIN     = flag.String("password", "", "PIN used to authenticate ot the LockingSP (MSID is the default)")
+	userPINHash = flag.String("hash", "sedutil-dta", "If set, transform the PIN using the specified hash function")
 )
 
 func main() {
-	spew.Config.Indent = "  "
+	flag.Parse()
 
-	d, err := drive.Open(os.Args[1])
+	if flag.NArg() == 0 {
+		fmt.Printf("Usage: %s [-flags ..] device\n", os.Args[0])
+		return
+	}
+	d, err := drive.Open(flag.Arg(0))
 	if err != nil {
 		log.Fatalf("drive.Open: %v", err)
 	}
 	defer d.Close()
+	snRaw, err := d.SerialNumber()
+	if err != nil {
+		log.Fatalf("drive.SerialNumber: %v", err)
+	}
+	sn := string(snRaw)
 
 	cs, lmeta, err := locking.Initialize(d)
 	if err != nil {
@@ -28,10 +45,49 @@ func main() {
 	}
 	defer cs.Close()
 
-	l, err := locking.NewSession(cs, lmeta, locking.DefaultAuthority)
+	var auth locking.LockingSPAuthenticator
+	pin := lmeta.MSID
+	if *userPIN != "" {
+		switch *userPINHash {
+		case "sedutil-dta":
+			pin = HashSedutilDTA(*userPIN, sn)
+		default:
+			log.Fatalf("Unknown hash method %q", *userPINHash)
+		}
+	}
+	if *user != "" {
+		var ok bool
+		auth, ok = locking.AuthorityFromName(*user, pin)
+		if !ok {
+			log.Fatalf("Authority %q is not known for this device", *user)
+		}
+	} else {
+		auth = locking.DefaultAuthority(pin)
+	}
+
+	l, err := locking.NewSession(cs, lmeta, auth)
 	if err != nil {
 		log.Fatalf("locking.NewSession: %v", err)
 	}
 	defer l.Close()
-	spew.Dump(l.Ranges)
+
+	if len(l.Ranges) == 0 {
+		log.Fatalf("No available locking ranges as this user\n")
+	}
+	for i, r := range l.Ranges {
+		strr := "whole disk"
+		if r.End > 0 {
+			strr = fmt.Sprintf("%d to %d", r.Start, r.End)
+		}
+		if !r.WriteLockEnabled && !r.ReadLockEnabled {
+			strr = "disabled"
+		}
+		if r.WriteLocked {
+			strr += "[write locked]"
+		}
+		if r.ReadLocked {
+			strr += "[read locked]"
+		}
+		fmt.Printf("Range %3d: %s\n", i, strr)
+	}
 }

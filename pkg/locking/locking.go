@@ -47,23 +47,41 @@ type LockingSPAuthenticator interface {
 }
 
 var (
-	DefaultAuthority = &defLockingAuthority{}
+	DefaultAuthorityWithMSID = &defLockingAuthority{}
 )
 
 type defLockingAuthority struct {
+	auth  []byte
+	proof []byte
 }
 
 func (a *defLockingAuthority) AuthenticateLockingSP(s *core.Session, lmeta *LockingSPMeta) error {
 	var auth core.AuthorityObjectUID
-	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
-		copy(auth[:], LockingAuthorityBandMaster0[:])
+	if len(a.auth) == 0 {
+		if s.ProtocolLevel == core.ProtocolLevelEnterprise {
+			copy(auth[:], LockingAuthorityBandMaster0[:])
+		} else {
+			copy(auth[:], LockingAuthorityAdmin1[:])
+		}
 	} else {
-		copy(auth[:], LockingAuthorityAdmin1[:])
+		copy(auth[:], a.auth)
 	}
-	if len(lmeta.MSID) == 0 {
-		return fmt.Errorf("authentication via MSID disabled")
+	if len(a.proof) == 0 {
+		if len(lmeta.MSID) == 0 {
+			return fmt.Errorf("authentication via MSID disabled")
+		}
+		return table.ThisSP_Authenticate(s, auth, lmeta.MSID)
+	} else {
+		return table.ThisSP_Authenticate(s, auth, a.proof)
 	}
-	return table.ThisSP_Authenticate(s, auth, lmeta.MSID)
+}
+
+func DefaultAuthority(proof []byte) *defLockingAuthority {
+	return &defLockingAuthority{proof: proof}
+}
+
+func AuthorityFromName(user string, proof []byte) (*defLockingAuthority, bool) {
+	return nil, false
 }
 
 func NewSession(cs *core.ControlSession, lmeta *LockingSPMeta, auth LockingSPAuthenticator, opts ...core.SessionOpt) (*LockingSP, error) {
