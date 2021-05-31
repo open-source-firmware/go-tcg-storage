@@ -28,6 +28,7 @@ type driveIntf interface {
 	IFSend(proto SecurityProtocol, sps uint16, data []byte) error
 
 	Identify() (string, error)
+	SerialNumber() ([]byte, error)
 
 	Close() error
 }

@@ -87,6 +87,14 @@ func (d *nvmeDrive) Identify() (string, error) {
 	return i.String(), err
 }
 
+func (d *nvmeDrive) SerialNumber() ([]byte, error) {
+	i, err := identifyNvme(d.fd)
+	if err != nil {
+		return nil, err
+	}
+	return i.SerialNumber[:], nil
+}
+
 func (d *nvmeDrive) Close() error {
 	return os.NewFile(d.fd, "").Close()
 }

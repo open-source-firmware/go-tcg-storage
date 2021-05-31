@@ -42,6 +42,14 @@ func (d *scsiDrive) Identify() (string, error) {
 	return "Protocol=SCSI, " + id.String(), nil
 }
 
+func (d *scsiDrive) SerialNumber() ([]byte, error) {
+	id, err := sgio.SCSIInquiry(d.fd)
+	if err != nil {
+		return nil, err
+	}
+	return id.SerialNumber[:], nil
+}
+
 func (d *scsiDrive) Close() error {
 	return os.NewFile(d.fd, "").Close()
 }

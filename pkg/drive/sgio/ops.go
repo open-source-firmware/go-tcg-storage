@@ -39,20 +39,20 @@ const (
 // SCSI INQUIRY response
 type InquiryResponse struct {
 	Peripheral   byte // peripheral qualifier, device type
-	_            byte
 	Version      byte
-	_            [5]byte
-	VendorIdent  [8]byte
-	ProductIdent [16]byte
-	ProductRev   [4]byte
+	VendorIdent  []byte
+	ProductIdent []byte
+	ProductRev   []byte
+	SerialNumber []byte
 }
 
 func (inq InquiryResponse) String() string {
-	return fmt.Sprintf("Type=0x%x, Vendor=%s, Product=%s, Revision=%s",
+	return fmt.Sprintf("Type=0x%x, Vendor=%s, Product=%s, Serial=%s, Revision=%s",
 		inq.Peripheral,
-		strings.TrimSpace(string(inq.VendorIdent[:])),
-		strings.TrimSpace(string(inq.ProductIdent[:])),
-		strings.TrimSpace(string(inq.ProductRev[:])))
+		strings.TrimSpace(string(inq.VendorIdent)),
+		strings.TrimSpace(string(inq.ProductIdent)),
+		strings.TrimSpace(string(inq.SerialNumber)),
+		strings.TrimSpace(string(inq.ProductRev)))
 }
 
 // ATA IDENTFY DEVICE response
@@ -82,25 +82,61 @@ func (id IdentifyDeviceResponse) String() string {
 }
 
 // INQUIRY - Returns parsed inquiry data.
-func SCSIInquiry(fd uintptr) (InquiryResponse, error) {
-	var resp InquiryResponse
-
+func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 	respBuf := make([]byte, 36)
 
 	cdb := CDB6{SCSI_INQUIRY}
 	binary.BigEndian.PutUint16(cdb[3:], uint16(len(respBuf)))
 
 	if err := SendCDB(fd, cdb[:], CDBFromDevice, &respBuf); err != nil {
-		return resp, err
+		return nil, err
 	}
 
-	binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &resp)
+	inqHdr := struct {
+		Peripheral   byte // peripheral qualifier, device type
+		_            byte
+		Version      byte
+		_            [5]byte
+		VendorIdent  [8]byte
+		ProductIdent [16]byte
+		ProductRev   [4]byte
+	}{}
 
-	return resp, nil
+	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &inqHdr); err != nil {
+		return nil, err
+	}
+
+	cdb = CDB6{SCSI_INQUIRY}
+	cdb[1] = 0x1 /* Request VPD page 0x80 for serial number */
+	cdb[2] = 0x80
+	binary.BigEndian.PutUint16(cdb[3:], uint16(len(respBuf)))
+
+	if err := SendCDB(fd, cdb[:], CDBFromDevice, &respBuf); err != nil {
+		return nil, err
+	}
+
+	snHdr := struct {
+		_      [3]byte
+		Length byte
+	}{}
+	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &snHdr); err != nil {
+		return nil, err
+	}
+
+	resp := InquiryResponse{
+		Peripheral:   inqHdr.Peripheral,
+		Version:      inqHdr.Version,
+		VendorIdent:  inqHdr.VendorIdent[:],
+		ProductIdent: inqHdr.ProductIdent[:],
+		ProductRev:   inqHdr.ProductRev[:],
+		SerialNumber: respBuf[4 : 4+snHdr.Length],
+	}
+
+	return &resp, nil
 }
 
 // ATA Passthrough via SCSI (which is what Linux uses for all ATA these days)
-func ATAIdentify(fd uintptr) (IdentifyDeviceResponse, error) {
+func ATAIdentify(fd uintptr) (*IdentifyDeviceResponse, error) {
 	var resp IdentifyDeviceResponse
 
 	respBuf := make([]byte, 512)
@@ -112,12 +148,14 @@ func ATAIdentify(fd uintptr) (IdentifyDeviceResponse, error) {
 	cdb[9] = ATA_IDENTIFY_DEVICE
 
 	if err := SendCDB(fd, cdb[:], CDBFromDevice, &respBuf); err != nil {
-		return resp, err
+		return nil, err
 	}
 
-	binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &resp)
+	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &resp); err != nil {
+		return nil, err
+	}
 
-	return resp, nil
+	return &resp, nil
 }
 
 // SCSI MODE SENSE(6) - Returns the raw response
