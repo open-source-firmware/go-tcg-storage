@@ -17,6 +17,14 @@ Supported (or planned) standards:
 
 Need support for another standard? Let us know by filing a feature request!
 
+## Tools
+
+ * [sedlockctl](cmd/sedlockctl/README.md) is a tool that helps you manage SED/TCG drives.<br>
+   Install it: `go install github.com/bluecmd/go-tcg-storage/cmd/sedlockctl@main`
+
+ * [tcgsdiag](cmd/tcgsdiag/README.md) lets you list a whole lot of diagnostic information about TCG drives.<br>
+   Install it: `go install github.com/bluecmd/go-tcg-storage/cmd/tcgsdiag@main`
+
 ## Supported Transports
 
 The following transports are supported by the library:
