@@ -87,4 +87,41 @@ func main() {
 
 ### Locking Library
 
-TODO, See https://github.com/bluecmd/go-tcg-storage/issues/18
+The most minimal example looks something like this:
+
+```go
+
+import (
+	"github.com/bluecmd/go-tcg-storage/pkg/drive"
+	"github.com/bluecmd/go-tcg-storage/pkg/locking"
+)
+
+func main() {
+	cs, lmeta, err := locking.Initialize(d)
+	defer cs.Close()
+	l, err := locking.NewSession(cs, lmeta, locking.DefaultAuthorityWithMSID)
+	defer l.Close()
+	fmt.Printf("Authenticated user has %d locking ranges", len(l.Ranges))
+}
+```
+
+A slightly more realistic example looks like this:
+```go
+
+import (
+	"github.com/bluecmd/go-tcg-storage/pkg/drive"
+	"github.com/bluecmd/go-tcg-storage/pkg/locking"
+)
+
+func main() {
+        password := []byte{} /* Password for Admin1 or BandMaster0 */
+	cs, lmeta, err := locking.Initialize(d,
+		locking.WithAuth(locking.DefaultAuthorityWithMSID)
+		locking.WithTakeOwnership(password),
+		locking.WithHardening())
+	defer cs.Close()
+	l, err := locking.NewSession(cs, lmeta, locking.DefaultAuthority(password))
+	defer l.Close()
+	fmt.Printf("Authenticated user has %d locking ranges", len(l.Ranges))
+}
+```
