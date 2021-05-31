@@ -164,17 +164,8 @@ func findComID(d core.DriveIntf, d0 *core.Level0Discovery) (core.ComID, core.Pro
 	}
 
 	autoComID, err := core.GetComID(d)
-	if err == nil {
+	if err == nil && autoComID > 0 {
 		comID = autoComID
-	}
-
-	valid, err := core.IsComIDValid(d, comID)
-	if err != nil {
-		return core.ComIDInvalid, core.ProtocolLevelUnknown, fmt.Errorf("comID validation failed: %v", err)
-	}
-
-	if !valid {
-		return core.ComIDInvalid, core.ProtocolLevelUnknown, fmt.Errorf("allocated comID was not valid")
 	}
 
 	return comID, proto, nil
@@ -200,9 +191,12 @@ func Initialize(d core.DriveIntf, opts ...InitializeOpt) (*core.ControlSession, 
 	lmeta.D0 = d0
 
 	comID, proto, err := findComID(d, d0)
+	if err != nil {
+		return nil, nil, err
+	}
 	cs, err := core.NewControlSession(d, d0, core.WithComID(comID))
 	if err != nil {
-		return nil, nil, fmt.Errorf("failed to create control session: %v", err)
+		return nil, nil, fmt.Errorf("failed to create control session (comID 0x%04x): %v", comID, err)
 	}
 
 	as, err := cs.NewSession(core.AdminSP)
