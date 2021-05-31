@@ -236,9 +236,6 @@ func Initialize(d core.DriveIntf, opts ...InitializeOpt) (*core.ControlSession, 
 			return nil, nil, err
 		}
 	}
-
-	// TODO: Take ownership
-
 	return cs, lmeta, nil
 }
 
@@ -247,6 +244,7 @@ func initializeEnterprise(s *core.Session, d0 *core.Level0Discovery, ic *initial
 	if err == nil {
 		lmeta.MSID = msidPin
 	}
+	// TODO: Take ownership
 	// TODO: lockdown
 	return nil
 }
@@ -257,6 +255,7 @@ func initializeOpalFamily(s *core.Session, d0 *core.Level0Discovery, ic *initial
 	if err == nil {
 		lmeta.MSID = msidPin
 	}
+	// TODO: Take ownership (*before* Activate to ensure that the PINs are copied)
 	lcs, err := table.Admin_SP_GetLifeCycleState(s, core.LockingSP)
 	if err != nil {
 		return err
