@@ -8,8 +8,13 @@ plugins:
     - prepareCmd: "make build-release"
   - - "@semantic-release/github"
     - assets:
+        - path: "sedlockctl.linux.amd64"
+          label: "sedlockctl (Linux AMD64)"
+        - path: "sedlockctl.linux.arm64"
+          label: "sedlockctl (Linux ARM64)"
         - path: "tcgsdiag.linux.amd64"
           label: "tcgsdiag (Linux AMD64)"
         - path: "tcgsdiag.linux.arm64"
           label: "tcgsdiag (Linux ARM64)"
+
 
