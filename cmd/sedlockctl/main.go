@@ -105,12 +105,13 @@ func main() {
 		}
 		if !r.WriteLockEnabled && !r.ReadLockEnabled {
 			strr = "disabled"
-		}
-		if r.WriteLocked {
-			strr += "[write locked]"
-		}
-		if r.ReadLocked {
-			strr += "[read locked]"
+		} else {
+			if r.WriteLocked {
+				strr += " [write locked]"
+			}
+			if r.ReadLocked {
+				strr += " [read locked]"
+			}
 		}
 		fmt.Printf("Range %3d: %s\n", i, strr)
 	}
