@@ -4,5 +4,5 @@ go 1.15
 
 require (
 	github.com/davecgh/go-spew v1.1.1
-	golang.org/x/sys v0.0.0-20210525143221-35b2ab0089ea
+	golang.org/x/sys v0.0.0-20210531080801-fdfd190a6549
 )
