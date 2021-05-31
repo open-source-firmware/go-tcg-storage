@@ -51,8 +51,9 @@ var (
 type ProtocolLevel uint
 
 const (
-	ProtocolLevelEnterprise = 1
-	ProtocolLevelCore       = 2
+	ProtocolLevelUnknown    ProtocolLevel = 0
+	ProtocolLevelEnterprise ProtocolLevel = 1
+	ProtocolLevelCore       ProtocolLevel = 2
 )
 
 func (p *ProtocolLevel) String() string {
