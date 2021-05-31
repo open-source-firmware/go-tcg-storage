@@ -22,16 +22,16 @@ func main() {
 	}
 	defer d.Close()
 
-	cs, spid, err := locking.Initialize(d)
+	cs, lmeta, err := locking.Initialize(d)
 	if err != nil {
 		log.Fatalf("locking.Initalize: %v", err)
 	}
 	defer cs.Close()
 
-	l, err := locking.NewSession(cs, spid, locking.DefaultAuthority)
+	l, err := locking.NewSession(cs, lmeta, locking.DefaultAuthority)
 	if err != nil {
 		log.Fatalf("locking.NewSession: %v", err)
 	}
 	defer l.Close()
-	spew.Dump(l)
+	spew.Dump(l.Ranges)
 }

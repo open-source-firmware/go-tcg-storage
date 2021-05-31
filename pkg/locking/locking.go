@@ -18,22 +18,32 @@ var (
 	LifeCycleStateManufactured         table.LifeCycleState = 9
 
 	LockingAuthorityBandMaster0 core.AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x80, 0x01}
-	LockingAuthorityAdmin1      core.AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x01}
+	LockingAuthorityAdmin1      core.AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x01, 0x00, 0x01}
 )
 
-type Range struct {
-}
-
-type Locking struct {
+type LockingSP struct {
 	Session *core.Session
+	// All authorities that have been discovered on the SP.
+	// This will likely be only the authenticated UID unless authorized as an Admin
+	Authorities map[string]core.AuthorityObjectUID
+	// The full range of Ranges (heh!) that the current session has access to see and possibly modify
+	GlobalRange *Range
+	Ranges      []*Range // Ranges[0] == GlobalRange
+
+	// These are always false on SSC Enterprise
+	MBREnabled bool
+	MBRDone    bool
 }
 
-func (l *Locking) Close() error {
+func (l *LockingSP) Close() error {
 	return l.Session.Close()
 }
 
-type Authenticator interface {
-	Authenticate(s *core.Session) error
+type AdminSPAuthenticator interface {
+	AuthenticateAdminSP(s *core.Session) error
+}
+type LockingSPAuthenticator interface {
+	AuthenticateLockingSP(s *core.Session, lmeta *LockingSPMeta) error
 }
 
 var (
@@ -43,65 +53,53 @@ var (
 type defLockingAuthority struct {
 }
 
-func (a *defLockingAuthority) Authenticate(s *core.Session) error {
+func (a *defLockingAuthority) AuthenticateLockingSP(s *core.Session, lmeta *LockingSPMeta) error {
 	var auth core.AuthorityObjectUID
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
-		// BandMaster0
 		copy(auth[:], LockingAuthorityBandMaster0[:])
 	} else {
-		// Admin1
 		copy(auth[:], LockingAuthorityAdmin1[:])
 	}
-	msidPin, err := msidWithSanity(s)
-	if err != nil {
-		return err
+	if len(lmeta.MSID) == 0 {
+		return fmt.Errorf("authentication via MSID disabled")
 	}
-	return table.ThisSP_Authenticate(s, auth, msidPin)
+	return table.ThisSP_Authenticate(s, auth, lmeta.MSID)
 }
 
-func msidWithSanity(s *core.Session) ([]byte, error) {
-	// TODO: Fail if C_PIN behavior is not MSID
-	// TODO: Fail if Block SID is enabled
-	return table.Admin_C_PIN_MSID_GetPIN(s)
-}
-
-func NewSession(cs *core.ControlSession, spid core.SPID, auth Authenticator, opts ...core.SessionOpt) (*Locking, error) {
-	s, err := cs.NewSession(spid, opts...)
+func NewSession(cs *core.ControlSession, lmeta *LockingSPMeta, auth LockingSPAuthenticator, opts ...core.SessionOpt) (*LockingSP, error) {
+	if lmeta.D0.Locking == nil {
+		return nil, fmt.Errorf("device does not have the Locking feature")
+	}
+	s, err := cs.NewSession(lmeta.SPID, opts...)
 	if err != nil {
 		return nil, fmt.Errorf("session creation failed: %v", err)
 	}
 
-	if err := auth.Authenticate(s); err != nil {
+	if err := auth.AuthenticateLockingSP(s, lmeta); err != nil {
 		return nil, fmt.Errorf("authentication failed: %v", err)
 	}
 
-	l := &Locking{Session: s}
+	l := &LockingSP{Session: s}
 
-	lockList, err := table.Locking_Enumerate(s)
-	if err != nil {
-		return nil, fmt.Errorf("enumerate ranges failed: %v", err)
-	}
-	fmt.Printf("Locking regions:")
-	for _, luid := range lockList {
-		lr, err := table.Locking_Get(s, luid)
-		if err != nil {
-			fmt.Printf("Region %v: <UNKNOWN> (%v)\n", luid[:], err)
-		} else {
-			fmt.Printf("Region %v: %+v\n", luid[:], lr)
-		}
+	l.MBRDone = lmeta.D0.Locking.MBRDone
+	l.MBREnabled = lmeta.D0.Locking.MBREnabled
+
+	if err := fillRanges(s, l); err != nil {
+		return nil, err
 	}
 
+	// TODO: Fill l.Authorities
 	return l, nil
 }
 
 type initializeConfig struct {
-	auths    []Authenticator
+	auths    []AdminSPAuthenticator
 	activate bool
 }
 
 type InitializeOpts func(ic *initializeConfig)
 
-func WithAuth(auth Authenticator) InitializeOpts {
+func WithAuth(auth AdminSPAuthenticator) InitializeOpts {
 	return func(ic *initializeConfig) {
 		ic.auths = append(ic.auths, auth)
 	}
@@ -141,27 +139,34 @@ func findComID(d core.DriveIntf, d0 *core.Level0Discovery) (core.ComID, core.Pro
 	return comID, proto, nil
 }
 
-func Initialize(d core.DriveIntf, opts ...InitializeOpts) (*core.ControlSession, core.SPID, error) {
+type LockingSPMeta struct {
+	SPID core.SPID
+	MSID []byte
+	D0   *core.Level0Discovery
+}
+
+func Initialize(d core.DriveIntf, opts ...InitializeOpts) (*core.ControlSession, *LockingSPMeta, error) {
 	var ic initializeConfig
 	for _, o := range opts {
 		o(&ic)
 	}
 
-	var spid core.SPID
+	lmeta := &LockingSPMeta{}
 	d0, err := core.Discovery0(d)
 	if err != nil {
-		return nil, spid, fmt.Errorf("discovery feiled: %v", err)
+		return nil, nil, fmt.Errorf("discovery feiled: %v", err)
 	}
+	lmeta.D0 = d0
 
 	comID, proto, err := findComID(d, d0)
 	cs, err := core.NewControlSession(d, d0, core.WithComID(comID))
 	if err != nil {
-		return nil, spid, fmt.Errorf("failed to create control session: %v", err)
+		return nil, nil, fmt.Errorf("failed to create control session: %v", err)
 	}
 
 	as, err := cs.NewSession(core.AdminSP)
 	if err != nil {
-		return nil, spid, fmt.Errorf("admin session creation failed: %v", err)
+		return nil, nil, fmt.Errorf("admin session creation failed: %v", err)
 	}
 	defer as.Close()
 
@@ -171,28 +176,37 @@ func Initialize(d core.DriveIntf, opts ...InitializeOpts) (*core.ControlSession,
 	//}
 
 	if proto == core.ProtocolLevelEnterprise {
-		copy(spid[:], core.EnterpriseLockingSP[:])
-		if err := initializeEnterprise(as, d0, &ic); err != nil {
-			return nil, spid, err
+		copy(lmeta.SPID[:], core.EnterpriseLockingSP[:])
+		if err := initializeEnterprise(as, d0, &ic, lmeta); err != nil {
+			return nil, nil, err
 		}
 	} else {
-		copy(spid[:], core.LockingSP[:])
-		if err := initializeOpalFamily(as, d0, &ic); err != nil {
-			return nil, spid, err
+		copy(lmeta.SPID[:], core.LockingSP[:])
+		if err := initializeOpalFamily(as, d0, &ic, lmeta); err != nil {
+			return nil, nil, err
 		}
 	}
 
 	// TODO: Take ownership
 
-	return cs, spid, nil
+	return cs, lmeta, nil
 }
 
-func initializeEnterprise(s *core.Session, d0 *core.Level0Discovery, ic *initializeConfig) error {
+func initializeEnterprise(s *core.Session, d0 *core.Level0Discovery, ic *initializeConfig, lmeta *LockingSPMeta) error {
+	msidPin, err := table.Admin_C_PIN_MSID_GetPIN(s)
+	if err == nil {
+		lmeta.MSID = msidPin
+	}
 	// TODO: lockdown
 	return nil
 }
 
-func initializeOpalFamily(s *core.Session, d0 *core.Level0Discovery, ic *initializeConfig) error {
+func initializeOpalFamily(s *core.Session, d0 *core.Level0Discovery, ic *initializeConfig, lmeta *LockingSPMeta) error {
+	// TODO: Verify with C_PIN behavior and Block SID
+	msidPin, err := table.Admin_C_PIN_MSID_GetPIN(s)
+	if err == nil {
+		lmeta.MSID = msidPin
+	}
 	lcs, err := table.Admin_SP_GetLifeCycleState(s, core.LockingSP)
 	if err != nil {
 		return err
