@@ -5,5 +5,5 @@ go 1.15
 require (
 	github.com/davecgh/go-spew v1.1.1
 	golang.org/x/crypto v0.0.0-20210513164829-c07d793c2f9a
-	golang.org/x/sys v0.0.0-20210531080801-fdfd190a6549
+	golang.org/x/sys v0.0.0-20210601080250-7ecdf8ef093b
 )
