@@ -32,6 +32,7 @@ const (
 	CodeNamespaceLocking  FeatureCode = 0x0403
 	CodeDataRemoval       FeatureCode = 0x0404
 	CodeNamespaceGeometry FeatureCode = 0x0405
+	CodeSeagatePorts      FeatureCode = 0xC001
 )
 
 type TPer struct {
@@ -112,9 +113,15 @@ type RubyV1 struct {
 type LockingLBA struct {
 	// TODO
 }
+
 type BlockSID struct {
-	// TODO
+	LockingSPFreezeLockState      bool
+	LockingSPFreezeLockSupported  bool
+	SIDAuthenticationBlockedState bool
+	SIDValueState                 bool
+	HardwareReset                 bool
 }
+
 type NamespaceLocking struct {
 	// TODO
 }
@@ -123,6 +130,15 @@ type DataRemoval struct {
 }
 type NamespaceGeometry struct {
 	// TODO
+}
+
+type SeagatePort struct {
+	PortIdentifier int32
+	PortLocked     uint8
+}
+
+type SeagatePorts struct {
+	Ports []SeagatePort
 }
 
 func ReadTPerFeature(rdr io.Reader) (*TPer, error) {
@@ -229,6 +245,18 @@ func ReadLockingLBAFeature(rdr io.Reader) (*LockingLBA, error) {
 
 func ReadBlockSIDFeature(rdr io.Reader) (*BlockSID, error) {
 	f := &BlockSID{}
+	var raw uint8
+	if err := binary.Read(rdr, binary.BigEndian, &raw); err != nil {
+		return nil, err
+	}
+	f.SIDValueState = raw&0x1 > 0
+	f.SIDAuthenticationBlockedState = raw&0x2 > 0
+	f.LockingSPFreezeLockSupported = raw&0x4 > 0
+	f.LockingSPFreezeLockState = raw&0x8 > 0
+	if err := binary.Read(rdr, binary.BigEndian, &raw); err != nil {
+		return nil, err
+	}
+	f.HardwareReset = raw&0x1 > 0
 	return f, nil
 }
 
@@ -244,5 +272,28 @@ func ReadDataRemovalFeature(rdr io.Reader) (*DataRemoval, error) {
 
 func ReadNamespaceGeometryFeature(rdr io.Reader) (*NamespaceGeometry, error) {
 	f := &NamespaceGeometry{}
+	return f, nil
+}
+
+func ReadSeagatePorts(rdr io.Reader) (*SeagatePorts, error) {
+	f := &SeagatePorts{}
+	for {
+		p := SeagatePort{}
+		d := struct {
+			Ident int32
+			State uint8
+			_     [3]byte
+		}{}
+		if err := binary.Read(rdr, binary.BigEndian, &d); err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+
+		p.PortIdentifier = d.Ident
+		p.PortLocked = d.State
+		f.Ports = append(f.Ports, p)
+	}
 	return f, nil
 }
