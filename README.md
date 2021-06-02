@@ -133,3 +133,16 @@ func main() {
 	fmt.Printf("Authenticated user has %d locking ranges", len(l.Ranges))
 }
 ```
+
+## Tested drives
+
+These drives have been found to work without issues
+
+| Manufacturer | Model | Transport | Features |
+|--------------|-------|-----------|----------|
+| Seagate | Momentus Thin (ST500LT015) | SATA | Opal v2 |
+| Seagate | 7E2000 (ST2000NX0343) | SAS3 | Enterprise |
+| Samsung | SSD 860 | SATA | Opal v2 |
+| Samsung | SSD 970 EVO Plus | NVMe | Opal v2 |
+| Samsung | PM983 (MZ1LB1T9HALS) | NVMe | Opal v2 |
+| Sabrent | Rocket 4.0 2TB | NVMe | Pyrite V2 |
