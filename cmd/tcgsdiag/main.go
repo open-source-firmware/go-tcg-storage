@@ -102,7 +102,7 @@ func main() {
 	log.Printf("SecurityProtocols: %+v", spl)
 	crt, err := drive.Certificate(d)
 	if err != nil {
-		log.Fatalf("drive.Certificate: %v", err)
+		log.Printf("drive.Certificate: %v", err)
 	}
 	log.Printf("Drive certificate:")
 	spew.Dump(crt)

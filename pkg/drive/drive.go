@@ -60,8 +60,8 @@ func SecurityProtocols(d driveIntf) ([]SecurityProtocol, error) {
 }
 
 // Returns the X.509 security certificate from the drive.
-func Certificate(d driveIntf) (*x509.Certificate, error) {
-	raw := make([]byte, 2048)
+func Certificate(d driveIntf) ([]*x509.Certificate, error) {
+	raw := make([]byte, 4096)
 	if err := d.IFRecv(SecurityProtocolInformation, 1, &raw); err != nil {
 		return nil, err
 	}
@@ -80,5 +80,5 @@ func Certificate(d driveIntf) (*x509.Certificate, error) {
 	if n, err := buf.Read(crtdata); n != int(hdr.Size) || err != nil {
 		return nil, fmt.Errorf("failed to read certificate: error (%v) or underrun", err)
 	}
-	return x509.ParseCertificate(crtdata)
+	return x509.ParseCertificates(crtdata)
 }
