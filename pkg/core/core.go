@@ -60,6 +60,7 @@ type Level0Discovery struct {
 	NamespaceLocking  *feature.NamespaceLocking
 	DataRemoval       *feature.DataRemoval
 	NamespaceGeometry *feature.NamespaceGeometry
+	SeagatePorts      *feature.SeagatePorts
 	UnknownFeatures   []uint16
 }
 
@@ -199,6 +200,8 @@ func Discovery0(d DriveIntf) (*Level0Discovery, error) {
 			d0.DataRemoval, err = feature.ReadDataRemovalFeature(frdr)
 		case feature.CodeNamespaceGeometry:
 			d0.NamespaceGeometry, err = feature.ReadNamespaceGeometryFeature(frdr)
+		case feature.CodeSeagatePorts:
+			d0.SeagatePorts, err = feature.ReadSeagatePorts(frdr)
 		default:
 			// Unsupported feature
 			d0.UnknownFeatures = append(d0.UnknownFeatures, uint16(fhdr.Code))
