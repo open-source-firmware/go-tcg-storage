@@ -42,6 +42,8 @@ Need another transport? You can do one of two things:
 
 The library consists of multiple libraries in order to abstract
 away the functionallity the library user does not need to care about.
+The library does not rely on the in-kernel implementation of
+TCG Opal[[1](https://github.com/torvalds/linux/commit/455a7b238cd6bc68c4a550cbbd37c1e22b64f71c)].
 
 The most low-level interface is the `drive` interface that implements
 the `IF-SEND` and `IF-RECV` functions that the TCG Storage standards
