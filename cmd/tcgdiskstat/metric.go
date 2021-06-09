@@ -28,6 +28,11 @@ func outputMetrics(state Devices) {
 			"Info metric regarding the detected drives",
 			[]string{"device", "model", "serial", "firmware", "protocol"}, nil,
 		)
+		mTCGSupported = prometheus.NewDesc(
+			"tcg_storage_supported",
+			"Boolean describing whether a drive supports any TCG storage standards",
+			[]string{"device"}, nil,
+		)
 		mSSCSupported = prometheus.NewDesc(
 			"tcg_storage_ssc_supported",
 			"Boolean describing whether a particular SSC is supported by the drive or not",
@@ -54,6 +59,17 @@ func outputMetrics(state Devices) {
 		mc.m = append(mc.m,
 			prometheus.MustNewConstMetric(mDriveInfo, prometheus.GaugeValue, 1,
 				s.Device, s.Identity.Model, s.Identity.SerialNumber, s.Identity.Firmware, s.Identity.Protocol))
+		sup := float64(0)
+		if s.Level0 != nil {
+			sup = 1
+		}
+		mc.m = append(mc.m, prometheus.MustNewConstMetric(mTCGSupported, prometheus.GaugeValue, sup, s.Device))
+
+		// This is how far we can make it without a successful Level0 discovery
+		if s.Level0 == nil {
+			continue
+		}
+
 		for _, ssc := range sscFeatures(s.Level0) {
 			mc.m = append(mc.m,
 				prometheus.MustNewConstMetric(mSSCSupported, prometheus.GaugeValue, 1,
