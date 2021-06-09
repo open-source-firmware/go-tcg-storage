@@ -92,8 +92,12 @@ func main() {
 		outputJSON(state)
 	} else if *outputFmt == "openmetrics" {
 		outputMetrics(state)
-	} else {
+	} else if *outputFmt == "table" {
 		outputTable(state)
+	} else {
+		fmt.Printf("Unsupported output format %q\n", *outputFmt)
+		flag.Usage()
+		os.Exit(2)
 	}
 }
 
