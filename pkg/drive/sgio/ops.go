@@ -36,8 +36,40 @@ const (
 	SCSI_SECURITY_OUT     = 0xb5
 )
 
+type SCSIProtocol int
+
+func (p SCSIProtocol) String() string {
+	switch p {
+	case 0:
+		return "FC"
+	case 2:
+		return "SSA-S3P"
+	case 3:
+		return "SBP"
+	case 4:
+		return "SRP"
+	case 5:
+		return "iSCSI"
+	case 6:
+		return "SAS"
+	case 7:
+		return "ADT"
+	case 8:
+		return "ACS"
+	case 9:
+		return "SCSI/USB"
+	case 10:
+		return "SCSI/PCIe"
+	case 11:
+		return "PCIe"
+	default:
+		return "SCSI/Unknown"
+	}
+}
+
 // SCSI INQUIRY response
 type InquiryResponse struct {
+	Protocol     SCSIProtocol
 	Peripheral   byte // peripheral qualifier, device type
 	Version      byte
 	VendorIdent  []byte
@@ -106,6 +138,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 		return nil, err
 	}
 
+	respBuf = make([]byte, 128)
 	cdb = CDB6{SCSI_INQUIRY}
 	cdb[1] = 0x1 /* Request VPD page 0x80 for serial number */
 	cdb[2] = 0x80
@@ -122,16 +155,42 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &snHdr); err != nil {
 		return nil, err
 	}
+	sn := respBuf[4 : 4+snHdr.Length]
 
+	respBuf = make([]byte, 128)
+	cdb = CDB6{SCSI_INQUIRY}
+	cdb[1] = 0x1 /* Request VPD page 0x83 for device ID */
+	cdb[2] = 0x83
+	binary.BigEndian.PutUint16(cdb[3:], uint16(len(respBuf)))
+
+	if err := SendCDB(fd, cdb[:], CDBFromDevice, &respBuf); err != nil {
+		return nil, err
+	}
+
+	didlen := binary.BigEndian.Uint16(respBuf[2:4])
+	did := respBuf[4 : didlen+4]
+	proto := SCSIProtocol(-1)
+	for {
+		if len(did) == 0 {
+			break
+		}
+		l := did[3]
+		part := did[:l+4]
+		piv := part[1]&0x80 > 0
+		if piv {
+			proto = SCSIProtocol(part[0] >> 4)
+		}
+		did = did[l+4:]
+	}
 	resp := InquiryResponse{
+		Protocol:     proto,
 		Peripheral:   inqHdr.Peripheral,
 		Version:      inqHdr.Version,
 		VendorIdent:  inqHdr.VendorIdent[:],
 		ProductIdent: inqHdr.ProductIdent[:],
 		ProductRev:   inqHdr.ProductRev[:],
-		SerialNumber: respBuf[4 : 4+snHdr.Length],
+		SerialNumber: sn,
 	}
-
 	return &resp, nil
 }
 
