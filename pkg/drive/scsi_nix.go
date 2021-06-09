@@ -5,7 +5,9 @@
 package drive
 
 import (
+	"fmt"
 	"os"
+	"strings"
 
 	"github.com/bluecmd/go-tcg-storage/pkg/drive/sgio"
 )
@@ -34,12 +36,21 @@ func (d *scsiDrive) IFSend(proto SecurityProtocol, sps uint16, data []byte) erro
 	return err
 }
 
-func (d *scsiDrive) Identify() (string, error) {
+func (d *scsiDrive) Identify() (*Identity, error) {
 	id, err := sgio.SCSIInquiry(d.fd)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return "Protocol=SCSI, " + id.String(), nil
+
+	m := fmt.Sprintf("%s %s",
+		strings.TrimSpace(string(id.VendorIdent)),
+		strings.TrimSpace(string(id.ProductIdent)))
+	return &Identity{
+		Protocol:     "SCSI", // TODO: More in depth?
+		Model:        m,
+		Firmware:     strings.TrimSpace(string(id.ProductRev)),
+		SerialNumber: strings.TrimSpace(string(id.SerialNumber)),
+	}, nil
 }
 
 func (d *scsiDrive) SerialNumber() ([]byte, error) {

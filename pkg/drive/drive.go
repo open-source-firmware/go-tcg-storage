@@ -23,11 +23,23 @@ const (
 	SecurityProtocolTCGTPer       SecurityProtocol = 2
 )
 
+type Identity struct {
+	Protocol     string
+	SerialNumber string
+	Model        string
+	Firmware     string
+}
+
+func (i *Identity) String() string {
+	return fmt.Sprintf("Protocol=%s, Model=%s, Serial=%s, Firmware=%s",
+		i.Protocol, i.Model, i.SerialNumber, i.Firmware)
+}
+
 type driveIntf interface {
 	IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) error
 	IFSend(proto SecurityProtocol, sps uint16, data []byte) error
 
-	Identify() (string, error)
+	Identify() (*Identity, error)
 	SerialNumber() ([]byte, error)
 
 	Close() error

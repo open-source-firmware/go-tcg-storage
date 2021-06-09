@@ -7,7 +7,6 @@ package drive
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"os"
 	"strings"
 	"unsafe"
@@ -79,12 +78,17 @@ func (d *nvmeDrive) IFSend(proto SecurityProtocol, sps uint16, data []byte) erro
 	return ioctl.Ioctl(d.fd, NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
 }
 
-func (d *nvmeDrive) Identify() (string, error) {
+func (d *nvmeDrive) Identify() (*Identity, error) {
 	i, err := identifyNvme(d.fd)
 	if err != nil {
-		return "", err
+		return nil, err
 	}
-	return i.String(), err
+	return &Identity{
+		Protocol:     "NVMe",
+		Model:        strings.TrimSpace(string(i.ModelNumber[:])),
+		SerialNumber: strings.TrimSpace(string(i.SerialNumber[:])),
+		Firmware:     strings.TrimSpace(string(i.Firmware[:])),
+	}, nil
 }
 
 func (d *nvmeDrive) SerialNumber() ([]byte, error) {
@@ -111,13 +115,6 @@ type nvmeIdentity struct {
 	Firmware     [8]byte
 }
 
-func (i *nvmeIdentity) String() string {
-	return fmt.Sprintf("Protocol=NVMe, Model=%s, Serial=%s, Revision=%s",
-		strings.TrimSpace(string(i.ModelNumber[:])),
-		strings.TrimSpace(string(i.SerialNumber[:])),
-		strings.TrimSpace(string(i.Firmware[:])))
-}
-
 func identifyNvme(fd uintptr) (*nvmeIdentity, error) {
 	raw := make([]byte, 4096)
 
@@ -142,6 +139,7 @@ func identifyNvme(fd uintptr) (*nvmeIdentity, error) {
 	if err := binary.Read(buf, binary.LittleEndian, &info); err != nil {
 		return nil, err
 	}
+
 	return &info, nil
 }
 
