@@ -16,5 +16,7 @@ plugins:
           label: "tcgsdiag (Linux AMD64)"
         - path: "tcgsdiag.linux.arm64"
           label: "tcgsdiag (Linux ARM64)"
-
-
+        - path: "tcgdiskstat.linux.amd64"
+          label: "tcgdiskstat (Linux AMD64)"
+        - path: "tcgdiskstat.linux.arm64"
+          label: "tcgdiskstat (Linux ARM64)"

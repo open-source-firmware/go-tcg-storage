@@ -25,6 +25,10 @@ Need support for another standard? Let us know by filing a feature request!
  * [tcgsdiag](cmd/tcgsdiag/README.md) lets you list a whole lot of diagnostic information about TCG drives.<br>
    Install it: `go install github.com/bluecmd/go-tcg-storage/cmd/tcgsdiag@main`
 
+ * [tcgdiskstat](cmd/tcgdiskstat/README.md) is like `blkid` or `lsscsi` but for TCG drives.<br>
+   Install it: `go install github.com/bluecmd/go-tcg-storage/cmd/tcgdiskstat@main`
+
+
 ## Supported Transports
 
 The following transports are supported by the library:
