@@ -16,7 +16,7 @@ import (
 )
 
 var (
-	outputFmt = flag.String("output", "table", "Output format; one of [table, json]")
+	outputFmt = flag.String("output", "table", "Output format; one of [table, json, openmetrics]")
 	noHeader  = flag.Bool("no-header", false, "Supress the header in table format output")
 )
 
@@ -77,8 +77,9 @@ func main() {
 		if err != nil {
 			if err != tcg.ErrNotSupported {
 				log.Printf("tcg.Discovery0(%s): %v", devpath, err)
+				continue
 			}
-			continue
+			d0 = nil
 		}
 		state = append(state, DeviceState{
 			Device:   devpath,
@@ -89,6 +90,8 @@ func main() {
 
 	if *outputFmt == "json" {
 		outputJSON(state)
+	} else if *outputFmt == "openmetrics" {
+		outputMetrics(state)
 	} else {
 		outputTable(state)
 	}
@@ -102,6 +105,32 @@ func outputJSON(state Devices) {
 	os.Stdout.Write(b)
 }
 
+func sscFeatures(l0 *tcg.Level0Discovery) []string {
+	feat := []string{}
+	if l0.Enterprise != nil {
+		feat = append(feat, "Enterprise")
+	}
+	if l0.OpalV1 != nil {
+		feat = append(feat, "Opal 1")
+	}
+	if l0.OpalV2 != nil {
+		feat = append(feat, "Opal 2")
+	}
+	if l0.Opalite != nil {
+		feat = append(feat, "Opalite")
+	}
+	if l0.PyriteV1 != nil {
+		feat = append(feat, "Pyrite 1")
+	}
+	if l0.PyriteV2 != nil {
+		feat = append(feat, "Pyrite 2")
+	}
+	if l0.RubyV1 != nil {
+		feat = append(feat, "Ruby 1")
+	}
+	return feat
+}
+
 func outputTable(state Devices) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	if *noHeader == false {
@@ -109,54 +138,38 @@ func outputTable(state Devices) {
 	}
 	for _, s := range state {
 		feat := []string{}
-		if s.Level0.Enterprise != nil {
-			feat = append(feat, "Enterprise")
-		}
-		if s.Level0.OpalV1 != nil {
-			feat = append(feat, "Opal 1")
-		}
-		if s.Level0.OpalV2 != nil {
-			feat = append(feat, "Opal 2")
-		}
-		if s.Level0.Opalite != nil {
-			feat = append(feat, "Opalite")
-		}
-		if s.Level0.PyriteV1 != nil {
-			feat = append(feat, "Pyrite 1")
-		}
-		if s.Level0.PyriteV2 != nil {
-			feat = append(feat, "Pyrite 2")
-		}
-		if s.Level0.RubyV1 != nil {
-			feat = append(feat, "Ruby 1")
-		}
-
 		state := ""
-		if l := s.Level0.Locking; l != nil {
-			if l.LockingEnabled {
-				state += "L"
-			} else if l.LockingSupported {
-				state += "l"
-			}
+		if s.Level0 != nil {
+			feat = sscFeatures(s.Level0)
+			if l := s.Level0.Locking; l != nil {
+				if l.LockingEnabled {
+					state += "L"
+				} else if l.LockingSupported {
+					state += "l"
+				}
 
-			if l.MBREnabled {
-				if l.MBRDone {
-					state += "m"
-				} else {
-					state += "M"
+				if l.MBREnabled {
+					if l.MBRDone {
+						state += "m"
+					} else {
+						state += "M"
+					}
+				}
+				if l.MediaEncryption {
+					state += "E"
 				}
 			}
-			if l.MediaEncryption {
-				state += "E"
+			if b := s.Level0.BlockSID; b != nil {
+				if !b.SIDValueState {
+					state += "P"
+				}
+				if b.SIDAuthenticationBlockedState {
+					state += "!"
+				}
 			}
-		}
-		if b := s.Level0.BlockSID; b != nil {
-			if !b.SIDValueState {
-				state += "P"
-			}
-			if b.SIDAuthenticationBlockedState {
-				state += "!"
-			}
+		} else {
+			state = "-"
+			feat = []string{"-"}
 		}
 
 		fmt.Fprint(w,
