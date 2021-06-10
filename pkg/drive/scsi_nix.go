@@ -5,6 +5,7 @@
 package drive
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"strings"
@@ -42,11 +43,21 @@ func (d *scsiDrive) Identify() (*Identity, error) {
 		return nil, err
 	}
 
-	m := fmt.Sprintf("%s %s",
-		strings.TrimSpace(string(id.VendorIdent)),
-		strings.TrimSpace(string(id.ProductIdent)))
+	m := ""
+	protocol := ""
+	if bytes.Equal(id.VendorIdent, []byte("ATA     ")) {
+		// SCSI ATA Translation (SAT)
+		protocol = "SATA"
+		m = strings.TrimSpace(string(id.ProductIdent))
+	} else {
+		protocol = id.Protocol.String()
+		m = fmt.Sprintf("%s %s",
+			strings.TrimSpace(string(id.VendorIdent)),
+			strings.TrimSpace(string(id.ProductIdent)))
+	}
+
 	return &Identity{
-		Protocol:     "SCSI", // TODO: More in depth?
+		Protocol:     protocol,
 		Model:        m,
 		Firmware:     strings.TrimSpace(string(id.ProductRev)),
 		SerialNumber: strings.TrimSpace(string(id.SerialNumber)),
