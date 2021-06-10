@@ -157,7 +157,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 	}
 	sn := respBuf[4 : 4+snHdr.Length]
 
-	respBuf = make([]byte, 128)
+	respBuf = make([]byte, 2048)
 	cdb = CDB6{SCSI_INQUIRY}
 	cdb[1] = 0x1 /* Request VPD page 0x83 for device ID */
 	cdb[2] = 0x83
