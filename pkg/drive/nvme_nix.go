@@ -7,7 +7,7 @@ package drive
 import (
 	"bytes"
 	"encoding/binary"
-	"os"
+	"runtime"
 	"strings"
 	"unsafe"
 
@@ -49,7 +49,7 @@ type nvmePassthruCommand struct {
 type nvmeAdminCommand nvmePassthruCommand
 
 type nvmeDrive struct {
-	fd uintptr
+	fd FdIntf
 }
 
 func (d *nvmeDrive) IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) error {
@@ -62,7 +62,9 @@ func (d *nvmeDrive) IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) err
 		cdw11:    uint32(len(*data)),
 	}
 
-	return ioctl.Ioctl(d.fd, NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
+	err := ioctl.Ioctl(d.fd.Fd(), NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
+	runtime.KeepAlive(d.fd)
+	return err
 }
 
 func (d *nvmeDrive) IFSend(proto SecurityProtocol, sps uint16, data []byte) error {
@@ -75,7 +77,9 @@ func (d *nvmeDrive) IFSend(proto SecurityProtocol, sps uint16, data []byte) erro
 		cdw11:    uint32(len(data)),
 	}
 
-	return ioctl.Ioctl(d.fd, NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
+	err := ioctl.Ioctl(d.fd.Fd(), NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
+	runtime.KeepAlive(d.fd)
+	return err
 }
 
 func (d *nvmeDrive) Identify() (*Identity, error) {
@@ -100,11 +104,13 @@ func (d *nvmeDrive) SerialNumber() ([]byte, error) {
 }
 
 func (d *nvmeDrive) Close() error {
-	return os.NewFile(d.fd, "").Close()
+	return d.fd.Close()
 }
 
 func NVMEDrive(fd FdIntf) *nvmeDrive {
-	return &nvmeDrive{fd: fd.Fd()}
+	// Save the full object reference to avoid the underlying File-like object
+	// to be GC'd
+	return &nvmeDrive{fd: fd}
 }
 
 type nvmeIdentity struct {
@@ -115,7 +121,7 @@ type nvmeIdentity struct {
 	Firmware     [8]byte
 }
 
-func identifyNvme(fd uintptr) (*nvmeIdentity, error) {
+func identifyNvme(fd FdIntf) (*nvmeIdentity, error) {
 	raw := make([]byte, 4096)
 
 	cmd := nvmePassthruCommand{
@@ -127,7 +133,8 @@ func identifyNvme(fd uintptr) (*nvmeIdentity, error) {
 	}
 
 	// TODO: Replace with https://go-review.googlesource.com/c/sys/+/318210/ if accepted
-	err := ioctl.Ioctl(fd, NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
+	err := ioctl.Ioctl(fd.Fd(), NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
+	runtime.KeepAlive(fd)
 	if err != nil {
 		return nil, err
 	}
@@ -144,6 +151,6 @@ func identifyNvme(fd uintptr) (*nvmeIdentity, error) {
 }
 
 func isNVME(f FdIntf) bool {
-	i, err := identifyNvme(f.Fd())
+	i, err := identifyNvme(f)
 	return err == nil && i != nil
 }

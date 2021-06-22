@@ -6,4 +6,5 @@ package drive
 
 type FdIntf interface {
 	Fd() uintptr
+	Close() error
 }
