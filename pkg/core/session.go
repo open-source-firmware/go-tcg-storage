@@ -252,6 +252,15 @@ func NewControlSession(d DriveIntf, d0 *Level0Discovery, opts ...ControlSessionO
 
 	// Set preferred options
 	rhp := InitialHostProperties
+	// Technically we should be able to advertise 0 here and the disk should pick
+	// for us, but that results in small values being picked in practice.
+	rhp.MaxComPacketSize = 1024 * 1024 // 1 MiB for good measure
+	rhp.MaxPacketSize = rhp.MaxComPacketSize - 20
+	rhp.MaxIndTokenSize = rhp.MaxComPacketSize - 20 - 24 - 12
+	rhp.MaxAggTokenSize = rhp.MaxComPacketSize - 20 - 24 - 12
+	rhp.MaxSubpackets = 1024
+	rhp.MaxPackets = 1024
+
 	// TODO: These are not fully implemented yet, so let's not advertise them
 	//rhp.SequenceNumbers = true
 	//rhp.AckNak = true
