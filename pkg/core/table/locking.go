@@ -7,15 +7,20 @@
 package table
 
 import (
+	"errors"
+
 	"github.com/bluecmd/go-tcg-storage/pkg/core"
 	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
 )
 
 var (
 	Locking_LockingTable            = TableUID{0x00, 0x00, 0x08, 0x02, 0x00, 0x00, 0x00, 0x00}
+	Locking_MBRTable                = TableUID{0x00, 0x00, 0x08, 0x04, 0x00, 0x00, 0x00, 0x00}
 	LockingInfoObj           RowUID = [8]byte{0x00, 0x00, 0x08, 0x01, 0x00, 0x00, 0x00, 0x01}
 	EnterpriseLockingInfoObj RowUID = [8]byte{0x00, 0x00, 0x08, 0x01, 0x00, 0x00, 0x00, 0x00}
 	MBRControlObj            RowUID = [8]byte{0x00, 0x00, 0x08, 0x03, 0x00, 0x00, 0x00, 0x01}
+
+	ErrMBRNotSupproted = errors.New("drive does not support MBR")
 )
 
 type EncryptSupport uint
@@ -338,4 +343,110 @@ func MBRControl_Set(s *core.Session, row *MBRControl) error {
 	FinishSetCall(s, mc)
 	_, err := s.ExecuteMethod(mc)
 	return err
+}
+
+type MBRTableInfo struct {
+	// Size in bytes
+	Size uint32
+
+	// If set, writes need to be a multiple of this value
+	MandatoryWriteGranularity uint32
+
+	// If set, reads are recommended to be aligned to this value
+	RecommendedAccessGranularity uint32
+}
+
+func (m *MBRTableInfo) SuggestBufferSize(s *core.Session) uint {
+	ms := s.ControlSession.HostProperties.MaxIndTokenSize
+	if s.ControlSession.HostProperties.MaxAggTokenSize > ms {
+		ms = s.ControlSession.HostProperties.MaxAggTokenSize
+	}
+	// Save some space for lists and status code, this can be tuned if we really wanted.
+	// Technially we should be fine if the TokenSize is less than the subpacket size
+	// but then we would have to actually, you know, do math.
+	ms -= 16
+	// Align to both MandatoryWriteGranularity and RecommendedAccessGranularity
+	ms = ms & ^uint(m.MandatoryWriteGranularity-1)
+	ms = ms & ^uint(m.RecommendedAccessGranularity-1)
+	return ms
+}
+
+func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
+	tcol, err := GetFullRow(s, Base_TableRowForTable(Locking_MBRTable))
+	if err != nil {
+		if err == ErrEmptyResult {
+			return nil, ErrMBRNotSupproted
+		}
+		return nil, err
+	}
+
+	mi := &MBRTableInfo{
+		MandatoryWriteGranularity:    1,
+		RecommendedAccessGranularity: 1,
+	}
+	// Enterprise does not support MBR so don't bother setting the text columns
+	for col, val := range tcol {
+		switch col {
+		case "7":
+			v, ok := val.(uint)
+			if !ok {
+				return nil, core.ErrMalformedMethodResponse
+			}
+			mi.Size = uint32(v)
+		case "13":
+			v, ok := val.(uint)
+			if !ok {
+				return nil, core.ErrMalformedMethodResponse
+			}
+			mi.MandatoryWriteGranularity = uint32(v)
+		case "14":
+			v, ok := val.(uint)
+			if !ok {
+				return nil, core.ErrMalformedMethodResponse
+			}
+			mi.RecommendedAccessGranularity = uint32(v)
+		}
+	}
+
+	if mi.Size == 0 {
+		return nil, errors.New("device did not specify MBR size")
+	}
+	return mi, nil
+}
+
+func MBR_Read(s *core.Session, p []byte, off uint32) (int, error) {
+	mc := s.NewMethodCall(core.InvokingID(Locking_MBRTable), MethodIDGet)
+	mc.StartList()
+	mc.StartOptionalParameter(CellBlock_StartRow, "startRow")
+	mc.UInt(uint(off))
+	mc.EndOptionalParameter()
+	mc.StartOptionalParameter(CellBlock_EndRow, "endRow")
+	mc.UInt(uint(off) + uint(len(p)) - 1)
+	mc.EndOptionalParameter()
+	mc.EndList()
+	res, err := s.ExecuteMethod(mc)
+	if err != nil {
+		return 0, err
+	}
+	methodResult, ok := res[0].(stream.List)
+	if !ok {
+		return 0, core.ErrMalformedMethodResponse
+	}
+	if len(methodResult) == 0 {
+		return 0, ErrEmptyResult
+	}
+	inner, ok := methodResult[0].([]uint8)
+	if !ok {
+		return 0, core.ErrMalformedMethodResponse
+	}
+	if len(inner) == 0 {
+		return 0, ErrEmptyResult
+	}
+
+	l := len(inner)
+	if len(p) < l {
+		l = len(p)
+	}
+	copy(p, inner[:l])
+	return l, nil
 }

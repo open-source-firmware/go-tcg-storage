@@ -7,6 +7,7 @@
 package table
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/bluecmd/go-tcg-storage/pkg/core"
@@ -21,6 +22,8 @@ func (t *TableUID) Row(uid [4]byte) RowUID {
 }
 
 var (
+	CellBlock_StartRow    uint = 1
+	CellBlock_EndRow      uint = 2
 	CellBlock_StartColumn uint = 3
 	CellBlock_EndColumn   uint = 4
 
@@ -35,6 +38,8 @@ var (
 	MethodIDAuthenticate           core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x1C}
 	MethodIDEnterpriseAuthenticate core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x0C}
 	MethodIDRandom                 core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x06, 0x01}
+
+	ErrEmptyResult = errors.New("empty result")
 )
 
 func GetCell(s *core.Session, row RowUID, column uint, columnName string) (interface{}, error) {
@@ -45,7 +50,7 @@ func GetCell(s *core.Session, row RowUID, column uint, columnName string) (inter
 	for _, v := range m {
 		return v, nil
 	}
-	return nil, fmt.Errorf("cell not found")
+	return nil, ErrEmptyResult
 }
 
 func GetPartialRow(s *core.Session, row RowUID, startCol uint, startColName string, endCol uint, endColName string) (map[string]interface{}, error) {
@@ -89,7 +94,7 @@ func GetPartialRow(s *core.Session, row RowUID, startCol uint, startColName stri
 		return nil, err
 	}
 	if len(val) == 0 {
-		return nil, fmt.Errorf("row not found")
+		return nil, ErrEmptyResult
 	}
 	return val, nil
 }
@@ -121,7 +126,7 @@ func GetFullRow(s *core.Session, row RowUID) (map[string]interface{}, error) {
 		return nil, err
 	}
 	if len(val) == 0 {
-		return nil, fmt.Errorf("row not found")
+		return nil, ErrEmptyResult
 	}
 	return val, nil
 }
@@ -159,14 +164,14 @@ func parseGetResult(res stream.List) (map[string]interface{}, error) {
 		return nil, core.ErrMalformedMethodResponse
 	}
 	if len(methodResult) == 0 {
-		return nil, fmt.Errorf("empty result")
+		return nil, ErrEmptyResult
 	}
 	inner, ok := methodResult[0].(stream.List)
 	if !ok {
 		return nil, core.ErrMalformedMethodResponse
 	}
 	if len(inner) == 0 {
-		return nil, fmt.Errorf("empty result")
+		return nil, ErrEmptyResult
 	}
 	return parseRowValues(inner)
 }
