@@ -281,6 +281,21 @@ func main() {
 	log.Printf("Locking SP LockingInfo:")
 	spew.Dump(table.LockingInfo(s))
 
+	log.Printf("Locking SP MBRTableInfo:")
+	mbi, err := table.MBR_TableInfo(s)
+	if err != nil {
+		log.Printf("Failed: %v", err)
+	} else {
+		spew.Dump(mbi)
+		mbuf := make([]byte, mbi.SuggestBufferSize(s))
+		log.Printf("Reading %d first bytes of MBR", len(mbuf))
+		if n, err := table.MBR_Read(s, mbuf, 0); n != len(mbuf) || err != nil {
+			log.Printf("Failed: %d, %v", n, err)
+		} else {
+			log.Printf("MBR start:\n%s", hex.Dump(mbuf[:128]))
+		}
+	}
+
 	lockList, err := table.Locking_Enumerate(s)
 	if err != nil {
 		log.Printf("table.Locking_Enumerate failed: %v", err)

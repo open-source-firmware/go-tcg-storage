@@ -11,3 +11,7 @@ var (
 	Base_MethodIDTable      = TableUID{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x00}
 	Base_AccessControlTable = TableUID{0x00, 0x00, 0x00, 0x07, 0x00, 0x00, 0x00, 0x00}
 )
+
+func Base_TableRowForTable(tid TableUID) RowUID {
+	return Base_TableTable.Row([4]byte{tid[0], tid[1], tid[2], tid[3]})
+}

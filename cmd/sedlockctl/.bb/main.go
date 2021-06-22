@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package main
+package sedlockctl
 
 import (
 	"flag"
@@ -12,22 +12,19 @@ import (
 
 	"github.com/bluecmd/go-tcg-storage/pkg/drive"
 	"github.com/bluecmd/go-tcg-storage/pkg/locking"
-
-	// TODO: Move to locking API when it has MBR functions
-	"github.com/bluecmd/go-tcg-storage/pkg/core/table"
+	bb "github.com/u-root/u-root/pkg/bb/bbmain"
 )
 
 var (
-	sidPIN      = flag.String("sid", "", "PIN to authenticate to the AdminSP as SID")
-	sidPINMSID  = flag.Bool("try-sid-msid", false, "Try to use the MSID as PIN to authenticate to the AdminSP in addition to other methods")
-	sidPINHash  = flag.String("sid-hash", "sedutil-dta", "If set, transform the SID PIN using the specified hash function")
-	user        = flag.String("user", "", "Username to authenticate to the LockingSP (admin1 or bandmaster0 is the default)")
-	userPIN     = flag.String("password", "", "PIN used to authenticate ot the LockingSP (MSID is the default)")
-	userPINHash = flag.String("hash", "sedutil-dta", "If set, transform the PIN using the specified hash function")
-	readMBRSize = flag.Int("read-mbr-size", 0, "If set to >0, specify how many bytes to read from the MBR table (otherwise read the whole table).")
+	sidPIN      *string
+	sidPINMSID  *bool
+	sidPINHash  *string
+	user        *string
+	userPIN     *string
+	userPINHash *string
 )
 
-func main() {
+func Main() {
 	flag.Parse()
 
 	if flag.NArg() == 0 {
@@ -37,7 +34,6 @@ func main() {
 		fmt.Printf("  unlock-all         Unlocks all ranges completely\n")
 		fmt.Printf("  lock-all           Lock all ranges completely\n")
 		fmt.Printf("  mbr-done on|off    Sets the MBRDone property (hide/show Shadow MBR)\n")
-		fmt.Printf("  read-mbr           Prints the binary data in the MBR area\n")
 		return
 	}
 	d, err := drive.Open(flag.Arg(0))
@@ -130,30 +126,6 @@ func main() {
 			log.Fatalf("Argument %q is not 'on' or 'off'", args[1])
 		}
 		setMBRDone(l, v)
-	case "read-mbr":
-		mbi, err := table.MBR_TableInfo(l.Session)
-		if err != nil {
-			log.Fatalf("table.MBR_TableInfo failed: %v", err)
-		}
-		mbuf := make([]byte, mbi.SuggestBufferSize(l.Session))
-		sz := mbi.Size
-		if *readMBRSize > 0 && uint32(*readMBRSize) < sz {
-			sz = uint32(*readMBRSize)
-		}
-		pos := uint32(0)
-		chk := uint32(len(mbuf))
-		for i := sz; i != 0; i -= chk {
-			if n, err := table.MBR_Read(l.Session, mbuf, pos); n != len(mbuf) || err != nil {
-				log.Fatalf("table.MBR_Read failed: %v (read: %d)", err, n)
-			}
-			pos += chk
-			if i < chk {
-				os.Stdout.Write(mbuf[:i])
-				break
-			} else {
-				os.Stdout.Write(mbuf)
-			}
-		}
 	default:
 		log.Fatalf("Unknown verb %q", verb)
 	}
@@ -214,4 +186,36 @@ func setMBRDone(l *locking.LockingSP, v bool) {
 	if err := l.SetMBRDone(v); err != nil {
 		log.Fatalf("SetMBRDone failed: %v", err)
 	}
+}
+func Init1() {
+	sidPIN = flag.String("sid", "", "PIN to authenticate to the AdminSP as SID")
+}
+func Init2() {
+	sidPINMSID = flag.Bool("try-sid-msid", false, "Try to use the MSID as PIN to authenticate to the AdminSP in addition to other methods")
+}
+func Init3() {
+	sidPINHash = flag.String("sid-hash", "sedutil-dta", "If set, transform the SID PIN using the specified hash function")
+}
+func Init4() {
+	user = flag.String("user", "", "Username to authenticate to the LockingSP (admin1 or bandmaster0 is the default)")
+}
+func Init5() {
+	userPIN = flag.String("password", "", "PIN used to authenticate ot the LockingSP (MSID is the default)")
+}
+func Init6() {
+	userPINHash = flag.String("hash", "sedutil-dta", "If set, transform the PIN using the specified hash function")
+}
+func Init0() {
+	Init1()
+	Init2()
+	Init3()
+	Init4()
+	Init5()
+	Init6()
+}
+func Init() {
+	Init0()
+}
+func init() {
+	bb.Register("sedlockctl", Init, Main)
 }
