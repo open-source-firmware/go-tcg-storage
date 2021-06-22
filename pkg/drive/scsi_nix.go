@@ -7,20 +7,21 @@ package drive
 import (
 	"bytes"
 	"fmt"
-	"os"
+	"runtime"
 	"strings"
 
 	"github.com/bluecmd/go-tcg-storage/pkg/drive/sgio"
 )
 
 type scsiDrive struct {
-	fd uintptr
+	fd FdIntf
 }
 
 func (d *scsiDrive) IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) error {
 	// TODO: It seems that some drives are picky on that the data is aligned in some fashion, possibly to 512?
 	// Should work something out to ensure we pad the request accordingly
-	err := sgio.SCSISecurityIn(d.fd, uint8(proto), sps, data)
+	err := sgio.SCSISecurityIn(d.fd.Fd(), uint8(proto), sps, data)
+	runtime.KeepAlive(d.fd)
 	if err == sgio.ErrIllegalRequest {
 		return ErrNotSupported
 	}
@@ -30,7 +31,8 @@ func (d *scsiDrive) IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) err
 func (d *scsiDrive) IFSend(proto SecurityProtocol, sps uint16, data []byte) error {
 	// TODO: It seems that some drives are picky on that the data is aligned in some fashion, possibly to 512?
 	// Should work something out to ensure we pad the request accordingly
-	err := sgio.SCSISecurityOut(d.fd, uint8(proto), sps, data)
+	err := sgio.SCSISecurityOut(d.fd.Fd(), uint8(proto), sps, data)
+	runtime.KeepAlive(d.fd)
 	if err == sgio.ErrIllegalRequest {
 		return ErrNotSupported
 	}
@@ -38,7 +40,8 @@ func (d *scsiDrive) IFSend(proto SecurityProtocol, sps uint16, data []byte) erro
 }
 
 func (d *scsiDrive) Identify() (*Identity, error) {
-	id, err := sgio.SCSIInquiry(d.fd)
+	id, err := sgio.SCSIInquiry(d.fd.Fd())
+	runtime.KeepAlive(d.fd)
 	if err != nil {
 		return nil, err
 	}
@@ -65,7 +68,8 @@ func (d *scsiDrive) Identify() (*Identity, error) {
 }
 
 func (d *scsiDrive) SerialNumber() ([]byte, error) {
-	id, err := sgio.SCSIInquiry(d.fd)
+	id, err := sgio.SCSIInquiry(d.fd.Fd())
+	runtime.KeepAlive(d.fd)
 	if err != nil {
 		return nil, err
 	}
@@ -73,11 +77,13 @@ func (d *scsiDrive) SerialNumber() ([]byte, error) {
 }
 
 func (d *scsiDrive) Close() error {
-	return os.NewFile(d.fd, "").Close()
+	return d.fd.Close()
 }
 
 func SCSIDrive(fd FdIntf) *scsiDrive {
-	return &scsiDrive{fd: fd.Fd()}
+	// Save the full object reference to avoid the underlying File-like object
+	// to be GC'd
+	return &scsiDrive{fd: fd}
 }
 
 func isSCSI(fd FdIntf) bool {
