@@ -136,6 +136,17 @@ func internalDecode(b []byte, depth int) (List, []byte, error) {
 			} else {
 				return nil, nil, fmt.Errorf("medium integer not implemented")
 			}
+		} else if b[0]&0xF0 == 0xE0 { // Long atom
+			isbyte := b[0]&0x02 > 0
+			s = int(b[1])<<16 | int(b[2])<<8 | int(b[3])
+			if isbyte {
+				bc := make([]byte, s)
+				copy(bc, b[4:4+s])
+				x = bc
+				s += 4
+			} else {
+				return nil, nil, fmt.Errorf("long integer not implemented")
+			}
 		} else if b[0] == byte(StartList) {
 			list, rest, err := internalDecode(b[1:], depth+1)
 			if err != nil {
