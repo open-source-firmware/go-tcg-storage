@@ -6,6 +6,6 @@ require (
 	github.com/davecgh/go-spew v1.1.1
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.30.0
-	golang.org/x/crypto v0.0.0-20210711020723-a769d52b0f97
+	golang.org/x/crypto v0.0.0-20210812204632-0ba0e8f03122
 	golang.org/x/sys v0.0.0-20210809203939-894668206c86
 )
