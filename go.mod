@@ -7,5 +7,5 @@ require (
 	github.com/prometheus/client_golang v1.11.0
 	github.com/prometheus/common v0.30.0
 	golang.org/x/crypto v0.0.0-20210812204632-0ba0e8f03122
-	golang.org/x/sys v0.0.0-20210809203939-894668206c86
+	golang.org/x/sys v0.0.0-20210809222454-d867a43fc93e
 )
