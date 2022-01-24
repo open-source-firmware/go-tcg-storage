@@ -87,7 +87,7 @@ func NewMethodCall(iid InvokingID, mid MethodID, flags MethodFlag) *MethodCall {
 
 // Copy the current state of a method call into a new independent copy
 func (m *MethodCall) Clone() *MethodCall {
-	mn := &MethodCall{bytes.Buffer{},m.depth, m.flags}
+	mn := &MethodCall{bytes.Buffer{}, m.depth, m.flags}
 	mn.buf.Write(m.buf.Bytes())
 	return mn
 }
