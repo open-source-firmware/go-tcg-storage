@@ -359,6 +359,7 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 	// Thus, we do not specify any authority here and let the users call ThisSP_Authenticate
 	// to elevate the session.
 
+	basemc := mc.Clone()
 	if s.ProtocolLevel == ProtocolLevelEnterprise {
 		// sedutil recommends setting a timeout for session on Enterprise protocol
 		// level. For normal Core devices I can't get it to work (INVALID_PARAMETER)
@@ -368,7 +369,12 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 		mc.EndOptionalParameter()
 	}
 
+	// Try with the method call with the optional parameters first,
+	// and if that fails fall back to the basic method call (basemc).
 	resp, err := cs.ExecuteMethod(mc)
+	if err == ErrMethodStatusInvalidParameter {
+		resp, err = cs.ExecuteMethod(basemc)
+	}
 	if err != nil {
 		return nil, err
 	}
