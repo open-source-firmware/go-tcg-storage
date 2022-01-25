@@ -111,6 +111,9 @@ import (
 )
 
 func main() {
+	d, err := drive.Open("/dev/sda")
+	defer d.Close()
+
 	cs, lmeta, err := locking.Initialize(d)
 	defer cs.Close()
 	l, err := locking.NewSession(cs, lmeta, locking.DefaultAuthorityWithMSID)
@@ -128,6 +131,9 @@ import (
 )
 
 func main() {
+	d, err := drive.Open("/dev/sda")
+	defer d.Close()
+
         password := []byte{} /* Password for Admin1 or BandMaster0 */
 	cs, lmeta, err := locking.Initialize(d,
 		locking.WithAuth(locking.DefaultAuthorityWithMSID)
@@ -152,4 +158,7 @@ These drives have been found to work without issues
 | Samsung | SSD 860 | SATA | Opal v2 |
 | Samsung | SSD 970 EVO Plus | NVMe | Opal v2 |
 | Samsung | PM983 (MZ1LB1T9HALS) | NVMe | Opal v2 |
-| Sabrent | Rocket 4.0 2TB | NVMe | Pyrite V2 |
+| Samsung | PM9A1 (MZVL2256HCHQ) | NVMe | Pyrite v2 |
+| Samsung | PM9A3 (MZQL23T8HCLS) | NVMe | Opal v2 |
+| Sabrent | Rocket 4.0 2TB | NVMe | Pyrite v2 |
+| Toshiba | MG08SCP16TE | SAS3 | Enterprise |
