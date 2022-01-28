@@ -45,7 +45,7 @@ type Range struct {
 	ReadLocked  bool
 	WriteLocked bool
 
-	//LockOnReset SomeType TODO
+	//LockOnReset SomeType TODO: Create this type from spec
 }
 
 func fillRanges(s *core.Session, l *LockingSP) error {
@@ -86,8 +86,8 @@ func fillRanges(s *core.Session, l *LockingSP) error {
 			r.ReadLocked = *lr.ReadLocked
 			r.WriteLocked = *lr.WriteLocked
 		}
-		// TODO: Users
-		// TODO: LockOnReset
+		// TODO: Enumerate users with permissions on this range
+		// TODO: Fill the LockOnReset property
 		l.Ranges = append(l.Ranges, r)
 	}
 	return nil

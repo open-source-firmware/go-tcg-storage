@@ -134,7 +134,7 @@ func NewSession(cs *core.ControlSession, lmeta *LockingSPMeta, auth LockingSPAut
 		return nil, err
 	}
 
-	// TODO: Fill l.Authorities
+	// TODO: Fill l.Authorities with known users for admin actions
 	return l, nil
 }
 
@@ -243,18 +243,22 @@ func initializeEnterprise(s *core.Session, d0 *core.Level0Discovery, ic *initial
 	if err == nil {
 		lmeta.MSID = msidPin
 	}
-	// TODO: Take ownership
-	// TODO: lockdown
+	// TODO: Implement take ownership for enterprise if activated in initializeConfig.
+	// The spec should explain what is needed.
+	// TODO: If initializeConfig wants WithHardended, implement relevant
+	// FIPS recommendations.
 	return nil
 }
 
 func initializeOpalFamily(s *core.Session, d0 *core.Level0Discovery, ic *initializeConfig, lmeta *LockingSPMeta) error {
-	// TODO: Verify with C_PIN behavior and Block SID
+	// TODO: Verify with C_PIN behavior and Block SID - no need to burn PIN tries
+	// if we can say that MSID will not work.
 	msidPin, err := table.Admin_C_PIN_MSID_GetPIN(s)
 	if err == nil {
 		lmeta.MSID = msidPin
 	}
 	// TODO: Take ownership (*before* Activate to ensure that the PINs are copied)
+	// This is explained in the spec.
 	lcs, err := table.Admin_SP_GetLifeCycleState(s, core.LockingSP)
 	if err != nil {
 		return err
@@ -274,7 +278,8 @@ func initializeOpalFamily(s *core.Session, d0 *core.Level0Discovery, ic *initial
 		return fmt.Errorf("unsupported life cycle state on locking SP: %v", lcs)
 	}
 
-	// TODO: lockdown
+	// TODO: If initializeConfig wants WithHardended, implement relevant
+	// FIPS recommendations.
 	return nil
 }
 

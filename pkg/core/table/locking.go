@@ -277,8 +277,6 @@ func Locking_Set(s *core.Session, row *LockingRow) error {
 	// TODO: Add these columns
 	//mc.StartOptionalParameter(3, "RangeStart")
 	//mc.StartOptionalParameter(4, "RangeLength")
-	//mc.StartOptionalParameter(5, "ReadLockEnabled")
-	//mc.StartOptionalParameter(6, "WriteLockEnabled")
 
 	if row.ReadLockEnabled != nil {
 		mc.StartOptionalParameter(5, "ReadLockEnabled")
@@ -303,7 +301,6 @@ func Locking_Set(s *core.Session, row *LockingRow) error {
 	}
 
 	// TODO: Add these columns
-	//mc.StartOptionalParameter(8, "WriteLocked")
 	//mc.StartOptionalParameter(9, "LockOnReset")
 	//mc.StartOptionalParameter(10, "ActiveKey")
 
