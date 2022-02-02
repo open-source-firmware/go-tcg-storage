@@ -160,5 +160,6 @@ These drives have been found to work without issues
 | Samsung | PM983 (MZ1LB1T9HALS-00007) | NVMe | Opal v2 |
 | Samsung | PM9A1 (MZVL2256HCHQ-00B00) | NVMe | Pyrite v2 |
 | Samsung | PM9A3 (MZQL23T8HCLS-00A07) | NVMe | Opal v2 |
+| Samsung | PM1735 (MZPLJ12THALA-00007) | NVMe | Opal v2 |
 | Sabrent | Rocket 4.0 2TB | NVMe | Pyrite v2 |
 | Toshiba | MG08SCP16TE | SAS3 | Enterprise |
