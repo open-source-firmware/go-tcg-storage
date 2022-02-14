@@ -157,6 +157,7 @@ These drives have been found to work without issues
 | Seagate | Exos X14 (ST10000NM0608) | SAS3 | Enterprise |
 | Samsung | SSD 860 | SATA | Opal v2 |
 | Samsung | SSD 970 EVO Plus | NVMe | Opal v2 |
+| Samsung | SSD 980 Pro (MZVL2250HCHQ) | NVMe | Opal v2 |
 | Samsung | PM961 (MZVLW512HMJP-000L7) | NVMe | Opal v2 |
 | Samsung | PM983 (MZ1LB1T9HALS-00007) | NVMe | Opal v2 |
 | Samsung | PM9A1 (MZVL2256HCHQ-00B00) | NVMe | Pyrite v2 |
