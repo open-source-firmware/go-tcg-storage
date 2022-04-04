@@ -11,7 +11,7 @@ import (
 	"strings"
 	"unsafe"
 
-	"github.com/bluecmd/go-tcg-storage/pkg/drive/ioctl"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/drive/ioctl"
 )
 
 const (

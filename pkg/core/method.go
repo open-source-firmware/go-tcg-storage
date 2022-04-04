@@ -12,8 +12,8 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
-	"github.com/bluecmd/go-tcg-storage/pkg/drive"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
 type InvokingID [8]byte

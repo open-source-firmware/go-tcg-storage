@@ -1,10 +1,10 @@
 # go-tcg-storage
 
-[![Workflow](https://github.com/bluecmd/go-tcg-storage/workflows/Release/badge.svg)](https://github.com/bluecmd/go-tcg-storage/actions/workflows/release.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/bluecmd/go-tcg-storage)](https://goreportcard.com/report/github.com/bluecmd/go-tcg-storage)
-[![GoDoc](https://godoc.org/github.com/bluecmd/go-tcg-storage?status.svg)](https://pkg.go.dev/github.com/bluecmd/go-tcg-storage@main)
+[![Workflow](https://github.com/open-source-firmware/go-tcg-storage/workflows/Release/badge.svg)](https://github.com/open-source-firmware/go-tcg-storage/actions/workflows/release.yml)
+[![Go Report Card](https://goreportcard.com/badge/github.com/open-source-firmware/go-tcg-storage)](https://goreportcard.com/report/github.com/open-source-firmware/go-tcg-storage)
+[![GoDoc](https://godoc.org/github.com/open-source-firmware/go-tcg-storage?status.svg)](https://pkg.go.dev/github.com/open-source-firmware/go-tcg-storage@main)
 [![Slack](https://slack.osfw.dev/badge.svg)](https://slack.osfw.dev)
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/bluecmd/go-tcg-storage/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/open-source-firmware/go-tcg-storage/blob/master/LICENSE)
 
 Go library for interfacing TCG Storage and Security Subsystem Class (SSC) functions on storage devices.
 
@@ -20,13 +20,13 @@ Need support for another standard? Let us know by filing a feature request!
 ## Tools
 
  * [sedlockctl](cmd/sedlockctl/README.md) is a tool that helps you manage SED/TCG drives.<br>
-   Install it: `go install github.com/bluecmd/go-tcg-storage/cmd/sedlockctl@main`
+   Install it: `go install github.com/open-source-firmware/go-tcg-storage/cmd/sedlockctl@main`
 
  * [tcgsdiag](cmd/tcgsdiag/README.md) lets you list a whole lot of diagnostic information about TCG drives.<br>
-   Install it: `go install github.com/bluecmd/go-tcg-storage/cmd/tcgsdiag@main`
+   Install it: `go install github.com/open-source-firmware/go-tcg-storage/cmd/tcgsdiag@main`
 
  * [tcgdiskstat](cmd/tcgdiskstat/README.md) is like `blkid` or `lsscsi` but for TCG drives.<br>
-   Install it: `go install github.com/bluecmd/go-tcg-storage/cmd/tcgdiskstat@main`
+   Install it: `go install github.com/open-source-firmware/go-tcg-storage/cmd/tcgdiskstat@main`
 
 
 ## Supported Transports
@@ -53,7 +53,7 @@ The most low-level interface is the `drive` interface that implements
 the `IF-SEND` and `IF-RECV` functions that the TCG Storage standards
 rely on. Likely nobody outside this library will find that library useful.
 
-One abstraction up is the `core` library that implements the 
+One abstraction up is the `core` library that implements the
 TCG Storage specifications in a quite verbose manner. The guiding
 principle with the `core` library is that you should be able to do
 anything with it, but it might require you to know what functions
@@ -69,9 +69,9 @@ is implementing.
 
 ```go
 import (
-	tcg "github.com/bluecmd/go-tcg-storage/pkg/core"
-	"github.com/bluecmd/go-tcg-storage/pkg/core/table"
-	"github.com/bluecmd/go-tcg-storage/pkg/drive"
+	tcg "github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
 func main() {
@@ -89,7 +89,7 @@ func main() {
 
         // This is how you call a method on your SP:
         rand, err := table.ThisSP_Random(s, 8 /* bytes to generate */)
-        
+
         // You can authenticate using the MSID like this:
         msidPin, err := table.Admin_C_PIN_MSID_GetPIN(s)
         if err := table.ThisSP_Authenticate(s, tcg.AuthoritySID, msidPin); err != nil {
@@ -106,8 +106,8 @@ The most minimal example looks something like this:
 ```go
 
 import (
-	"github.com/bluecmd/go-tcg-storage/pkg/drive"
-	"github.com/bluecmd/go-tcg-storage/pkg/locking"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
 )
 
 func main() {
@@ -126,8 +126,8 @@ A slightly more realistic example looks like this:
 ```go
 
 import (
-	"github.com/bluecmd/go-tcg-storage/pkg/drive"
-	"github.com/bluecmd/go-tcg-storage/pkg/locking"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
 )
 
 func main() {

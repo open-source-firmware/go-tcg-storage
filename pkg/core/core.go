@@ -14,8 +14,8 @@ import (
 	"io"
 	"io/ioutil"
 
-	"github.com/bluecmd/go-tcg-storage/pkg/core/feature"
-	"github.com/bluecmd/go-tcg-storage/pkg/drive"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/feature"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
 type DriveIntf interface {

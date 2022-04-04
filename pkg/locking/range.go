@@ -11,8 +11,8 @@ import (
 	"fmt"
 	"sort"
 
-	"github.com/bluecmd/go-tcg-storage/pkg/core"
-	"github.com/bluecmd/go-tcg-storage/pkg/core/table"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
 )
 
 var (

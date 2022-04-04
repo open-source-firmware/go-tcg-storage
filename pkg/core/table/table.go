@@ -10,8 +10,8 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/bluecmd/go-tcg-storage/pkg/core"
-	"github.com/bluecmd/go-tcg-storage/pkg/core/stream"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
 )
 
 type RowUID [8]byte

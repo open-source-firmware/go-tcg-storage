@@ -1,4 +1,4 @@
-module github.com/bluecmd/go-tcg-storage
+module github.com/open-source-firmware/go-tcg-storage
 
 go 1.15
 
