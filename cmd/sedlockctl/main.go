@@ -10,11 +10,11 @@ import (
 	"log"
 	"os"
 
-	"github.com/bluecmd/go-tcg-storage/pkg/drive"
-	"github.com/bluecmd/go-tcg-storage/pkg/locking"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
 
 	// TODO: Move to locking API when it has MBR functions
-	"github.com/bluecmd/go-tcg-storage/pkg/core/table"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
 )
 
 var (

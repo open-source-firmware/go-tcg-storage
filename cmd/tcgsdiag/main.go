@@ -10,10 +10,10 @@ import (
 	"log"
 	"os"
 
-	tcg "github.com/bluecmd/go-tcg-storage/pkg/core"
-	"github.com/bluecmd/go-tcg-storage/pkg/core/table"
-	"github.com/bluecmd/go-tcg-storage/pkg/drive"
 	"github.com/davecgh/go-spew/spew"
+	tcg "github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
 func TestComID(d tcg.DriveIntf) tcg.ComID {

@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/bluecmd/go-tcg-storage/pkg/drive/ioctl"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/drive/ioctl"
 )
 
 type CDBDirection int32

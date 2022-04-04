@@ -11,8 +11,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	tcg "github.com/bluecmd/go-tcg-storage/pkg/core"
-	"github.com/bluecmd/go-tcg-storage/pkg/drive"
+	tcg "github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
 var (
