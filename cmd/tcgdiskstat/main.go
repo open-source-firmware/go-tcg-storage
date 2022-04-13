@@ -137,11 +137,11 @@ func sscFeatures(l0 *tcg.Level0Discovery) []string {
 
 func outputTable(state Devices) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	if *noHeader == false {
+	if !*noHeader {
 		fmt.Fprintf(w, "DEVICE\tMODEL\tSERIAL\tFIRMWARE\tPROTOCOL\tSSC\tSTATE\n")
 	}
 	for _, s := range state {
-		feat := []string{}
+		var feat []string
 		state := ""
 		if s.Level0 != nil {
 			feat = sscFeatures(s.Level0)

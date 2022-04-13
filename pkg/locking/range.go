@@ -96,8 +96,7 @@ func fillRanges(s *core.Session, l *LockingSP) error {
 func (r *Range) UnlockRead() error {
 	lr := &table.LockingRow{}
 	copy(lr.UID[:], r.UID[:])
-	var v bool
-	v = false
+	v := false
 	lr.ReadLocked = &v
 	if err := table.Locking_Set(r.l.Session, lr); err != nil {
 		return err
@@ -109,8 +108,7 @@ func (r *Range) UnlockRead() error {
 func (r *Range) LockRead() error {
 	lr := &table.LockingRow{}
 	copy(lr.UID[:], r.UID[:])
-	var v bool
-	v = true
+	v := true
 	lr.ReadLocked = &v
 	if err := table.Locking_Set(r.l.Session, lr); err != nil {
 		return err
@@ -122,8 +120,7 @@ func (r *Range) LockRead() error {
 func (r *Range) UnlockWrite() error {
 	lr := &table.LockingRow{}
 	copy(lr.UID[:], r.UID[:])
-	var v bool
-	v = false
+	v := false
 	lr.WriteLocked = &v
 	if err := table.Locking_Set(r.l.Session, lr); err != nil {
 		return err
@@ -135,8 +132,7 @@ func (r *Range) UnlockWrite() error {
 func (r *Range) LockWrite() error {
 	lr := &table.LockingRow{}
 	copy(lr.UID[:], r.UID[:])
-	var v bool
-	v = true
+	v := true
 	lr.WriteLocked = &v
 	if err := table.Locking_Set(r.l.Session, lr); err != nil {
 		return err
