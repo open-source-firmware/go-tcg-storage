@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive/ioctl"
+	"github.com/dswarbrick/smart/ioctl"
 )
 
 type CDBDirection int32
