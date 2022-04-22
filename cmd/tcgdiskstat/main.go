@@ -11,7 +11,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	tcg "github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
@@ -23,7 +23,7 @@ var (
 type DeviceState struct {
 	Device   string
 	Identity *drive.Identity
-	Level0   *tcg.Level0Discovery
+	Level0   *core.Level0Discovery
 }
 
 type Devices []DeviceState
@@ -63,28 +63,17 @@ func main() {
 			continue
 		}
 
-		d, err := drive.Open(devpath)
+		core, err := core.NewCore(devpath)
 		if err != nil {
 			log.Printf("drive.Open(%s): %v", devpath, err)
 			continue
 		}
-		defer d.Close()
-		identity, err := d.Identify()
-		if err != nil {
-			log.Printf("drive.Identify(%s): %v", devpath, err)
-		}
-		d0, err := tcg.Discovery0(d)
-		if err != nil {
-			if err != tcg.ErrNotSupported {
-				log.Printf("tcg.Discovery0(%s): %v", devpath, err)
-				continue
-			}
-			d0 = nil
-		}
+		defer core.Close()
+
 		state = append(state, DeviceState{
 			Device:   devpath,
-			Identity: identity,
-			Level0:   d0,
+			Identity: core.DiskInfo.Identity,
+			Level0:   core.DiskInfo.Level0Discovery,
 		})
 	}
 
@@ -109,7 +98,7 @@ func outputJSON(state Devices) {
 	os.Stdout.Write(b)
 }
 
-func sscFeatures(l0 *tcg.Level0Discovery) []string {
+func sscFeatures(l0 *core.Level0Discovery) []string {
 	feat := []string{}
 	if l0.Enterprise != nil {
 		feat = append(feat, "Enterprise")

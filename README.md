@@ -52,12 +52,16 @@ TCG Opal[[1](https://github.com/torvalds/linux/commit/455a7b238cd6bc68c4a550cbbd
 The most low-level interface is the `drive` interface that implements
 the `IF-SEND` and `IF-RECV` functions that the TCG Storage standards
 rely on. Likely nobody outside this library will find that library useful.
+User of the `core` library usually dont neet to care about `drive` for its functionality
+is just to abstract device types from the core library.
 
 One abstraction up is the `core` library that implements the
 TCG Storage specifications in a quite verbose manner. The guiding
 principle with the `core` library is that you should be able to do
 anything with it, but it might require you to know what functions
 can be called under what circumstances.
+The `core` supplies the user with the `NewCore` function, which opens a
+given device and obtains disk information and Level0Discovery from the device.
 
 Finally you have the `locking` library that implements the most
 likely reason you are reading this. It allows you to get access

@@ -83,24 +83,20 @@ func TestControlSession(d drive.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.Co
 func main() {
 	spew.Config.Indent = "  "
 
-	d, err := drive.Open(os.Args[1])
+	core, err := tcg.NewCore(os.Args[1])
 	if err != nil {
-		log.Fatalf("drive.Open: %v", err)
+		log.Fatalf("core.Open: %v", err)
 	}
-	defer d.Close()
+	defer core.Close()
 
 	fmt.Printf("===> DRIVE SECURITY INFORMATION\n")
-	id, err := d.Identify()
-	if err != nil {
-		log.Fatalf("drive.Identity: %v", err)
-	}
-	log.Printf("Drive identity: %s", id)
-	spl, err := drive.SecurityProtocols(d)
+	log.Printf("Drive identity: %s", core.DiskInfo.Identity)
+	spl, err := drive.SecurityProtocols(core.DriveIntf)
 	if err != nil {
 		log.Fatalf("drive.SecurityProtocols: %v", err)
 	}
 	log.Printf("SecurityProtocols: %+v", spl)
-	crt, err := drive.Certificate(d)
+	crt, err := drive.Certificate(core.DriveIntf)
 	if err != nil {
 		log.Printf("drive.Certificate: %v", err)
 	}
@@ -109,20 +105,16 @@ func main() {
 	fmt.Printf("\n")
 
 	fmt.Printf("===> TCG AUTO ComID SELF-TEST\n")
-	comID := TestComID(d)
+	comID := TestComID(core.DriveIntf)
 	fmt.Printf("\n")
 
 	fmt.Printf("===> TCG FEATURE DISCOVERY\n")
-	d0, err := tcg.Discovery0(d)
-	if err != nil {
-		log.Fatalf("tcg.Discovery0: %v", err)
-	}
-	spew.Dump(d0)
+	spew.Dump(core.DiskInfo.Level0Discovery)
 	fmt.Printf("\n")
 
 	fmt.Printf("===> TCG ADMIN SP SESSION\n")
 
-	cs := TestControlSession(d, d0, comID)
+	cs := TestControlSession(core.DriveIntf, core.DiskInfo.Level0Discovery, comID)
 	if cs == nil {
 		log.Printf("No control session, unable to continue")
 		return

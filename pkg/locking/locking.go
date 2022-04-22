@@ -183,24 +183,21 @@ type LockingSPMeta struct {
 	D0   *core.Level0Discovery
 }
 
-func Initialize(d drive.DriveIntf, opts ...InitializeOpt) (*core.ControlSession, *LockingSPMeta, error) {
+// Initialize WHAT?
+func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession, *LockingSPMeta, error) {
 	var ic initializeConfig
 	for _, o := range opts {
 		o(&ic)
 	}
 
 	lmeta := &LockingSPMeta{}
-	d0, err := core.Discovery0(d)
-	if err != nil {
-		return nil, nil, fmt.Errorf("discovery feiled: %v", err)
-	}
-	lmeta.D0 = d0
+	lmeta.D0 = coreObj.DiskInfo.Level0Discovery
 
-	comID, proto, err := findComID(d, d0)
+	comID, proto, err := findComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
 	if err != nil {
 		return nil, nil, err
 	}
-	cs, err := core.NewControlSession(d, d0, core.WithComID(comID))
+	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery, core.WithComID(comID))
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create control session (comID 0x%04x): %v", comID, err)
 	}
@@ -227,12 +224,12 @@ func Initialize(d drive.DriveIntf, opts ...InitializeOpt) (*core.ControlSession,
 
 	if proto == core.ProtocolLevelEnterprise {
 		copy(lmeta.SPID[:], core.EnterpriseLockingSP[:])
-		if err := initializeEnterprise(as, d0, &ic, lmeta); err != nil {
+		if err := initializeEnterprise(as, coreObj.DiskInfo.Level0Discovery, &ic, lmeta); err != nil {
 			return nil, nil, err
 		}
 	} else {
 		copy(lmeta.SPID[:], core.LockingSP[:])
-		if err := initializeOpalFamily(as, d0, &ic, lmeta); err != nil {
+		if err := initializeOpalFamily(as, coreObj.DiskInfo.Level0Discovery, &ic, lmeta); err != nil {
 			return nil, nil, err
 		}
 	}
