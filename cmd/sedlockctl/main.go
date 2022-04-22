@@ -8,7 +8,7 @@ import (
 	"log"
 
 	"github.com/alecthomas/kong"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
 	// TODO: Move to locking API when it has MBR functions
 )
@@ -30,13 +30,13 @@ func main() {
 		}))
 
 	// Set up connection and initialize session to device.
-	d, err := drive.Open(cli.Device)
+	coreObj, err := core.NewCore(cli.Device)
 	if err != nil {
 		log.Fatalf("drive.Open: %v", err)
 	}
-	defer d.Close()
+	defer coreObj.Close()
 
-	snRaw, err := d.SerialNumber()
+	snRaw, err := coreObj.DriveIntf.SerialNumber()
 	if err != nil {
 		log.Fatalf("drive.SerialNumber: %v", err)
 	}
@@ -60,7 +60,7 @@ func main() {
 		initOps = append(initOps, locking.WithAuth(locking.DefaultAuthorityWithMSID))
 	}
 
-	cs, lmeta, err := locking.Initialize(d, initOps...)
+	cs, lmeta, err := locking.Initialize(coreObj, initOps...)
 	if err != nil {
 		log.Fatalf("locking.Initalize: %v", err)
 	}
