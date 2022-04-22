@@ -71,7 +71,7 @@ type Session struct {
 	ControlSession *ControlSession
 	MethodFlags    MethodFlag
 	ProtocolLevel  ProtocolLevel
-	d              DriveIntf
+	d              drive.DriveIntf
 	c              CommunicationIntf
 	closed         bool
 	ComID          ComID
@@ -182,7 +182,7 @@ func WithReadOnly() SessionOpt {
 }
 
 // Initiate a new control session with a ComID.
-func NewControlSession(d DriveIntf, d0 *Level0Discovery, opts ...ControlSessionOpt) (*ControlSession, error) {
+func NewControlSession(d drive.DriveIntf, d0 *Level0Discovery, opts ...ControlSessionOpt) (*ControlSession, error) {
 	// --- Control Sessions
 	//
 	// Every ComID has exactly one control session. This is that session.

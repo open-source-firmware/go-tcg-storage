@@ -9,7 +9,7 @@ import (
 	"os"
 )
 
-func Open(device string) (driveIntf, error) {
+func Open(device string) (DriveIntf, error) {
 	d, err := os.OpenFile(device, os.O_RDWR, 0)
 	if err != nil {
 		return nil, err

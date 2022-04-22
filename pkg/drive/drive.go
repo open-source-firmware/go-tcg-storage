@@ -35,18 +35,28 @@ func (i *Identity) String() string {
 		i.Protocol, i.Model, i.SerialNumber, i.Firmware)
 }
 
-type driveIntf interface {
+type DriveIntf interface {
+	SendReceive
+	Identify
+	Closer
+}
+
+type SendReceive interface {
 	IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) error
 	IFSend(proto SecurityProtocol, sps uint16, data []byte) error
+}
 
+type Identify interface {
 	Identify() (*Identity, error)
 	SerialNumber() ([]byte, error)
+}
 
+type Closer interface {
 	Close() error
 }
 
 // Returns a list of supported security protocols.
-func SecurityProtocols(d driveIntf) ([]SecurityProtocol, error) {
+func SecurityProtocols(d DriveIntf) ([]SecurityProtocol, error) {
 	raw := make([]byte, 2048)
 	if err := d.IFRecv(SecurityProtocolInformation, 0, &raw); err != nil {
 		return nil, err
@@ -72,7 +82,7 @@ func SecurityProtocols(d driveIntf) ([]SecurityProtocol, error) {
 }
 
 // Returns the X.509 security certificate from the drive.
-func Certificate(d driveIntf) ([]*x509.Certificate, error) {
+func Certificate(d DriveIntf) ([]*x509.Certificate, error) {
 	raw := make([]byte, 4096)
 	if err := d.IFRecv(SecurityProtocolInformation, 1, &raw); err != nil {
 		return nil, err

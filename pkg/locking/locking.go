@@ -11,6 +11,7 @@ import (
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
 var (
@@ -151,7 +152,7 @@ func WithAuth(auth AdminSPAuthenticator) InitializeOpt {
 	}
 }
 
-func findComID(d core.DriveIntf, d0 *core.Level0Discovery) (core.ComID, core.ProtocolLevel, error) {
+func findComID(d drive.DriveIntf, d0 *core.Level0Discovery) (core.ComID, core.ProtocolLevel, error) {
 	proto := core.ProtocolLevelUnknown
 	comID := core.ComIDInvalid
 	if d0.OpalV2 != nil {
@@ -182,7 +183,7 @@ type LockingSPMeta struct {
 	D0   *core.Level0Discovery
 }
 
-func Initialize(d core.DriveIntf, opts ...InitializeOpt) (*core.ControlSession, *LockingSPMeta, error) {
+func Initialize(d drive.DriveIntf, opts ...InitializeOpt) (*core.ControlSession, *LockingSPMeta, error) {
 	var ic initializeConfig
 	for _, o := range opts {
 		o(&ic)
