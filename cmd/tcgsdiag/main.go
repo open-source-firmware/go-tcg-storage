@@ -16,7 +16,7 @@ import (
 	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
-func TestComID(d tcg.DriveIntf) tcg.ComID {
+func TestComID(d drive.DriveIntf) tcg.ComID {
 	comID, err := tcg.GetComID(d)
 	if err != nil {
 		log.Printf("Unable to auto-allocate ComID: %v", err)
@@ -42,7 +42,7 @@ func TestComID(d tcg.DriveIntf) tcg.ComID {
 	return comID
 }
 
-func TestControlSession(d tcg.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg.ControlSession {
+func TestControlSession(d drive.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg.ControlSession {
 	if comID == tcg.ComIDInvalid {
 		log.Printf("Auto-allocation ComID test failed earlier, selecting first available base ComID")
 		if d0.OpalV2 != nil {

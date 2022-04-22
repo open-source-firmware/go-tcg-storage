@@ -28,7 +28,7 @@ type CommunicationIntf interface {
 }
 
 type plainCom struct {
-	d  DriveIntf
+	d  drive.DriveIntf
 	hp HostProperties
 	tp TPerProperties
 }
@@ -59,7 +59,7 @@ type subPacketHeader struct {
 // Low-level communication used to send/receive packets to a TPer or SP.
 //
 // Implements Subpacket-Packet-ComPacket packet format.
-func NewPlainCommunication(d DriveIntf, hp HostProperties, tp TPerProperties) *plainCom {
+func NewPlainCommunication(d drive.DriveIntf, hp HostProperties, tp TPerProperties) *plainCom {
 	return &plainCom{d, hp, tp}
 }
 

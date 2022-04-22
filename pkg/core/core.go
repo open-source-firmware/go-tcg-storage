@@ -18,11 +18,6 @@ import (
 	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
-type DriveIntf interface {
-	IFRecv(proto drive.SecurityProtocol, sps uint16, data *[]byte) error
-	IFSend(proto drive.SecurityProtocol, sps uint16, data []byte) error
-}
-
 type ComID int
 type ComIDRequest [4]byte
 
@@ -65,7 +60,7 @@ type Level0Discovery struct {
 }
 
 // Request an (extended) ComID.
-func GetComID(d DriveIntf) (ComID, error) {
+func GetComID(d drive.DriveIntf) (ComID, error) {
 	var comID [512]byte
 	comIDs := comID[:]
 	if err := d.IFRecv(drive.SecurityProtocolTCGTPer, 0, &comIDs); err != nil {
@@ -78,7 +73,7 @@ func GetComID(d DriveIntf) (ComID, error) {
 	return ComID(uint32(c) + uint32(ce)<<16), nil
 }
 
-func HandleComIDRequest(d DriveIntf, comID ComID, req ComIDRequest) ([]byte, error) {
+func HandleComIDRequest(d drive.DriveIntf, comID ComID, req ComIDRequest) ([]byte, error) {
 	var buf [512]byte
 	binary.BigEndian.PutUint16(buf[0:2], uint16(comID&0xffff))
 	binary.BigEndian.PutUint16(buf[2:4], uint16((comID&0xffff0000)>>16))
@@ -100,7 +95,7 @@ func HandleComIDRequest(d DriveIntf, comID ComID, req ComIDRequest) ([]byte, err
 }
 
 // Validate a ComID.
-func IsComIDValid(d DriveIntf, comID ComID) (bool, error) {
+func IsComIDValid(d drive.DriveIntf, comID ComID) (bool, error) {
 	res, err := HandleComIDRequest(d, comID, ComIDRequestVerifyComIDValid)
 	if err != nil {
 		return false, err
@@ -110,7 +105,7 @@ func IsComIDValid(d DriveIntf, comID ComID) (bool, error) {
 }
 
 // Reset the state of the synchronous protocol stack.
-func StackReset(d DriveIntf, comID ComID) error {
+func StackReset(d drive.DriveIntf, comID ComID) error {
 	res, err := HandleComIDRequest(d, comID, ComIDRequestStackReset)
 	if err != nil {
 		return err
@@ -127,7 +122,7 @@ func StackReset(d DriveIntf, comID ComID) error {
 }
 
 // Perform a Level 0 SSC Discovery.
-func Discovery0(d DriveIntf) (*Level0Discovery, error) {
+func Discovery0(d drive.DriveIntf) (*Level0Discovery, error) {
 	d0raw := make([]byte, 2048)
 	if err := d.IFRecv(drive.SecurityProtocolTCGManagement, uint16(ComIDDiscoveryL0), &d0raw); err != nil {
 		if err == drive.ErrNotSupported {
