@@ -13,11 +13,9 @@ import (
 	"time"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
-
-type SPID [8]byte
-type AuthorityObjectUID [8]byte
 
 var (
 	ErrTPerSyncNotSupported        = errors.New("synchronous operation not supported by TPer")
@@ -26,24 +24,6 @@ var (
 	ErrInvalidStartSessionResponse = errors.New("response was not the expected SyncSession format")
 	ErrPropertiesCallFailed        = errors.New("the properties call returned non-zero")
 	ErrSessionAlreadyClosed        = errors.New("the session has been closed by us")
-
-	InvokeIDSMU InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF}
-
-	// Table 241 - "Session Manager Method UIDs"
-	MethodIDSMProperties          MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x01}
-	MethodIDSMStartSession        MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x02}
-	MethodIDSMSyncSession         MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x03}
-	MethodIDSMStartTrustedSession MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x04}
-	MethodIDSMSyncTrustedSession  MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x05}
-	MethodIDSMCloseSession        MethodID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF, 0x06}
-
-	AdminSP             SPID = [8]byte{0x00, 0x00, 0x02, 0x05, 0x00, 0x00, 0x00, 0x01}
-	LockingSP           SPID = [8]byte{0x00, 0x00, 0x02, 0x05, 0x00, 0x00, 0x00, 0x02}
-	EnterpriseLockingSP SPID = [8]byte{0x00, 0x00, 0x02, 0x05, 0x00, 0x01, 0x00, 0x01} // Enterprise SSC
-
-	AuthorityAnybody AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x01}
-	AuthoritySID     AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x00, 0x06}
-	AuthorityPSID    AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x01, 0xFF, 0x01} // Opal Feature Set: PSID
 
 	sessionRand *rand.Rand
 )
@@ -283,7 +263,7 @@ func NewControlSession(d drive.DriveIntf, d0 *Level0Discovery, opts ...ControlSe
 // The session will be a read-write by default, but can be changed by passing
 // a SessionOpt from WithReadOnly() as argument. The session HSN will be random
 // unless passed with WithHSN(x).
-func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, error) {
+func (cs *ControlSession) NewSession(spid uid.SPID, opts ...SessionOpt) (*Session, error) {
 	// --- What is a Session?
 	//
 	// Quoting "3.3.7.1 Sessions"
@@ -349,7 +329,7 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 		s.HSN = int(sessionRand.Int31())
 	}
 
-	mc := s.NewMethodCall(InvokeIDSMU, MethodIDSMStartSession)
+	mc := s.NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMStartSession)
 	mc.UInt(uint(s.HSN))
 	mc.Bytes(spid[:])
 	mc.Bool(!s.ReadOnly)
@@ -387,8 +367,8 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 	// See "5.2.2.1.2 Properties Response".
 	// The returned response is in the same format as if the method was called.
 	if !stream.EqualToken(resp[0], stream.Call) ||
-		!stream.EqualBytes(resp[1], InvokeIDSMU[:]) ||
-		!stream.EqualBytes(resp[2], MethodIDSMSyncSession[:]) ||
+		!stream.EqualBytes(resp[1], uid.InvokeIDSMU[:]) ||
+		!stream.EqualBytes(resp[2], uid.MethodIDSMSyncSession[:]) ||
 		len(params) < 2 ||
 		!ok {
 		// This is very serious, but can happen given that we might be using a shared ComID
@@ -411,7 +391,7 @@ func (cs *ControlSession) NewSession(spid SPID, opts ...SessionOpt) (*Session, e
 
 // Fetch current Host and TPer properties, optionally changing the Host properties.
 func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerProperties, error) {
-	mc := cs.NewMethodCall(InvokeIDSMU, MethodIDSMProperties)
+	mc := cs.NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMProperties)
 
 	mc.StartOptionalParameter(0, "HostProperties")
 	mc.StartList()
@@ -445,8 +425,8 @@ func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerP
 	// See "5.2.2.1.2 Properties Response".
 	// The returned response is in the same format as if the method was called.
 	if !stream.EqualToken(resp[0], stream.Call) ||
-		!stream.EqualBytes(resp[1], InvokeIDSMU[:]) ||
-		!stream.EqualBytes(resp[2], MethodIDSMProperties[:]) ||
+		!stream.EqualBytes(resp[1], uid.InvokeIDSMU[:]) ||
+		!stream.EqualBytes(resp[2], uid.MethodIDSMProperties[:]) ||
 		!ok ||
 		len(params) != 5 {
 		// This is very serious, but can happen given that we might be using a shared ComID
@@ -505,7 +485,7 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 	return mc.Execute(s.c, drive.SecurityProtocolTCGManagement, s)
 }
 
-func (s *Session) NewMethodCall(iid InvokingID, mid MethodID) *MethodCall {
+func (s *Session) NewMethodCall(iid uid.InvokingID, mid uid.MethodID) *MethodCall {
 	return NewMethodCall(iid, mid, s.MethodFlags)
 }
 

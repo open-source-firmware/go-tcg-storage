@@ -13,6 +13,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	tcg "github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
@@ -130,9 +131,9 @@ func main() {
 		var s *tcg.Session
 		var err error
 		if i == 0 || cs.TPerProperties.MaxReadSessions == nil || *cs.TPerProperties.MaxReadSessions == 0 {
-			s, err = cs.NewSession(tcg.AdminSP)
+			s, err = cs.NewSession(uid.AdminSP)
 		} else {
-			s, err = cs.NewSession(tcg.AdminSP, tcg.WithReadOnly())
+			s, err = cs.NewSession(uid.AdminSP, tcg.WithReadOnly())
 		}
 		if err == tcg.ErrMethodStatusNoSessionsAvailable || err == tcg.ErrMethodStatusSPBusy {
 			break
@@ -189,7 +190,7 @@ func main() {
 		spew.Dump(tperInfo)
 	}
 
-	llcs, err := table.Admin_SP_GetLifeCycleState(s, tcg.LockingSP)
+	llcs, err := table.Admin_SP_GetLifeCycleState(s, uid.LockingSP)
 	if err == nil {
 		log.Printf("Life cycle state on Locking SP: %d", llcs)
 	} else {
@@ -198,15 +199,14 @@ func main() {
 
 	msidOk := false
 	if msidPin != nil {
-		if err := table.ThisSP_Authenticate(s, tcg.AuthoritySID, msidPin); err != nil {
+		if err := table.ThisSP_Authenticate(s, uid.AuthoritySID, msidPin); err != nil {
 			log.Printf("table.ThisSP_Authenticate (SID) failed: %v", err)
 		} else {
 			log.Printf("Successfully authenticated as Admin SID")
 			msidOk = true
 		}
 		if llcs == 8 /* Manufactured-Inactive */ && os.Getenv("TCGSDIAG_ACTIVATE") != "" {
-			var MethodIDActivate tcg.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x02, 0x03}
-			mc := s.NewMethodCall(tcg.InvokingID(tcg.LockingSP), MethodIDActivate)
+			mc := s.NewMethodCall(uid.InvokingID(uid.LockingSP), uid.MethodIDActivate)
 			if _, err := s.ExecuteMethod(mc); err != nil {
 				log.Printf("LockingSP.Activate failed: %v", err)
 			} else {
@@ -218,7 +218,7 @@ func main() {
 
 	psidPin := os.Getenv("TCGSDIAG_PSID")
 	if psidPin != "" {
-		if err := table.ThisSP_Authenticate(s, tcg.AuthorityPSID, []byte(psidPin)); err != nil {
+		if err := table.ThisSP_Authenticate(s, uid.AuthorityPSID, []byte(psidPin)); err != nil {
 			log.Printf("table.ThisSP_Authenticate (PSID) failed: %v", err)
 		} else {
 			log.Printf("Successfully authenticated as PSID SID")
@@ -244,11 +244,11 @@ func main() {
 	auth := [8]byte{}
 	username := ""
 	if cs.ProtocolLevel == tcg.ProtocolLevelEnterprise {
-		s, err = cs.NewSession(tcg.EnterpriseLockingSP)
+		s, err = cs.NewSession(uid.EnterpriseLockingSP)
 		copy(auth[:], []byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x80, 0x01}) // BandMaster0
 		username = "BandMaster0"
 	} else {
-		s, err = cs.NewSession(tcg.LockingSP)
+		s, err = cs.NewSession(uid.LockingSP)
 		if os.Getenv("TCGSDIAG_AS_USER") == "" {
 			copy(auth[:], []byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x01, 0x00, 0x01}) // Admin1
 			username = "Admin1"

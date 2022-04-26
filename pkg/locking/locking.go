@@ -11,22 +11,20 @@ import (
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
 var (
 	LifeCycleStateManufacturedInactive table.LifeCycleState = 8
 	LifeCycleStateManufactured         table.LifeCycleState = 9
-
-	LockingAuthorityBandMaster0 core.AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x80, 0x01}
-	LockingAuthorityAdmin1      core.AuthorityObjectUID = [8]byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x01, 0x00, 0x01}
 )
 
 type LockingSP struct {
 	Session *core.Session
 	// All authorities that have been discovered on the SP.
 	// This will likely be only the authenticated UID unless authorized as an Admin
-	Authorities map[string]core.AuthorityObjectUID
+	Authorities map[string]uid.AuthorityObjectUID
 	// The full range of Ranges (heh!) that the current session has access to see and possibly modify
 	GlobalRange *Range
 	Ranges      []*Range // Ranges[0] == GlobalRange
@@ -58,9 +56,9 @@ type authority struct {
 }
 
 func (a *authority) AuthenticateAdminSP(s *core.Session) error {
-	var auth core.AuthorityObjectUID
+	var auth uid.AuthorityObjectUID
 	if len(a.auth) == 0 {
-		copy(auth[:], core.AuthoritySID[:])
+		copy(auth[:], uid.AuthoritySID[:])
 	} else {
 		copy(auth[:], a.auth)
 	}
@@ -77,12 +75,12 @@ func (a *authority) AuthenticateAdminSP(s *core.Session) error {
 }
 
 func (a *authority) AuthenticateLockingSP(s *core.Session, lmeta *LockingSPMeta) error {
-	var auth core.AuthorityObjectUID
+	var auth uid.AuthorityObjectUID
 	if len(a.auth) == 0 {
 		if s.ProtocolLevel == core.ProtocolLevelEnterprise {
-			copy(auth[:], LockingAuthorityBandMaster0[:])
+			copy(auth[:], uid.LockingAuthorityBandMaster0[:])
 		} else {
-			copy(auth[:], LockingAuthorityAdmin1[:])
+			copy(auth[:], uid.LockingAuthorityAdmin1[:])
 		}
 	} else {
 		copy(auth[:], a.auth)
@@ -178,7 +176,7 @@ func findComID(d drive.DriveIntf, d0 *core.Level0Discovery) (core.ComID, core.Pr
 }
 
 type LockingSPMeta struct {
-	SPID core.SPID
+	SPID uid.SPID
 	MSID []byte
 	D0   *core.Level0Discovery
 }
@@ -202,7 +200,7 @@ func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession
 		return nil, nil, fmt.Errorf("failed to create control session (comID 0x%04x): %v", comID, err)
 	}
 
-	as, err := cs.NewSession(core.AdminSP)
+	as, err := cs.NewSession(uid.AdminSP)
 	if err != nil {
 		return nil, nil, fmt.Errorf("admin session creation failed: %v", err)
 	}
@@ -223,12 +221,12 @@ func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession
 	}
 
 	if proto == core.ProtocolLevelEnterprise {
-		copy(lmeta.SPID[:], core.EnterpriseLockingSP[:])
+		copy(lmeta.SPID[:], uid.EnterpriseLockingSP[:])
 		if err := initializeEnterprise(as, coreObj.DiskInfo.Level0Discovery, &ic, lmeta); err != nil {
 			return nil, nil, err
 		}
 	} else {
-		copy(lmeta.SPID[:], core.LockingSP[:])
+		copy(lmeta.SPID[:], uid.LockingSP[:])
 		if err := initializeOpalFamily(as, coreObj.DiskInfo.Level0Discovery, &ic, lmeta); err != nil {
 			return nil, nil, err
 		}
@@ -257,7 +255,7 @@ func initializeOpalFamily(s *core.Session, d0 *core.Level0Discovery, ic *initial
 	}
 	// TODO: Take ownership (*before* Activate to ensure that the PINs are copied)
 	// This is explained in the spec.
-	lcs, err := table.Admin_SP_GetLifeCycleState(s, core.LockingSP)
+	lcs, err := table.Admin_SP_GetLifeCycleState(s, uid.LockingSP)
 	if err != nil {
 		return err
 	}
@@ -268,7 +266,7 @@ func initializeOpalFamily(s *core.Session, d0 *core.Level0Discovery, ic *initial
 		if !ic.activate {
 			return fmt.Errorf("locking SP not active, but activation not requested")
 		}
-		mc := s.NewMethodCall(core.InvokingID(core.LockingSP), table.MethodIDAdmin_Activate)
+		mc := s.NewMethodCall(uid.InvokingID(uid.LockingSP), uid.MethodIDAdmin_Activate)
 		if _, err := s.ExecuteMethod(mc); err != nil {
 			return err
 		}

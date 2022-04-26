@@ -12,6 +12,7 @@ import (
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 )
 
 var (
@@ -19,7 +20,7 @@ var (
 )
 
 func ThisSP_Random(s *core.Session, count uint) ([]byte, error) {
-	mc := s.NewMethodCall(core.InvokeIDThisSP, MethodIDRandom)
+	mc := s.NewMethodCall(uid.InvokeIDThisSP, uid.OpalRandom)
 	mc.UInt(count)
 	resp, err := s.ExecuteMethod(mc)
 	if err != nil {
@@ -36,14 +37,14 @@ func ThisSP_Random(s *core.Session, count uint) ([]byte, error) {
 	return rnd, nil
 }
 
-func ThisSP_Authenticate(s *core.Session, authority core.AuthorityObjectUID, proof []byte) error {
-	authUID := core.MethodID{}
+func ThisSP_Authenticate(s *core.Session, authority uid.AuthorityObjectUID, proof []byte) error {
+	authUID := uid.MethodID{}
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
-		copy(authUID[:], MethodIDEnterpriseAuthenticate[:])
+		copy(authUID[:], uid.OpalEnterpriseAuthenticate[:])
 	} else {
-		copy(authUID[:], MethodIDAuthenticate[:])
+		copy(authUID[:], uid.OpalAuthenticate[:])
 	}
-	mc := s.NewMethodCall(core.InvokeIDThisSP, authUID)
+	mc := s.NewMethodCall(uid.InvokeIDThisSP, authUID)
 	mc.Bytes(authority[:])
 	mc.StartOptionalParameter(0, "Challenge")
 	mc.Bytes(proof)
