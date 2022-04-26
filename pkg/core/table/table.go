@@ -12,14 +12,10 @@ import (
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 )
 
-type RowUID [8]byte
 type TableUID [8]byte
-
-func (t *TableUID) Row(uid [4]byte) RowUID {
-	return [8]byte{t[0], t[1], t[2], t[3], uid[0], uid[1], uid[2], uid[3]}
-}
 
 var (
 	CellBlock_StartRow    uint = 1
@@ -29,20 +25,10 @@ var (
 
 	Table_ColumnUID uint = 0
 
-	MethodIDEnterpriseGet          core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x06}
-	MethodIDEnterpriseSet          core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x07}
-	MethodIDGetACL                 core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x0D}
-	MethodIDGet                    core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x16}
-	MethodIDSet                    core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x17}
-	MethodIDNext                   core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x08}
-	MethodIDAuthenticate           core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x1C}
-	MethodIDEnterpriseAuthenticate core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x00, 0x0C}
-	MethodIDRandom                 core.MethodID = [8]byte{0x00, 0x00, 0x00, 0x06, 0x00, 0x00, 0x06, 0x01}
-
 	ErrEmptyResult = errors.New("empty result")
 )
 
-func GetCell(s *core.Session, row RowUID, column uint, columnName string) (interface{}, error) {
+func GetCell(s *core.Session, row uid.RowUID, column uint, columnName string) (interface{}, error) {
 	m, err := GetPartialRow(s, row, column, columnName, column, columnName)
 	if err != nil {
 		return nil, err
@@ -53,14 +39,14 @@ func GetCell(s *core.Session, row RowUID, column uint, columnName string) (inter
 	return nil, ErrEmptyResult
 }
 
-func GetPartialRow(s *core.Session, row RowUID, startCol uint, startColName string, endCol uint, endColName string) (map[string]interface{}, error) {
-	getUID := core.MethodID{}
+func GetPartialRow(s *core.Session, row uid.RowUID, startCol uint, startColName string, endCol uint, endColName string) (map[string]interface{}, error) {
+	getUID := uid.MethodID{}
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
-		copy(getUID[:], MethodIDEnterpriseGet[:])
+		copy(getUID[:], uid.OpalEnterpriseGet[:])
 	} else {
-		copy(getUID[:], MethodIDGet[:])
+		copy(getUID[:], uid.OpalGet[:])
 	}
-	mc := s.NewMethodCall(core.InvokingID(row), getUID)
+	mc := s.NewMethodCall(uid.InvokingID(row), getUID)
 	mc.StartList()
 	mc.StartOptionalParameter(CellBlock_StartColumn, "startColumn")
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
@@ -99,14 +85,14 @@ func GetPartialRow(s *core.Session, row RowUID, startCol uint, startColName stri
 	return val, nil
 }
 
-func GetFullRow(s *core.Session, row RowUID) (map[string]interface{}, error) {
-	getUID := core.MethodID{}
+func GetFullRow(s *core.Session, row uid.RowUID) (map[string]interface{}, error) {
+	getUID := uid.MethodID{}
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
-		copy(getUID[:], MethodIDEnterpriseGet[:])
+		copy(getUID[:], uid.OpalEnterpriseGet[:])
 	} else {
-		copy(getUID[:], MethodIDGet[:])
+		copy(getUID[:], uid.OpalGet[:])
 	}
-	mc := s.NewMethodCall(core.InvokingID(row), getUID)
+	mc := s.NewMethodCall(uid.InvokingID(row), getUID)
 	mc.StartList()
 	mc.EndList()
 	resp, err := s.ExecuteMethod(mc)
@@ -131,8 +117,8 @@ func GetFullRow(s *core.Session, row RowUID) (map[string]interface{}, error) {
 	return val, nil
 }
 
-func Enumerate(s *core.Session, table TableUID) ([]RowUID, error) {
-	mc := s.NewMethodCall(core.InvokingID(table), MethodIDNext)
+func Enumerate(s *core.Session, table uid.TableUID) ([]uid.RowUID, error) {
+	mc := s.NewMethodCall(uid.InvokingID(table), uid.OpalNext)
 	resp, err := s.ExecuteMethod(mc)
 	if err != nil {
 		return nil, err
@@ -145,13 +131,13 @@ func Enumerate(s *core.Session, table TableUID) ([]RowUID, error) {
 	if !ok {
 		return nil, core.ErrMalformedMethodResponse
 	}
-	res := []RowUID{}
+	res := []uid.RowUID{}
 	for _, ur := range uidrefs {
 		br, ok := ur.([]byte)
 		if !ok || len(br) != 8 {
 			return nil, core.ErrMalformedMethodResponse
 		}
-		r := RowUID{}
+		r := uid.RowUID{}
 		copy(r[:], br)
 		res = append(res, r)
 	}
@@ -204,14 +190,14 @@ func parseRowValues(rv stream.List) (map[string]interface{}, error) {
 	return res, nil
 }
 
-func NewSetCall(s *core.Session, row RowUID) *core.MethodCall {
-	setUID := core.MethodID{}
+func NewSetCall(s *core.Session, row uid.RowUID) *core.MethodCall {
+	setUID := uid.MethodID{}
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
-		copy(setUID[:], MethodIDEnterpriseSet[:])
+		copy(setUID[:], uid.OpalEnterpriseSet[:])
 	} else {
-		copy(setUID[:], MethodIDSet[:])
+		copy(setUID[:], uid.OpalSet[:])
 	}
-	mc := s.NewMethodCall(core.InvokingID(row), setUID)
+	mc := s.NewMethodCall(uid.InvokingID(row), setUID)
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
 		// The two first arguments in ESET are required, and RowValues has an extra list
 		mc.StartList()

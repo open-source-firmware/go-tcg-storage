@@ -11,15 +11,10 @@ import (
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 )
 
 var (
-	Locking_LockingTable            = TableUID{0x00, 0x00, 0x08, 0x02, 0x00, 0x00, 0x00, 0x00}
-	Locking_MBRTable                = TableUID{0x00, 0x00, 0x08, 0x04, 0x00, 0x00, 0x00, 0x00}
-	LockingInfoObj           RowUID = [8]byte{0x00, 0x00, 0x08, 0x01, 0x00, 0x00, 0x00, 0x01}
-	EnterpriseLockingInfoObj RowUID = [8]byte{0x00, 0x00, 0x08, 0x01, 0x00, 0x00, 0x00, 0x00}
-	MBRControlObj            RowUID = [8]byte{0x00, 0x00, 0x08, 0x03, 0x00, 0x00, 0x00, 0x01}
-
 	ErrMBRNotSupproted = errors.New("drive does not support MBR")
 )
 
@@ -35,7 +30,7 @@ const (
 )
 
 type LockingInfoRow struct {
-	UID                  RowUID
+	UID                  uid.RowUID
 	Name                 *string
 	Version              *uint32
 	EncryptSupport       *EncryptSupport
@@ -49,11 +44,11 @@ type LockingInfoRow struct {
 }
 
 func LockingInfo(s *core.Session) (*LockingInfoRow, error) {
-	rowUID := RowUID{}
+	rowUID := uid.RowUID{}
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
-		copy(rowUID[:], EnterpriseLockingInfoObj[:])
+		copy(rowUID[:], uid.EnterpriseLockingInfoObj[:])
 	} else {
-		copy(rowUID[:], LockingInfoObj[:])
+		copy(rowUID[:], uid.LockingInfoObj[:])
 	}
 
 	val, err := GetFullRow(s, rowUID)
@@ -147,12 +142,12 @@ func LockingInfo(s *core.Session) (*LockingInfoRow, error) {
 	return &row, nil
 }
 
-func Locking_Enumerate(s *core.Session) ([]RowUID, error) {
-	return Enumerate(s, Locking_LockingTable)
+func Locking_Enumerate(s *core.Session) ([]uid.RowUID, error) {
+	return Enumerate(s, uid.Locking_LockingTable)
 }
 
 type LockingRow struct {
-	UID              RowUID
+	UID              uid.RowUID
 	Name             *string
 	RangeStart       *uint64
 	RangeLength      *uint64
@@ -161,11 +156,11 @@ type LockingRow struct {
 	ReadLocked       *bool
 	WriteLocked      *bool
 	LockOnReset      []ResetType
-	ActiveKey        *RowUID
+	ActiveKey        *uid.RowUID
 	// NOTE: There are more fields in the standards that have been omited
 }
 
-func Locking_Get(s *core.Session, row RowUID) (*LockingRow, error) {
+func Locking_Get(s *core.Session, row uid.RowUID) (*LockingRow, error) {
 	val, err := GetFullRow(s, row)
 	if err != nil {
 		return nil, err
@@ -257,7 +252,7 @@ func Locking_Get(s *core.Session, row RowUID) (*LockingRow, error) {
 			if !ok || len(v) != 8 {
 				return nil, core.ErrMalformedMethodResponse
 			}
-			vv := RowUID{}
+			vv := uid.RowUID{}
 			copy(vv[:], v)
 			lr.ActiveKey = &vv
 		}
@@ -316,7 +311,7 @@ type MBRControl struct {
 }
 
 func MBRControl_Set(s *core.Session, row *MBRControl) error {
-	mc := NewSetCall(s, MBRControlObj)
+	mc := NewSetCall(s, uid.MBRControlObj)
 
 	if row.Enable != nil {
 		mc.StartOptionalParameter(1, "Enable")
@@ -369,7 +364,7 @@ func (m *MBRTableInfo) SuggestBufferSize(s *core.Session) uint {
 }
 
 func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
-	tcol, err := GetFullRow(s, Base_TableRowForTable(Locking_MBRTable))
+	tcol, err := GetFullRow(s, uid.Base_TableRowForTable(uid.Locking_MBRTable))
 	if err != nil {
 		if err == ErrEmptyResult {
 			return nil, ErrMBRNotSupproted
@@ -412,7 +407,7 @@ func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
 }
 
 func MBR_Read(s *core.Session, p []byte, off uint32) (int, error) {
-	mc := s.NewMethodCall(core.InvokingID(Locking_MBRTable), MethodIDGet)
+	mc := s.NewMethodCall(uid.InvokingID(uid.Locking_MBRTable), uid.OpalGet)
 	mc.StartList()
 	mc.StartOptionalParameter(CellBlock_StartRow, "startRow")
 	mc.UInt(uint(off))

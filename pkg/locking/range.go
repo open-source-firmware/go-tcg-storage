@@ -13,10 +13,7 @@ import (
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
-)
-
-var (
-	GlobalRangeRowUID table.RowUID = [8]byte{0x00, 0x00, 0x08, 0x02, 0x00, 0x00, 0x00, 0x01}
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 )
 
 type LockRange int
@@ -29,12 +26,12 @@ type Range struct {
 	l        *LockingSP
 	isGlobal bool
 
-	UID  table.RowUID
+	UID  uid.RowUID
 	Name *string
 	// All known authoritiers that have access to lock/unlock on this range
 	// Only populated with other users if authenticated as an Admin
 	// For enterprise this will always be just one user, the band-dedicated BandMasterN for RangeN
-	Users map[string]core.AuthorityObjectUID
+	Users map[string]uid.AuthorityObjectUID
 
 	Start LockRange
 	End   LockRange
@@ -67,7 +64,7 @@ func fillRanges(s *core.Session, l *LockingSP) error {
 			l: l,
 		}
 		copy(r.UID[:], lr.UID[:])
-		if bytes.Equal(r.UID[:], GlobalRangeRowUID[:]) {
+		if bytes.Equal(r.UID[:], uid.GlobalRangeRowUID[:]) {
 			l.GlobalRange = r
 			r.isGlobal = true
 		}

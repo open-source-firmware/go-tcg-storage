@@ -13,11 +13,9 @@ import (
 	"time"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
-
-type InvokingID [8]byte
-type MethodID [8]byte
 
 type MethodFlag int
 
@@ -26,9 +24,6 @@ const (
 )
 
 var (
-	InvokeIDNull   InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00}
-	InvokeIDThisSP InvokingID = [8]byte{0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01}
-
 	ErrMalformedMethodResponse    = errors.New("method response was malformed")
 	ErrEmptyMethodResponse        = errors.New("method response was empty")
 	ErrMethodListUnbalanced       = errors.New("method argument list is unbalanced")
@@ -75,7 +70,7 @@ type MethodCall struct {
 }
 
 // Prepare a new method call
-func NewMethodCall(iid InvokingID, mid MethodID, flags MethodFlag) *MethodCall {
+func NewMethodCall(iid uid.InvokingID, mid uid.MethodID, flags MethodFlag) *MethodCall {
 	m := &MethodCall{bytes.Buffer{}, 0, flags}
 	m.buf.Write(stream.Token(stream.Call))
 	m.Bytes(iid[:])
@@ -252,8 +247,8 @@ func (m *MethodCall) Execute(c CommunicationIntf, proto drive.SecurityProtocol, 
 		params, ok4 := reply[3].(stream.List)
 		if ok1 && ok2 && ok3 && ok4 &&
 			tok == stream.Call &&
-			bytes.Equal(iid, InvokeIDSMU[:]) &&
-			bytes.Equal(mid, MethodIDSMCloseSession[:]) {
+			bytes.Equal(iid, uid.InvokeIDSMU[:]) &&
+			bytes.Equal(mid, uid.MethodIDSMCloseSession[:]) {
 			hsn, ok1 := params[0].(uint)
 			tsn, ok2 := params[1].(uint)
 			if ok1 && ok2 && int(hsn) == ses.HSN && int(tsn) == ses.TSN {
