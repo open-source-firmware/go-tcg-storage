@@ -466,10 +466,10 @@ func (s *Session) Close() error {
 		return ErrSessionAlreadyClosed
 	}
 	s.closed = true
-	if err := s.c.Send(drive.SecurityProtocolTCGManagement, s, stream.Token(stream.EndOfSession)); err != nil {
+	if err := s.c.Send(s, stream.Token(stream.EndOfSession)); err != nil {
 		return err
 	}
-	b, err := s.c.Receive(drive.SecurityProtocolTCGManagement, s)
+	b, err := s.c.Receive(s)
 	if err != nil {
 		return err
 	}
@@ -490,7 +490,7 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 
 	// Synchronous mode specific: Ensure that there is no pending message
 	// before we start.
-	resp, err := s.c.Receive(drive.SecurityProtocolTCGManagement, s)
+	resp, err := s.c.Receive(s)
 	if err != nil {
 		return nil, err
 	}
@@ -498,7 +498,7 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 		return nil, ErrReceivedUnexpectedResponse
 	}
 
-	if err = s.c.Send(drive.SecurityProtocolTCGManagement, s, b); err != nil {
+	if err = s.c.Send(s, b); err != nil {
 		return nil, err
 	}
 
@@ -511,7 +511,7 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 	// > Length field value of zero (no payload), an OutstandingData field value of 0x01, and a
 	// > MinTransfer field value of zero.
 	for i := 100; i >= 0; i-- {
-		resp, err = s.c.Receive(drive.SecurityProtocolTCGManagement, s)
+		resp, err = s.c.Receive(s)
 		if err != nil {
 			return nil, err
 		}
@@ -583,7 +583,7 @@ func (s *Session) Notify(mc *MethodCall) error {
 	if err != nil {
 		return err
 	}
-	if err = s.c.Send(drive.SecurityProtocolTCGManagement, s, b); err != nil {
+	if err = s.c.Send(s, b); err != nil {
 		return err
 	}
 	return nil
