@@ -266,7 +266,7 @@ func initializeOpalFamily(s *core.Session, d0 *core.Level0Discovery, ic *initial
 		if !ic.activate {
 			return fmt.Errorf("locking SP not active, but activation not requested")
 		}
-		mc := s.NewMethodCall(uid.InvokingID(uid.LockingSP), uid.MethodIDAdmin_Activate)
+		mc := core.NewMethodCall(uid.InvokingID(uid.LockingSP), uid.MethodIDAdmin_Activate, s.MethodFlags)
 		if _, err := s.ExecuteMethod(mc); err != nil {
 			return err
 		}

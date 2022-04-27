@@ -407,7 +407,7 @@ func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
 }
 
 func MBR_Read(s *core.Session, p []byte, off uint32) (int, error) {
-	mc := s.NewMethodCall(uid.InvokingID(uid.Locking_MBRTable), uid.OpalGet)
+	mc := core.NewMethodCall(uid.InvokingID(uid.Locking_MBRTable), uid.OpalGet, s.MethodFlags)
 	mc.StartList()
 	mc.StartOptionalParameter(CellBlock_StartRow, "startRow")
 	mc.UInt(uint(off))
