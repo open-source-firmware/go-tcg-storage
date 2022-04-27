@@ -577,6 +577,18 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 	return reply[:len(reply)-2], nil
 }
 
+// Execute a prepared Method call but do not expect anything in return.
+func (s *Session) Notify(mc *MethodCall) error {
+	b, err := mc.MarshalBinary()
+	if err != nil {
+		return err
+	}
+	if err = s.c.Send(drive.SecurityProtocolTCGManagement, s, b); err != nil {
+		return err
+	}
+	return nil
+}
+
 func parseTPerProperties(params []interface{}, tp *TPerProperties) error {
 	for i, p := range params {
 		if stream.EqualToken(p, stream.StartName) {
