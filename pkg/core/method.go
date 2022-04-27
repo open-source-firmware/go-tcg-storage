@@ -12,7 +12,6 @@ import (
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
 type MethodFlag int
@@ -171,16 +170,4 @@ func (m *MethodCall) MarshalBinary() ([]byte, error) {
 		return nil, ErrMethodListUnbalanced
 	}
 	return mn.buf.Bytes(), nil
-}
-
-// Execute a prepared Method call but do not expect anything in return.
-func (m *MethodCall) Notify(c CommunicationIntf, proto drive.SecurityProtocol, ses *Session) error {
-	b, err := m.MarshalBinary()
-	if err != nil {
-		return err
-	}
-	if err = c.Send(proto, ses, b); err != nil {
-		return err
-	}
-	return nil
 }
