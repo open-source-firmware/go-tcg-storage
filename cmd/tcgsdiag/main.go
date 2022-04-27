@@ -206,7 +206,7 @@ func main() {
 			msidOk = true
 		}
 		if llcs == 8 /* Manufactured-Inactive */ && os.Getenv("TCGSDIAG_ACTIVATE") != "" {
-			mc := s.NewMethodCall(uid.InvokingID(uid.LockingSP), uid.MethodIDActivate)
+			mc := tcg.NewMethodCall(uid.InvokingID(uid.LockingSP), uid.MethodIDActivate, s.MethodFlags)
 			if _, err := s.ExecuteMethod(mc); err != nil {
 				log.Printf("LockingSP.Activate failed: %v", err)
 			} else {

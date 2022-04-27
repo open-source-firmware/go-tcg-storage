@@ -46,7 +46,7 @@ func GetPartialRow(s *core.Session, row uid.RowUID, startCol uint, startColName 
 	} else {
 		copy(getUID[:], uid.OpalGet[:])
 	}
-	mc := s.NewMethodCall(uid.InvokingID(row), getUID)
+	mc := core.NewMethodCall(uid.InvokingID(row), getUID, s.MethodFlags)
 	mc.StartList()
 	mc.StartOptionalParameter(CellBlock_StartColumn, "startColumn")
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
@@ -92,7 +92,7 @@ func GetFullRow(s *core.Session, row uid.RowUID) (map[string]interface{}, error)
 	} else {
 		copy(getUID[:], uid.OpalGet[:])
 	}
-	mc := s.NewMethodCall(uid.InvokingID(row), getUID)
+	mc := core.NewMethodCall(uid.InvokingID(row), getUID, s.MethodFlags)
 	mc.StartList()
 	mc.EndList()
 	resp, err := s.ExecuteMethod(mc)
@@ -118,7 +118,7 @@ func GetFullRow(s *core.Session, row uid.RowUID) (map[string]interface{}, error)
 }
 
 func Enumerate(s *core.Session, table uid.TableUID) ([]uid.RowUID, error) {
-	mc := s.NewMethodCall(uid.InvokingID(table), uid.OpalNext)
+	mc := core.NewMethodCall(uid.InvokingID(table), uid.OpalNext, s.MethodFlags)
 	resp, err := s.ExecuteMethod(mc)
 	if err != nil {
 		return nil, err
@@ -197,7 +197,7 @@ func NewSetCall(s *core.Session, row uid.RowUID) *core.MethodCall {
 	} else {
 		copy(setUID[:], uid.OpalSet[:])
 	}
-	mc := s.NewMethodCall(uid.InvokingID(row), setUID)
+	mc := core.NewMethodCall(uid.InvokingID(row), setUID, s.MethodFlags)
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
 		// The two first arguments in ESET are required, and RowValues has an extra list
 		mc.StartList()

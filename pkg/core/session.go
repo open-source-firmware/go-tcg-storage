@@ -7,6 +7,7 @@
 package core
 
 import (
+	"bytes"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -329,7 +330,7 @@ func (cs *ControlSession) NewSession(spid uid.SPID, opts ...SessionOpt) (*Sessio
 		s.HSN = int(sessionRand.Int31())
 	}
 
-	mc := s.NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMStartSession)
+	mc := NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMStartSession, s.MethodFlags)
 	mc.UInt(uint(s.HSN))
 	mc.Bytes(spid[:])
 	mc.Bool(!s.ReadOnly)
@@ -391,7 +392,7 @@ func (cs *ControlSession) NewSession(spid uid.SPID, opts ...SessionOpt) (*Sessio
 
 // Fetch current Host and TPer properties, optionally changing the Host properties.
 func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerProperties, error) {
-	mc := cs.NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMProperties)
+	mc := NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMProperties, cs.Session.MethodFlags)
 
 	mc.StartOptionalParameter(0, "HostProperties")
 	mc.StartList()
@@ -482,11 +483,98 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 	if s.closed {
 		return nil, ErrSessionAlreadyClosed
 	}
-	return mc.Execute(s.c, drive.SecurityProtocolTCGManagement, s)
-}
+	b, err := mc.MarshalBinary()
+	if err != nil {
+		return nil, err
+	}
 
-func (s *Session) NewMethodCall(iid uid.InvokingID, mid uid.MethodID) *MethodCall {
-	return NewMethodCall(iid, mid, s.MethodFlags)
+	// Synchronous mode specific: Ensure that there is no pending message
+	// before we start.
+	resp, err := s.c.Receive(drive.SecurityProtocolTCGManagement, s)
+	if err != nil {
+		return nil, err
+	}
+	if len(resp) > 0 {
+		return nil, ErrReceivedUnexpectedResponse
+	}
+
+	if err = s.c.Send(drive.SecurityProtocolTCGManagement, s, b); err != nil {
+		return nil, err
+	}
+
+	// There are a couple of reasons why we might receive empty data from c.Receive.
+	//
+	// Most relevant is this one:
+	// "3.3.10.2.1 Restrictions (3.b)"
+	// > If the TPer has not sufficiently processed the command payload and prepared a
+	// > response, any IF-RECV command for that ComID SHALL receive a ComPacket with a
+	// > Length field value of zero (no payload), an OutstandingData field value of 0x01, and a
+	// > MinTransfer field value of zero.
+	for i := 100; i >= 0; i-- {
+		resp, err = s.c.Receive(drive.SecurityProtocolTCGManagement, s)
+		if err != nil {
+			return nil, err
+		}
+		if len(resp) > 0 {
+			break
+		}
+		if i == 0 {
+			return nil, ErrMethodTimeout
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	reply, err := stream.Decode(resp)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(reply) < 2 {
+		return nil, ErrEmptyMethodResponse
+	}
+
+	// Check for special CloseSession response
+	if len(reply) >= 4 {
+		tok, ok1 := reply[0].(stream.TokenType)
+		iid, ok2 := reply[1].([]byte)
+		mid, ok3 := reply[2].([]byte)
+		params, ok4 := reply[3].(stream.List)
+		if ok1 && ok2 && ok3 && ok4 &&
+			tok == stream.Call &&
+			bytes.Equal(iid, uid.InvokeIDSMU[:]) &&
+			bytes.Equal(mid, uid.MethodIDSMCloseSession[:]) {
+			hsn, ok1 := params[0].(uint)
+			tsn, ok2 := params[1].(uint)
+			if ok1 && ok2 && int(hsn) == s.HSN && int(tsn) == s.TSN {
+				return nil, ErrTPerClosedSession
+			} else {
+				return nil, ErrReceivedUnexpectedResponse
+			}
+		}
+	}
+
+	// While the normal method result format is known, the Session Manager
+	// methods use a different format. What is in common however is that
+	// the last element should be the status code list.
+	tok, ok1 := reply[len(reply)-2].(stream.TokenType)
+	status, ok2 := reply[len(reply)-1].(stream.List)
+	if !ok1 || !ok2 || tok != stream.EndOfData {
+		return nil, ErrMalformedMethodResponse
+	}
+
+	sc, ok := status[0].(uint)
+	if !ok {
+		return nil, ErrMalformedMethodResponse
+	}
+	if sc != MethodStatusSuccess {
+		err, ok := MethodStatusCodeMap[sc]
+		if !ok {
+			return nil, fmt.Errorf("method returned unknown status code 0x%02x", sc)
+		}
+		return nil, err
+	}
+
+	return reply[:len(reply)-2], nil
 }
 
 func parseTPerProperties(params []interface{}, tp *TPerProperties) error {

@@ -20,7 +20,7 @@ var (
 )
 
 func ThisSP_Random(s *core.Session, count uint) ([]byte, error) {
-	mc := s.NewMethodCall(uid.InvokeIDThisSP, uid.OpalRandom)
+	mc := core.NewMethodCall(uid.InvokeIDThisSP, uid.OpalRandom, s.MethodFlags)
 	mc.UInt(count)
 	resp, err := s.ExecuteMethod(mc)
 	if err != nil {
@@ -44,7 +44,7 @@ func ThisSP_Authenticate(s *core.Session, authority uid.AuthorityObjectUID, proo
 	} else {
 		copy(authUID[:], uid.OpalAuthenticate[:])
 	}
-	mc := s.NewMethodCall(uid.InvokeIDThisSP, authUID)
+	mc := core.NewMethodCall(uid.InvokeIDThisSP, authUID, s.MethodFlags)
 	mc.Bytes(authority[:])
 	mc.StartOptionalParameter(0, "Challenge")
 	mc.Bytes(proof)
