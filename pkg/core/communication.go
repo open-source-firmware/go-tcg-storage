@@ -23,8 +23,8 @@ var (
 // NOTE: This is almost io.ReadWriter, but not quite - I couldn't figure out
 // a good interface use that wouldn't result in a lot of extra copying.
 type CommunicationIntf interface {
-	Send(proto drive.SecurityProtocol, ses *Session, data []byte) error
-	Receive(proto drive.SecurityProtocol, ses *Session) ([]byte, error)
+	Send(ses *Session, data []byte) error
+	Receive(ses *Session) ([]byte, error)
 }
 
 type plainCom struct {
@@ -63,7 +63,7 @@ func NewPlainCommunication(d drive.DriveIntf, hp HostProperties, tp TPerProperti
 	return &plainCom{d, hp, tp}
 }
 
-func (c *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte) error {
+func (c *plainCom) Send(ses *Session, data []byte) error {
 	// From "3.3.10.3 Synchronous Communications Restrictions"
 	// > Methods SHALL NOT span ComPackets. In the case where an incomplete method is
 	// > submitted, if the TPer is able to identify the associated session, then that session SHALL
@@ -123,12 +123,12 @@ func (c *plainCom) Send(proto drive.SecurityProtocol, ses *Session, data []byte)
 	}
 	// Extend buffer to be aligned to 512 byte pages which some drives like
 	compkt.Write(make([]byte, 512-(compkt.Len()%512)))
-	return c.d.IFSend(proto, uint16(ses.ComID), compkt.Bytes())
+	return c.d.IFSend(drive.SecurityProtocolTCGManagement, uint16(ses.ComID), compkt.Bytes())
 }
 
-func (c *plainCom) Receive(proto drive.SecurityProtocol, ses *Session) ([]byte, error) {
+func (c *plainCom) Receive(ses *Session) ([]byte, error) {
 	buf := make([]byte, c.hp.MaxComPacketSize)
-	if err := c.d.IFRecv(proto, uint16(ses.ComID), &buf); err != nil {
+	if err := c.d.IFRecv(drive.SecurityProtocolTCGManagement, uint16(ses.ComID), &buf); err != nil {
 		return nil, err
 	}
 	rdr := bytes.NewBuffer(buf)

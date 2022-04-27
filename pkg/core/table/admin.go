@@ -17,9 +17,6 @@ import (
 var (
 	Admin_C_PIN_ColumnPIN         uint = 3
 	Admin_SP_ColumnLifeCycleState uint = 6
-
-	// TODO: This is taken from the Opal spec, not sure how to dynamically find it...
-
 )
 
 func Admin_C_PIN_MSID_GetPIN(s *core.Session) ([]byte, error) {
