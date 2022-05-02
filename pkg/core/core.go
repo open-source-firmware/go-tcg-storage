@@ -92,3 +92,30 @@ func StackReset(d drive.DriveIntf, comID ComID) error {
 	}
 	return nil
 }
+
+// FindComID checks data of Level0Discovery for the particular SSC and reads the standard ComID
+// of requests a ComID if no standard is set.
+func FindComID(d drive.DriveIntf, d0 *Level0Discovery) (ComID, ProtocolLevel, error) {
+	proto := ProtocolLevelUnknown
+	comID := ComIDInvalid
+	if d0.OpalV2 != nil {
+		comID = ComID(d0.OpalV2.BaseComID)
+		proto = ProtocolLevelCore
+	} else if d0.PyriteV1 != nil {
+		comID = ComID(d0.PyriteV1.BaseComID)
+		proto = ProtocolLevelCore
+	} else if d0.PyriteV2 != nil {
+		comID = ComID(d0.PyriteV2.BaseComID)
+		proto = ProtocolLevelCore
+	} else if d0.Enterprise != nil {
+		comID = ComID(d0.Enterprise.BaseComID)
+		proto = ProtocolLevelEnterprise
+	}
+
+	autoComID, err := GetComID(d)
+	if err == nil && autoComID > 0 {
+		comID = autoComID
+	}
+
+	return comID, proto, nil
+}
