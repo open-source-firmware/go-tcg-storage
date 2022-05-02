@@ -12,7 +12,6 @@ import (
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
 )
 
 var (
@@ -150,31 +149,6 @@ func WithAuth(auth AdminSPAuthenticator) InitializeOpt {
 	}
 }
 
-func findComID(d drive.DriveIntf, d0 *core.Level0Discovery) (core.ComID, core.ProtocolLevel, error) {
-	proto := core.ProtocolLevelUnknown
-	comID := core.ComIDInvalid
-	if d0.OpalV2 != nil {
-		comID = core.ComID(d0.OpalV2.BaseComID)
-		proto = core.ProtocolLevelCore
-	} else if d0.PyriteV1 != nil {
-		comID = core.ComID(d0.PyriteV1.BaseComID)
-		proto = core.ProtocolLevelCore
-	} else if d0.PyriteV2 != nil {
-		comID = core.ComID(d0.PyriteV2.BaseComID)
-		proto = core.ProtocolLevelCore
-	} else if d0.Enterprise != nil {
-		comID = core.ComID(d0.Enterprise.BaseComID)
-		proto = core.ProtocolLevelEnterprise
-	}
-
-	autoComID, err := core.GetComID(d)
-	if err == nil && autoComID > 0 {
-		comID = autoComID
-	}
-
-	return comID, proto, nil
-}
-
 type LockingSPMeta struct {
 	SPID uid.SPID
 	MSID []byte
@@ -191,7 +165,7 @@ func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession
 	lmeta := &LockingSPMeta{}
 	lmeta.D0 = coreObj.DiskInfo.Level0Discovery
 
-	comID, proto, err := findComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	comID, proto, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
 	if err != nil {
 		return nil, nil, err
 	}
