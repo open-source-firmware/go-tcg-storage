@@ -10,6 +10,7 @@ import (
 	"errors"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 )
@@ -61,55 +62,55 @@ func LockingInfo(s *core.Session) (*LockingInfoRow, error) {
 		case "0", "UID":
 			v, ok := val.([]byte)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			copy(row.UID[:], v[:8])
 		case "1", "Name":
 			v, ok := val.([]byte)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := string(v)
 			row.Name = &vv
 		case "2", "Version":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint32(v)
 			row.Version = &vv
 		case "3", "EncryptSupport":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := EncryptSupport(v)
 			row.EncryptSupport = &vv
 		case "4", "MaxRanges":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint32(v)
 			row.MaxRanges = &vv
 		case "5", "MaxReEncryptions":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint32(v)
 			row.MaxReEncryptions = &vv
 		case "6", "KeysAvailableCfg":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := KeysAvailableConds(v)
 			row.KeysAvailableCfg = &vv
 		case "7":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			var vv bool
 			if v > 0 {
@@ -119,21 +120,21 @@ func LockingInfo(s *core.Session) (*LockingInfoRow, error) {
 		case "8":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint32(v)
 			row.LogicalBlockSize = &vv
 		case "9":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint64(v)
 			row.AlignmentGranularity = &vv
 		case "10":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint64(v)
 			row.LowestAlignedLBA = &vv
@@ -171,34 +172,34 @@ func Locking_Get(s *core.Session, row uid.RowUID) (*LockingRow, error) {
 		case "0", "UID":
 			v, ok := val.([]byte)
 			if !ok || len(v) != 8 {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			copy(lr.UID[:], v[:8])
 		case "1", "Name":
 			v, ok := val.([]byte)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := string(v)
 			lr.Name = &vv
 		case "3", "RangeStart":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint64(v)
 			lr.RangeStart = &vv
 		case "4", "RangeLength":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint64(v)
 			lr.RangeLength = &vv
 		case "5", "ReadLockEnabled":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			var vv bool
 			if v > 0 {
@@ -208,7 +209,7 @@ func Locking_Get(s *core.Session, row uid.RowUID) (*LockingRow, error) {
 		case "6", "WriteLockEnabled":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			var vv bool
 			if v > 0 {
@@ -218,7 +219,7 @@ func Locking_Get(s *core.Session, row uid.RowUID) (*LockingRow, error) {
 		case "7", "ReadLocked":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			var vv bool
 			if v > 0 {
@@ -228,7 +229,7 @@ func Locking_Get(s *core.Session, row uid.RowUID) (*LockingRow, error) {
 		case "8", "WriteLocked":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			var vv bool
 			if v > 0 {
@@ -238,19 +239,19 @@ func Locking_Get(s *core.Session, row uid.RowUID) (*LockingRow, error) {
 		case "9", "LockOnReset":
 			vl, ok := val.(stream.List)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			for _, val := range vl {
 				v, ok := val.(uint)
 				if !ok {
-					return nil, core.ErrMalformedMethodResponse
+					return nil, method.ErrMalformedMethodResponse
 				}
 				lr.LockOnReset = append(lr.LockOnReset, ResetType(v))
 			}
 		case "10", "ActiveKey":
 			v, ok := val.([]byte)
 			if !ok || len(v) != 8 {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uid.RowUID{}
 			copy(vv[:], v)
@@ -382,19 +383,19 @@ func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
 		case "7":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			mi.Size = uint32(v)
 		case "13":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			mi.MandatoryWriteGranularity = uint32(v)
 		case "14":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			mi.RecommendedAccessGranularity = uint32(v)
 		}
@@ -407,7 +408,7 @@ func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
 }
 
 func MBR_Read(s *core.Session, p []byte, off uint32) (int, error) {
-	mc := core.NewMethodCall(uid.InvokingID(uid.Locking_MBRTable), uid.OpalGet, s.MethodFlags)
+	mc := method.NewMethodCall(uid.InvokingID(uid.Locking_MBRTable), uid.OpalGet, s.MethodFlags)
 	mc.StartList()
 	mc.StartOptionalParameter(CellBlock_StartRow, "startRow")
 	mc.UInt(uint(off))
@@ -422,14 +423,14 @@ func MBR_Read(s *core.Session, p []byte, off uint32) (int, error) {
 	}
 	methodResult, ok := res[0].(stream.List)
 	if !ok {
-		return 0, core.ErrMalformedMethodResponse
+		return 0, method.ErrMalformedMethodResponse
 	}
 	if len(methodResult) == 0 {
 		return 0, ErrEmptyResult
 	}
 	inner, ok := methodResult[0].([]uint8)
 	if !ok {
-		return 0, core.ErrMalformedMethodResponse
+		return 0, method.ErrMalformedMethodResponse
 	}
 	if len(inner) == 0 {
 		return 0, ErrEmptyResult

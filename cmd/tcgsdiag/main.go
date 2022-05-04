@@ -12,6 +12,7 @@ import (
 
 	"github.com/davecgh/go-spew/spew"
 	tcg "github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
@@ -135,7 +136,7 @@ func main() {
 		} else {
 			s, err = cs.NewSession(uid.AdminSP, tcg.WithReadOnly())
 		}
-		if err == tcg.ErrMethodStatusNoSessionsAvailable || err == tcg.ErrMethodStatusSPBusy {
+		if err == method.ErrMethodStatusNoSessionsAvailable || err == method.ErrMethodStatusSPBusy {
 			break
 		}
 		if err != nil {
@@ -206,7 +207,7 @@ func main() {
 			msidOk = true
 		}
 		if llcs == 8 /* Manufactured-Inactive */ && os.Getenv("TCGSDIAG_ACTIVATE") != "" {
-			mc := tcg.NewMethodCall(uid.InvokingID(uid.LockingSP), uid.MethodIDActivate, s.MethodFlags)
+			mc := method.NewMethodCall(uid.InvokingID(uid.LockingSP), uid.MethodIDActivate, s.MethodFlags)
 			if _, err := s.ExecuteMethod(mc); err != nil {
 				log.Printf("LockingSP.Activate failed: %v", err)
 			} else {

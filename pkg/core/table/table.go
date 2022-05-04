@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 )
@@ -46,7 +47,7 @@ func GetPartialRow(s *core.Session, row uid.RowUID, startCol uint, startColName 
 	} else {
 		copy(getUID[:], uid.OpalGet[:])
 	}
-	mc := core.NewMethodCall(uid.InvokingID(row), getUID, s.MethodFlags)
+	mc := method.NewMethodCall(uid.InvokingID(row), getUID, s.MethodFlags)
 	mc.StartList()
 	mc.StartOptionalParameter(CellBlock_StartColumn, "startColumn")
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
@@ -72,7 +73,7 @@ func GetPartialRow(s *core.Session, row uid.RowUID, startCol uint, startColName 
 		var ok bool
 		resp, ok = resp[0].(stream.List)
 		if !ok {
-			return nil, core.ErrMalformedMethodResponse
+			return nil, method.ErrMalformedMethodResponse
 		}
 	}
 	val, err := parseGetResult(resp)
@@ -92,7 +93,7 @@ func GetFullRow(s *core.Session, row uid.RowUID) (map[string]interface{}, error)
 	} else {
 		copy(getUID[:], uid.OpalGet[:])
 	}
-	mc := core.NewMethodCall(uid.InvokingID(row), getUID, s.MethodFlags)
+	mc := method.NewMethodCall(uid.InvokingID(row), getUID, s.MethodFlags)
 	mc.StartList()
 	mc.EndList()
 	resp, err := s.ExecuteMethod(mc)
@@ -104,7 +105,7 @@ func GetFullRow(s *core.Session, row uid.RowUID) (map[string]interface{}, error)
 		var ok bool
 		resp, ok = resp[0].(stream.List)
 		if !ok {
-			return nil, core.ErrMalformedMethodResponse
+			return nil, method.ErrMalformedMethodResponse
 		}
 	}
 	val, err := parseGetResult(resp)
@@ -118,24 +119,24 @@ func GetFullRow(s *core.Session, row uid.RowUID) (map[string]interface{}, error)
 }
 
 func Enumerate(s *core.Session, table uid.TableUID) ([]uid.RowUID, error) {
-	mc := core.NewMethodCall(uid.InvokingID(table), uid.OpalNext, s.MethodFlags)
+	mc := method.NewMethodCall(uid.InvokingID(table), uid.OpalNext, s.MethodFlags)
 	resp, err := s.ExecuteMethod(mc)
 	if err != nil {
 		return nil, err
 	}
 	result, ok := resp[0].(stream.List)
 	if !ok {
-		return nil, core.ErrMalformedMethodResponse
+		return nil, method.ErrMalformedMethodResponse
 	}
 	uidrefs, ok := result[0].(stream.List)
 	if !ok {
-		return nil, core.ErrMalformedMethodResponse
+		return nil, method.ErrMalformedMethodResponse
 	}
 	res := []uid.RowUID{}
 	for _, ur := range uidrefs {
 		br, ok := ur.([]byte)
 		if !ok || len(br) != 8 {
-			return nil, core.ErrMalformedMethodResponse
+			return nil, method.ErrMalformedMethodResponse
 		}
 		r := uid.RowUID{}
 		copy(r[:], br)
@@ -147,14 +148,14 @@ func Enumerate(s *core.Session, table uid.TableUID) ([]uid.RowUID, error) {
 func parseGetResult(res stream.List) (map[string]interface{}, error) {
 	methodResult, ok := res[0].(stream.List)
 	if !ok {
-		return nil, core.ErrMalformedMethodResponse
+		return nil, method.ErrMalformedMethodResponse
 	}
 	if len(methodResult) == 0 {
 		return nil, ErrEmptyResult
 	}
 	inner, ok := methodResult[0].(stream.List)
 	if !ok {
-		return nil, core.ErrMalformedMethodResponse
+		return nil, method.ErrMalformedMethodResponse
 	}
 	if len(inner) == 0 {
 		return nil, ErrEmptyResult
@@ -173,7 +174,7 @@ func parseRowValues(rv stream.List) (map[string]interface{}, error) {
 			colID, okID := rv[i+1].(uint)
 			colRawName, okString := rv[i+1].([]byte)
 			if !okID && !okString {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			colName := ""
 			if okID {
@@ -190,14 +191,14 @@ func parseRowValues(rv stream.List) (map[string]interface{}, error) {
 	return res, nil
 }
 
-func NewSetCall(s *core.Session, row uid.RowUID) *core.MethodCall {
+func NewSetCall(s *core.Session, row uid.RowUID) *method.MethodCall {
 	setUID := uid.MethodID{}
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
 		copy(setUID[:], uid.OpalEnterpriseSet[:])
 	} else {
 		copy(setUID[:], uid.OpalSet[:])
 	}
-	mc := core.NewMethodCall(uid.InvokingID(row), setUID, s.MethodFlags)
+	mc := method.NewMethodCall(uid.InvokingID(row), setUID, s.MethodFlags)
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
 		// The two first arguments in ESET are required, and RowValues has an extra list
 		mc.StartList()
@@ -211,7 +212,7 @@ func NewSetCall(s *core.Session, row uid.RowUID) *core.MethodCall {
 	return mc
 }
 
-func FinishSetCall(s *core.Session, mc *core.MethodCall) {
+func FinishSetCall(s *core.Session, mc *method.MethodCall) {
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
 		mc.EndList()
 		mc.EndList()
