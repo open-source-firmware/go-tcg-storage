@@ -11,6 +11,7 @@ import (
 	"fmt"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 )
@@ -20,7 +21,7 @@ var (
 )
 
 func ThisSP_Random(s *core.Session, count uint) ([]byte, error) {
-	mc := core.NewMethodCall(uid.InvokeIDThisSP, uid.OpalRandom, s.MethodFlags)
+	mc := method.NewMethodCall(uid.InvokeIDThisSP, uid.OpalRandom, s.MethodFlags)
 	mc.UInt(count)
 	resp, err := s.ExecuteMethod(mc)
 	if err != nil {
@@ -28,11 +29,11 @@ func ThisSP_Random(s *core.Session, count uint) ([]byte, error) {
 	}
 	res, ok := resp[0].(stream.List)
 	if !ok {
-		return nil, core.ErrMalformedMethodResponse
+		return nil, method.ErrMalformedMethodResponse
 	}
 	rnd, ok := res[0].([]byte)
 	if !ok {
-		return nil, core.ErrMalformedMethodResponse
+		return nil, method.ErrMalformedMethodResponse
 	}
 	return rnd, nil
 }
@@ -44,7 +45,7 @@ func ThisSP_Authenticate(s *core.Session, authority uid.AuthorityObjectUID, proo
 	} else {
 		copy(authUID[:], uid.OpalAuthenticate[:])
 	}
-	mc := core.NewMethodCall(uid.InvokeIDThisSP, authUID, s.MethodFlags)
+	mc := method.NewMethodCall(uid.InvokeIDThisSP, authUID, s.MethodFlags)
 	mc.Bytes(authority[:])
 	mc.StartOptionalParameter(0, "Challenge")
 	mc.Bytes(proof)
@@ -55,7 +56,7 @@ func ThisSP_Authenticate(s *core.Session, authority uid.AuthorityObjectUID, proo
 	}
 	res, ok := resp[0].(stream.List)
 	if !ok {
-		return core.ErrMalformedMethodResponse
+		return method.ErrMalformedMethodResponse
 	}
 	success, okUint := res[0].(uint)
 	_, okByte := res[0].([]byte)
@@ -63,7 +64,7 @@ func ThisSP_Authenticate(s *core.Session, authority uid.AuthorityObjectUID, proo
 		return fmt.Errorf("got a challenge back, not implemented")
 	}
 	if !okUint {
-		return core.ErrMalformedMethodResponse
+		return method.ErrMalformedMethodResponse
 	}
 	if success == 0 {
 		return ErrAuthenticationFailed

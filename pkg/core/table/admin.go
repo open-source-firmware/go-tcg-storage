@@ -10,6 +10,7 @@ import (
 	"fmt"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 )
@@ -56,20 +57,20 @@ func Admin_TPerInfo(s *core.Session) (map[uid.RowUID]Admin_TPerInfoRow, error) {
 		case "0", "UID":
 			v, ok := val.([]byte)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			copy(row.UID[:], v[:8])
 		case "1":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint64(v)
 			row.Bytes = &vv
 		case "2":
 			v, ok := val.([]byte)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := [12]byte{}
 			copy(vv[:], v)
@@ -77,28 +78,28 @@ func Admin_TPerInfo(s *core.Session) (map[uid.RowUID]Admin_TPerInfoRow, error) {
 		case "3":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint32(v)
 			row.Generation = &vv
 		case "4":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint32(v)
 			row.FirmwareVersion = &vv
 		case "5":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint32(v)
 			row.ProtocolVersion = &vv
 		case "6":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			vv := uint64(v)
 			row.SpaceForIssuance = &vv
@@ -110,14 +111,14 @@ func Admin_TPerInfo(s *core.Session) (map[uid.RowUID]Admin_TPerInfoRow, error) {
 			for _, val := range vl {
 				v, ok := val.([]byte)
 				if !ok {
-					return nil, core.ErrMalformedMethodResponse
+					return nil, method.ErrMalformedMethodResponse
 				}
 				row.SSC = append(row.SSC, string(v))
 			}
 		case "8":
 			v, ok := val.(uint)
 			if !ok {
-				return nil, core.ErrMalformedMethodResponse
+				return nil, method.ErrMalformedMethodResponse
 			}
 			var vv bool
 			if v > 0 {

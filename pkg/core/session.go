@@ -13,6 +13,7 @@ import (
 	"math/rand"
 	"time"
 
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
@@ -50,7 +51,7 @@ func (p *ProtocolLevel) String() string {
 
 type Session struct {
 	ControlSession *ControlSession
-	MethodFlags    MethodFlag
+	MethodFlags    method.MethodFlag
 	ProtocolLevel  ProtocolLevel
 	d              drive.DriveIntf
 	c              CommunicationIntf
@@ -221,7 +222,7 @@ func NewControlSession(d drive.DriveIntf, d0 *Level0Discovery, opts ...ControlSe
 		// The Enterprise SSC implements optional parameters with explicit variable
 		// names, while the core spec says to use uintegers instead. This is likely
 		// the fact that it is the oldest spec and based on the draft of TCG Core 0.9
-		s.MethodFlags |= MethodFlagOptionalAsName
+		s.MethodFlags |= method.MethodFlagOptionalAsName
 		s.ProtocolLevel = ProtocolLevelEnterprise
 	} else {
 		s.ProtocolLevel = ProtocolLevelCore
@@ -330,7 +331,7 @@ func (cs *ControlSession) NewSession(spid uid.SPID, opts ...SessionOpt) (*Sessio
 		s.HSN = int(sessionRand.Int31())
 	}
 
-	mc := NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMStartSession, s.MethodFlags)
+	mc := method.NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMStartSession, s.MethodFlags)
 	mc.UInt(uint(s.HSN))
 	mc.Bytes(spid[:])
 	mc.Bool(!s.ReadOnly)
@@ -353,7 +354,7 @@ func (cs *ControlSession) NewSession(spid uid.SPID, opts ...SessionOpt) (*Sessio
 	// Try with the method call with the optional parameters first,
 	// and if that fails fall back to the basic method call (basemc).
 	resp, err := cs.ExecuteMethod(mc)
-	if err == ErrMethodStatusInvalidParameter {
+	if err == method.ErrMethodStatusInvalidParameter {
 		resp, err = cs.ExecuteMethod(basemc)
 	}
 	if err != nil {
@@ -392,7 +393,7 @@ func (cs *ControlSession) NewSession(spid uid.SPID, opts ...SessionOpt) (*Sessio
 
 // Fetch current Host and TPer properties, optionally changing the Host properties.
 func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerProperties, error) {
-	mc := NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMProperties, cs.Session.MethodFlags)
+	mc := method.NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMProperties, cs.Session.MethodFlags)
 
 	mc.StartOptionalParameter(0, "HostProperties")
 	mc.StartList()
@@ -479,7 +480,7 @@ func (s *Session) Close() error {
 	return nil
 }
 
-func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
+func (s *Session) ExecuteMethod(mc *method.MethodCall) (stream.List, error) {
 	if s.closed {
 		return nil, ErrSessionAlreadyClosed
 	}
@@ -495,7 +496,7 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 		return nil, err
 	}
 	if len(resp) > 0 {
-		return nil, ErrReceivedUnexpectedResponse
+		return nil, method.ErrReceivedUnexpectedResponse
 	}
 
 	if err = s.c.Send(s, b); err != nil {
@@ -519,7 +520,7 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 			break
 		}
 		if i == 0 {
-			return nil, ErrMethodTimeout
+			return nil, method.ErrMethodTimeout
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -530,7 +531,7 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 	}
 
 	if len(reply) < 2 {
-		return nil, ErrEmptyMethodResponse
+		return nil, method.ErrEmptyMethodResponse
 	}
 
 	// Check for special CloseSession response
@@ -546,9 +547,9 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 			hsn, ok1 := params[0].(uint)
 			tsn, ok2 := params[1].(uint)
 			if ok1 && ok2 && int(hsn) == s.HSN && int(tsn) == s.TSN {
-				return nil, ErrTPerClosedSession
+				return nil, method.ErrTPerClosedSession
 			} else {
-				return nil, ErrReceivedUnexpectedResponse
+				return nil, method.ErrReceivedUnexpectedResponse
 			}
 		}
 	}
@@ -559,15 +560,15 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 	tok, ok1 := reply[len(reply)-2].(stream.TokenType)
 	status, ok2 := reply[len(reply)-1].(stream.List)
 	if !ok1 || !ok2 || tok != stream.EndOfData {
-		return nil, ErrMalformedMethodResponse
+		return nil, method.ErrMalformedMethodResponse
 	}
 
 	sc, ok := status[0].(uint)
 	if !ok {
-		return nil, ErrMalformedMethodResponse
+		return nil, method.ErrMalformedMethodResponse
 	}
-	if sc != MethodStatusSuccess {
-		err, ok := MethodStatusCodeMap[sc]
+	if sc != method.MethodStatusSuccess {
+		err, ok := method.MethodStatusCodeMap[sc]
 		if !ok {
 			return nil, fmt.Errorf("method returned unknown status code 0x%02x", sc)
 		}
@@ -578,7 +579,7 @@ func (s *Session) ExecuteMethod(mc *MethodCall) (stream.List, error) {
 }
 
 // Execute a prepared Method call but do not expect anything in return.
-func (s *Session) Notify(mc *MethodCall) error {
+func (s *Session) Notify(mc *method.MethodCall) error {
 	b, err := mc.MarshalBinary()
 	if err != nil {
 		return err
