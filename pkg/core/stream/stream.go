@@ -28,6 +28,11 @@ var (
 	StartTransaction TokenType = 0xFB
 	EndTransaction   TokenType = 0xFC
 	EmptyAtom        TokenType = 0xFF
+	OpalFalse        TokenType = 0x00
+	OpalTrue         TokenType = 0x01
+	OpalPIN          TokenType = 0x03
+	ReadLockEnabled  TokenType = 0x05
+	WriteLockEnabled TokenType = 0x06
 
 	ErrUnbalancedList = errors.New("message contained unbalanced list structures")
 )

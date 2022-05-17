@@ -44,6 +44,17 @@ type LockingInfoRow struct {
 	LowestAlignedLBA     *uint64
 }
 
+func LockingSPActivate(s *core.Session) error {
+	var lockingsp uid.InvokingID
+	copy(lockingsp[:], uid.LockingSP[:])
+	mc := method.NewMethodCall(lockingsp, uid.MethodIDActivate, s.MethodFlags)
+	_, err := s.ExecuteMethod(mc)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func LockingInfo(s *core.Session) (*LockingInfoRow, error) {
 	rowUID := uid.RowUID{}
 	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
@@ -259,6 +270,26 @@ func Locking_Get(s *core.Session, row uid.RowUID) (*LockingRow, error) {
 		}
 	}
 	return &lr, nil
+}
+
+func ConfigureLockingRange(s *core.Session) error {
+	var row [8]byte
+	copy(row[:], uid.LockingGlobalRange[:])
+	mc := NewSetCall(s, row)
+	mc.Token(stream.StartName)
+	mc.Token(stream.ReadLockEnabled)
+	mc.Token(stream.OpalFalse)
+	mc.Token(stream.EndName)
+	mc.Token(stream.StartName)
+	mc.Token(stream.WriteLockEnabled)
+	mc.Token(stream.OpalFalse)
+	mc.Token(stream.EndName)
+	mc.EndList()
+	mc.EndOptionalParameter()
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
 }
 
 func Locking_Set(s *core.Session, row *LockingRow) error {

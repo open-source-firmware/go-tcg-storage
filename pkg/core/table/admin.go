@@ -8,6 +8,7 @@ package table
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
@@ -30,6 +31,27 @@ func Admin_C_PIN_MSID_GetPIN(s *core.Session) ([]byte, error) {
 		return nil, fmt.Errorf("malformed PIN column")
 	}
 	return pin, nil
+}
+
+// Admin_C_Pin_SID_SetPin sets the SID Pin in the Admin_C_PIN_Table
+func Admin_C_Pin_SID_SetPIN(s *core.Session, password []byte) error {
+	// password needs to be hashed somehow.
+	if len(password) < 16 {
+		return fmt.Errorf("invalid length of password hash")
+	}
+	mc := NewSetCall(s, uid.Admin_C_PIN_SIDRow)
+	mc.Token(stream.StartName)
+	mc.Token(stream.OpalPIN)
+	mc.Bytes(password)
+	mc.Token(stream.EndName)
+	mc.EndList()
+	mc.EndOptionalParameter()
+	fmt.Printf("Debug: %+x\n", mc)
+	_, err := s.ExecuteMethod(mc)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type Admin_TPerInfoRow struct {
@@ -133,6 +155,60 @@ func Admin_TPerInfo(s *core.Session) (map[uid.RowUID]Admin_TPerInfoRow, error) {
 }
 
 type LifeCycleState int
+
+const (
+	Issued LifeCycleState = 0 + iota
+	IssuedDisabled
+	IssuedFrozen
+	IssuedDisabledFrozen
+	IssuedFailed
+	_
+	_
+	_
+	ManufacturedInactive
+	Manufactured
+	ManufacturedDisabled
+	ManufacturedFrozen
+	ManufacturedDisabledFrozen
+	ManufacturedFailed
+	_
+	_
+)
+
+func (l LifeCycleState) String() string {
+	var s strings.Builder
+	switch l {
+	case Issued:
+		s.WriteString("Issued")
+	case IssuedDisabled:
+		s.WriteString("Issued-Disabled")
+	case IssuedFrozen:
+		s.WriteString("Issued-Frozen")
+	case IssuedDisabledFrozen:
+		s.WriteString("Issued-DisabledFrozen")
+	case IssuedFailed:
+		s.WriteString("Issued-Failed")
+	case 5, 6, 7:
+		s.WriteString("Unasigned")
+	case 8:
+		s.WriteString("Manufactured-Inactive")
+	case 9:
+		s.WriteString("Manufactured")
+	case 10:
+		s.WriteString("Manufactured-Disabled")
+	case 11:
+		s.WriteString("Manufactured-Frozen")
+	case 12:
+		s.WriteString("Manufactured-DisabledFrozen")
+	case 13:
+		s.WriteString("Manufactured-Failed")
+	case 14, 15:
+		s.WriteString("Unassnged")
+	default:
+		s.WriteString("Invalid LiveCycleState")
+	}
+	return s.String()
+}
 
 func Admin_SP_GetLifeCycleState(s *core.Session, spid uid.SPID) (LifeCycleState, error) {
 	val, err := GetCell(s, uid.RowUID(spid), Admin_SP_ColumnLifeCycleState, "LifeCycleState")
