@@ -130,23 +130,28 @@ func (m *MethodCall) NamedBool(name string, val bool) {
 	}
 }
 
-// End the current optional parameter group
+// Token adds a specific token to the MethodCall buffer.
+func (m *MethodCall) Token(t stream.TokenType) {
+	m.buf.Write(stream.Token(t))
+}
+
+// EndOptionalParameter ends the current optional parameter group
 func (m *MethodCall) EndOptionalParameter() {
 	m.depth--
 	m.buf.Write(stream.Token(stream.EndName))
 }
 
-// Add a bytes atom
+// Bytes adds a bytes atom
 func (m *MethodCall) Bytes(b []byte) {
 	m.buf.Write(stream.Bytes(b))
 }
 
-// Add an uint atom
+// UInt adds an uint atom
 func (m *MethodCall) UInt(v uint) {
 	m.buf.Write(stream.UInt(v))
 }
 
-// Add a bool atom (as uint)
+// Bool adds a bool atom (as uint)
 func (m *MethodCall) Bool(v bool) {
 	if v {
 		m.UInt(1)
