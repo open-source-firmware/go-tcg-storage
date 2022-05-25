@@ -5,7 +5,6 @@
 package drive
 
 import (
-	"fmt"
 	"os"
 )
 
@@ -22,5 +21,5 @@ func Open(device string) (DriveIntf, error) {
 	}
 
 	d.Close()
-	return nil, fmt.Errorf("device type not supported")
+	return nil, ErrDeviceNotSupported
 }

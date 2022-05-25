@@ -12,7 +12,8 @@ import (
 )
 
 var (
-	ErrNotSupported = errors.New("operation is not supported")
+	ErrNotSupported       = errors.New("operation is not supported")
+	ErrDeviceNotSupported = errors.New("device is not supported")
 )
 
 type SecurityProtocol int
