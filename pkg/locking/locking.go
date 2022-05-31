@@ -8,6 +8,7 @@ package locking
 
 import (
 	"fmt"
+	"time"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
@@ -141,6 +142,8 @@ type initializeConfig struct {
 	auths                    []AdminSPAuthenticator
 	activate                 bool
 	MaxComPacketSizeOverride uint
+	ReceiveRetries           int
+	ReceiveInterval          time.Duration
 }
 
 type InitializeOpt func(ic *initializeConfig)
@@ -157,6 +160,13 @@ func WithMaxComPacketSize(size uint) InitializeOpt {
 	}
 }
 
+func WithReceiveTimeout(retries int, interval time.Duration) InitializeOpt {
+	return func(ic *initializeConfig) {
+		ic.ReceiveRetries = retries
+		ic.ReceiveInterval = interval
+	}
+}
+
 type LockingSPMeta struct {
 	SPID uid.SPID
 	MSID []byte
@@ -167,6 +177,8 @@ type LockingSPMeta struct {
 func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession, *LockingSPMeta, error) {
 	ic := initializeConfig{
 		MaxComPacketSizeOverride: core.DefaultMaxComPacketSize,
+		ReceiveRetries:           core.DefaultReceiveRetries,
+		ReceiveInterval:          core.DefaultReceiveInterval,
 	}
 	for _, o := range opts {
 		o(&ic)
@@ -182,6 +194,7 @@ func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession
 	controlSessionOpts := []core.ControlSessionOpt{
 		core.WithComID(comID),
 		core.WithMaxComPacketSize(ic.MaxComPacketSizeOverride),
+		core.WithReceiveTimeout(ic.ReceiveRetries, ic.ReceiveInterval),
 	}
 
 	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery, controlSessionOpts...)
