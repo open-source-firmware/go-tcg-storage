@@ -92,9 +92,7 @@ func Bytes(b []byte) []byte {
 		// Medium atom
 		return append([]byte{0xd0 | uint8((len(b)>>8)&0x7), uint8(len(b) & 0xff)}, b...)
 	} else {
-		// TODO: Long atom
-		// Really though, when would this be used?
-		panic("long atom not implemented")
+		// Long atom
 	}
 }
 
