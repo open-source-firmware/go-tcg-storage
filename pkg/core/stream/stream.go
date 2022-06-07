@@ -30,7 +30,9 @@ var (
 	EmptyAtom        TokenType = 0xFF
 	OpalFalse        TokenType = 0x00
 	OpalTrue         TokenType = 0x01
+	OpalValue        TokenType = 0x01
 	OpalPIN          TokenType = 0x03
+	OpalWhere        TokenType = 0x00
 	ReadLockEnabled  TokenType = 0x05
 	WriteLockEnabled TokenType = 0x06
 
@@ -93,6 +95,7 @@ func Bytes(b []byte) []byte {
 		return append([]byte{0xd0 | uint8((len(b)>>8)&0x7), uint8(len(b) & 0xff)}, b...)
 	} else {
 		// Long atom
+		return append([]byte{0xe2, uint8((len(b) >> 16) & 0xff), uint8((len(b) >> 8) & 0xff), uint8((len(b) & 0xff))}, b...)
 	}
 }
 

@@ -7,8 +7,11 @@
 package table
 
 import (
+	"bytes"
+	"encoding/binary"
 	"errors"
 	"fmt"
+	"io"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
@@ -16,12 +19,12 @@ import (
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
 )
 
-var (
-	ErrMBRNotSupproted = errors.New("drive does not support MBR")
-)
+var ErrMBRNotSupproted = errors.New("drive does not support MBR")
 
-type EncryptSupport uint
-type KeysAvailableConds uint
+type (
+	EncryptSupport     uint
+	KeysAvailableConds uint
+)
 
 type ResetType uint
 
@@ -337,8 +340,8 @@ func Locking_Set(s *core.Session, row *LockingRow) error {
 	}
 
 	// TODO: Add these columns
-	//mc.StartOptionalParameter(9, "LockOnReset")
-	//mc.StartOptionalParameter(10, "ActiveKey")
+	// mc.StartOptionalParameter(9, "LockOnReset")
+	// mc.StartOptionalParameter(10, "ActiveKey")
 
 	FinishSetCall(s, mc)
 	_, err := s.ExecuteMethod(mc)
@@ -503,4 +506,44 @@ func MBR_Read(s *core.Session, p []byte, off uint32) (int, error) {
 	}
 	copy(p, inner[:l])
 	return l, nil
+}
+
+func LoadPBAImage(s *core.Session, image []byte) error {
+	// Conversion between table and row is required by bad implementation.
+	// ToDo: Refactor uids to be the same for the sake of simplicity
+	var targerUId uid.InvokingID
+	copy(targerUId[:], uid.Locking_MBRTable[:])
+
+	imgReader := bytes.NewReader(image)
+
+	// Calculate max chunk size
+	// Let's do it like sedutil-cli
+	maxSize := s.ControlSession.TPerProperties.MaxComPacketSize - 200 // 200 just picked a random huge number to count for ComPaket and packet headers
+	fpos := uint(0)
+	readChunk := make([]byte, maxSize)
+	for imgReader.Len() > 0 {
+		if imgReader.Len() < int(maxSize) {
+			readChunk = make([]byte, imgReader.Len())
+		}
+		if err := binary.Read(imgReader, binary.LittleEndian, &readChunk); err != nil && !errors.Is(err, io.EOF) {
+			return fmt.Errorf("Read(img) failed: %v", err)
+		}
+		mc := method.NewMethodCall(targerUId, uid.OpalSet, s.MethodFlags)
+		mc.Token(stream.StartName)
+		mc.Token(stream.OpalWhere)
+		mc.UInt(fpos)
+		mc.Token(stream.EndName)
+		mc.Token(stream.StartName)
+		mc.Token(stream.OpalValue)
+		// Here comes the data (Long Atom).
+		mc.Bytes(readChunk)
+		mc.Token(stream.EndName)
+		if _, err := s.ExecuteMethod(mc); err != nil {
+			return err
+		}
+		fpos += maxSize
+
+	}
+
+	return nil
 }
