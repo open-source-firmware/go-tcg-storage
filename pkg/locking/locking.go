@@ -138,8 +138,9 @@ func NewSession(cs *core.ControlSession, lmeta *LockingSPMeta, auth LockingSPAut
 }
 
 type initializeConfig struct {
-	auths    []AdminSPAuthenticator
-	activate bool
+	auths                    []AdminSPAuthenticator
+	activate                 bool
+	MaxComPacketSizeOverride uint
 }
 
 type InitializeOpt func(ic *initializeConfig)
@@ -147,6 +148,12 @@ type InitializeOpt func(ic *initializeConfig)
 func WithAuth(auth AdminSPAuthenticator) InitializeOpt {
 	return func(ic *initializeConfig) {
 		ic.auths = append(ic.auths, auth)
+	}
+}
+
+func WithMaxComPacketSize(size uint) InitializeOpt {
+	return func(s *initializeConfig) {
+		s.MaxComPacketSizeOverride = size
 	}
 }
 
@@ -158,7 +165,9 @@ type LockingSPMeta struct {
 
 // Initialize WHAT?
 func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession, *LockingSPMeta, error) {
-	var ic initializeConfig
+	ic := initializeConfig{
+		MaxComPacketSizeOverride: core.DefaultMaxComPacketSize,
+	}
 	for _, o := range opts {
 		o(&ic)
 	}
@@ -170,7 +179,12 @@ func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession
 	if err != nil {
 		return nil, nil, err
 	}
-	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery, core.WithComID(comID))
+	controlSessionOpts := []core.ControlSessionOpt{
+		core.WithComID(comID),
+		core.WithMaxComPacketSize(ic.MaxComPacketSizeOverride),
+	}
+
+	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery, controlSessionOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create control session (comID 0x%04x): %v", comID, err)
 	}

@@ -30,6 +30,10 @@ var (
 	sessionRand *rand.Rand
 )
 
+const (
+	DefaultMaxComPacketSize uint = 1024 * 1024
+)
+
 type ProtocolLevel uint
 
 const (
@@ -67,8 +71,9 @@ type Session struct {
 
 type ControlSession struct {
 	Session
-	HostProperties HostProperties
-	TPerProperties TPerProperties
+	HostProperties           HostProperties
+	TPerProperties           TPerProperties
+	MaxComPacketSizeOverride uint
 }
 
 type HostProperties struct {
@@ -151,6 +156,12 @@ func WithComID(c ComID) ControlSessionOpt {
 	}
 }
 
+func WithMaxComPacketSize(size uint) ControlSessionOpt {
+	return func(s *ControlSession) {
+		s.MaxComPacketSizeOverride = size
+	}
+}
+
 func WithHSN(hsn int) SessionOpt {
 	return func(s *Session) {
 		s.HSN = hsn
@@ -202,8 +213,9 @@ func NewControlSession(d drive.DriveIntf, d0 *Level0Discovery, opts ...ControlSe
 			TSN:   0,
 			HSN:   0,
 		},
-		HostProperties: hp,
-		TPerProperties: tp,
+		HostProperties:           hp,
+		TPerProperties:           tp,
+		MaxComPacketSizeOverride: DefaultMaxComPacketSize,
 	}
 
 	for _, opt := range opts {
@@ -236,7 +248,7 @@ func NewControlSession(d drive.DriveIntf, d0 *Level0Discovery, opts ...ControlSe
 	rhp := InitialHostProperties
 	// Technically we should be able to advertise 0 here and the disk should pick
 	// for us, but that results in small values being picked in practice.
-	rhp.MaxComPacketSize = 1024 * 1024 // 1 MiB for good measure
+	rhp.MaxComPacketSize = s.MaxComPacketSizeOverride
 	rhp.MaxPacketSize = rhp.MaxComPacketSize - 20
 	rhp.MaxIndTokenSize = rhp.MaxComPacketSize - 20 - 24 - 12
 	rhp.MaxAggTokenSize = rhp.MaxComPacketSize - 20 - 24 - 12
