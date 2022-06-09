@@ -19,7 +19,6 @@ type context struct{}
 type initialSetupCmd struct {
 	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
 	Password string `flag:"" optional:"" short:"p"`
-	Hash     string `flag:"" optional:"" default:"sedutil-dta"`
 }
 
 type loadPBAImageCmd struct {
