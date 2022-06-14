@@ -36,7 +36,7 @@ type revertNoeraseCmd struct {
 var cli struct {
 	InitialSetup  initialSetupCmd  `cmd:"" help:"Take ownership of a given device"`
 	LoadPBA       loadPBAImageCmd  `cmd:"" help:"Load PBA image to shadow MBR"`
-	revertNoerase revertNoeraseCmd `cmd:"" help:""`
+	RevertNoerase revertNoeraseCmd `cmd:"" help:""`
 }
 
 // Run executes when the initial-setup command is invoked
