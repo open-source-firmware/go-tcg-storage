@@ -220,3 +220,13 @@ func Admin_SP_GetLifeCycleState(s *core.Session, spid uid.SPID) (LifeCycleState,
 	}
 	return LifeCycleState(v), nil
 }
+
+func RevertTPer(s *core.Session, psid bool) error {
+	var invoking uid.InvokingID
+	copy(invoking[:], uid.AdminSP[:])
+	mc := method.NewMethodCall(invoking, uid.OpalRevert, s.MethodFlags)
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
+}
