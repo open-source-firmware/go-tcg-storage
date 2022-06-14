@@ -547,3 +547,18 @@ func LoadPBAImage(s *core.Session, image []byte) error {
 
 	return nil
 }
+
+func RevertLockingSP(s *core.Session, keep bool, pwhash []byte) error {
+	mc := method.NewMethodCall(uid.InvokeIDThisSP, uid.OpalRevertSP, s.MethodFlags)
+	if keep {
+		mc.Token(stream.StartName)
+		// KeepGlobalRangeKey, TCG Storage Security Subsystem Class: Opal | Version 2.02 | Revision 1.0 | Page 85
+		mc.Bytes([]byte{0x06, 0x00, 0x00})
+		mc.Token(stream.OpalTrue)
+		mc.Token(stream.EndName)
+	}
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
+}
