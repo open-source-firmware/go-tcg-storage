@@ -27,10 +27,16 @@ type loadPBAImageCmd struct {
 	Path     string `flag:"" required:"" short:"i" help:"Path to PBA image"`
 }
 
+type revertNoeraseCmd struct {
+	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
+	Password string `flag:"" required:"" short:"p"`
+}
+
 // cli is the main command line interface struct required by kong command line parser
 var cli struct {
-	InitialSetup initialSetupCmd `cmd:"" help:"Take ownership of a given device"`
-	LoadPBA      loadPBAImageCmd `cmd:"" help:"Load PBA image to shadow MBR"`
+	InitialSetup  initialSetupCmd  `cmd:"" help:"Take ownership of a given device"`
+	LoadPBA       loadPBAImageCmd  `cmd:"" help:"Load PBA image to shadow MBR"`
+	revertNoerase revertNoeraseCmd `cmd:"" help:""`
 }
 
 // Run executes when the initial-setup command is invoked
@@ -177,5 +183,47 @@ func (l *loadPBAImageCmd) Run(ctx *context) error {
 		return fmt.Errorf("LoadPBAImage() failed: %v", err)
 	}
 
+	return nil
+}
+
+func (r *revertNoeraseCmd) Run(ctx *context) error {
+	if r.Password == "" {
+		return fmt.Errorf("empty password not allowed")
+	}
+
+	coreObj, err := core.NewCore(r.Device)
+	if err != nil {
+		return fmt.Errorf("NewCore() failed: %v", err)
+	}
+
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	if err != nil {
+		return fmt.Errorf("FindComID() failed: %v", err)
+	}
+	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.Level0Discovery, core.WithComID(comID))
+	if err != nil {
+		return fmt.Errorf("NewControllSession() failed: %v", err)
+	}
+
+	serial, err := coreObj.SerialNumber()
+	if err != nil {
+		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+	}
+	salt := fmt.Sprintf("%-20s", serial)
+	pwhash := pbkdf2.Key([]byte(r.Password), []byte(salt[:20]), 75000, 32, sha1.New)
+
+	lockingSession, err := cs.NewSession(uid.LockingSP)
+	if err != nil {
+		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
+	}
+	defer lockingSession.Close()
+	// Elevate the session to Admin1 with required credentials
+	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityAdmin1, pwhash); err != nil {
+		return fmt.Errorf("authenticating as Admin1 failed: %v", err)
+	}
+
+	if err := table.RevertLockingSP(lockingSession, true, pwhash); err != nil {
+		return fmt.Errorf("RevertLockingSP() failed: %v", err)
+	}
 	return nil
 }
