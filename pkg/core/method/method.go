@@ -169,6 +169,10 @@ func (m *MethodCall) Bool(v bool) {
 	}
 }
 
+func (m *MethodCall) RawByte(b []byte) {
+	m.buf.Write(b)
+}
+
 // Marshal the complete method call to the data stream representation
 func (m *MethodCall) MarshalBinary() ([]byte, error) {
 	mn := *m

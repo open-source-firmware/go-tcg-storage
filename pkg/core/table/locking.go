@@ -553,7 +553,8 @@ func RevertLockingSP(s *core.Session, keep bool, pwhash []byte) error {
 	if keep {
 		mc.Token(stream.StartName)
 		// KeepGlobalRangeKey, TCG Storage Security Subsystem Class: Opal | Version 2.02 | Revision 1.0 | Page 85
-		mc.Bytes([]byte{0x06, 0x00, 0x00})
+		// sedutil-cli looks like a Short-Atom without byte or integer indicator
+		mc.RawByte([]byte{0x83, 0x06, 0x00, 0x00})
 		mc.Token(stream.OpalTrue)
 		mc.Token(stream.EndName)
 	}
