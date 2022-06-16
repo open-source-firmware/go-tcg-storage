@@ -113,11 +113,11 @@ func NewSession(cs *core.ControlSession, lmeta *LockingSPMeta, auth LockingSPAut
 	}
 	s, err := cs.NewSession(lmeta.SPID, opts...)
 	if err != nil {
-		return nil, fmt.Errorf("session creation failed: %v", err)
+		return nil, fmt.Errorf("session creation failed: %w", err)
 	}
 
 	if err := auth.AuthenticateLockingSP(s, lmeta); err != nil {
-		return nil, fmt.Errorf("authentication failed: %v", err)
+		return nil, fmt.Errorf("authentication failed: %w", err)
 	}
 
 	l := &LockingSP{Session: s}
