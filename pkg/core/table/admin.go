@@ -46,7 +46,6 @@ func Admin_C_Pin_SID_SetPIN(s *core.Session, password []byte) error {
 	mc.Token(stream.EndName)
 	mc.EndList()
 	mc.EndOptionalParameter()
-	fmt.Printf("Debug: %+x\n", mc)
 	_, err := s.ExecuteMethod(mc)
 	if err != nil {
 		return err
