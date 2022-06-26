@@ -191,7 +191,7 @@ func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession
 
 	as, err := cs.NewSession(uid.AdminSP)
 	if err != nil {
-		return nil, nil, fmt.Errorf("admin session creation failed: %v", err)
+		return nil, nil, fmt.Errorf("admin session creation failed: %w", err)
 	}
 	defer as.Close()
 
@@ -206,7 +206,7 @@ func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession
 		break
 	}
 	if err != nil {
-		return nil, nil, fmt.Errorf("all authentications failed")
+		return nil, nil, fmt.Errorf("all authentications failed, last with: %w", err)
 	}
 
 	if proto == core.ProtocolLevelEnterprise {
