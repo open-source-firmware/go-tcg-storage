@@ -110,6 +110,9 @@ func FindComID(d drive.DriveIntf, d0 *Level0Discovery) (ComID, ProtocolLevel, er
 	} else if d0.Enterprise != nil {
 		comID = ComID(d0.Enterprise.BaseComID)
 		proto = ProtocolLevelEnterprise
+	} else if d0.RubyV1 != nil {
+		comID = ComID(d0.RubyV1.BaseComID)
+		proto = ProtocolLevelCore
 	}
 
 	autoComID, err := GetComID(d)
