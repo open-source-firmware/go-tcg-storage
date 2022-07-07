@@ -107,8 +107,14 @@ type PyriteV2 struct {
 	BehaviorCPINSIDuponTPerRevert uint8
 }
 
+// 3.1.1.5 Ruby SSC V1.00 Feature (Feature Code = 0x0304)
 type RubyV1 struct {
-	// TODO
+	CommonSSC
+	RangeCrossingBehavior         bool
+	NumLockingSPAdminSupported    uint16
+	NumLockingSPUserSupported     uint16
+	InitialCPINSIDIndicator       uint8
+	BehaviorCPINSIDuponTPerRevert uint8
 }
 type LockingLBA struct {
 	// TODO
@@ -235,6 +241,9 @@ func ReadPyriteV2Feature(rdr io.Reader) (*PyriteV2, error) {
 
 func ReadRubyV1Feature(rdr io.Reader) (*RubyV1, error) {
 	f := &RubyV1{}
+	if err := binary.Read(rdr, binary.BigEndian, f); err != nil {
+		return nil, err
+	}
 	return f, nil
 }
 
