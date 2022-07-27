@@ -302,9 +302,17 @@ func Locking_Set(s *core.Session, row *LockingRow) error {
 		mc.EndOptionalParameter()
 	}
 
-	// TODO: Add these columns
-	//mc.StartOptionalParameter(3, "RangeStart")
-	//mc.StartOptionalParameter(4, "RangeLength")
+	if row.RangeStart != nil {
+		mc.StartOptionalParameter(3, "RangeStart")
+		mc.UInt(uint(*row.RangeStart))
+		mc.EndOptionalParameter()
+	}
+
+	if row.RangeLength != nil {
+		mc.StartOptionalParameter(4, "RangeLength")
+		mc.UInt(uint(*row.RangeLength))
+		mc.EndOptionalParameter()
+	}
 
 	if row.ReadLockEnabled != nil {
 		mc.StartOptionalParameter(5, "ReadLockEnabled")
