@@ -166,7 +166,18 @@ func (r *Range) SetRange(from LockRange, to LockRange) error {
 	if r.isGlobal {
 		return fmt.Errorf("cannot modify the global range")
 	}
-	return fmt.Errorf("not implemented")
+	lr := &table.LockingRow{}
+	copy(lr.UID[:], r.UID[:])
+	from64 := uint64(from)
+	lr.RangeStart = &from64
+	to64 := uint64(to)
+	lr.RangeLength = &to64
+	if err := table.Locking_Set(r.l.Session, lr); err != nil {
+		return err
+	}
+	r.Start = from
+	r.End = to
+	return nil
 }
 
 func (r *Range) Erase() error {
