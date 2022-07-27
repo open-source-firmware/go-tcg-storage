@@ -8,6 +8,7 @@ package table
 
 import (
 	"errors"
+	"fmt"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
@@ -334,6 +335,27 @@ func Locking_Set(s *core.Session, row *LockingRow) error {
 	FinishSetCall(s, mc)
 	_, err := s.ExecuteMethod(mc)
 	return err
+}
+
+// Admin_C_Pin_Admin1_SetPIN sets the SID Pin in the Admin_C_PIN_Table
+func Admin_C_Pin_Admin1_SetPIN(s *core.Session, password []byte) error {
+	// password needs to be hashed somehow.
+	if len(password) < 16 {
+		return fmt.Errorf("invalid length of password hash")
+	}
+	mc := NewSetCall(s, uid.Admin_C_PIN_Admin1Row)
+	mc.Token(stream.StartName)
+	mc.Token(stream.OpalPIN)
+	mc.Bytes(password)
+	mc.Token(stream.EndName)
+	mc.EndList()
+	mc.EndOptionalParameter()
+
+	_, err := s.ExecuteMethod(mc)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 type MBRControl struct {
