@@ -168,10 +168,16 @@ func internalDecode(b []byte, depth int) (List, []byte, error) {
 		} else if b[0]&0xF0 == 0xF0 {
 			// Token
 			x = TokenType(uint8(b[0]))
+			// according to 3.2.2.3.1.5 Empty Atom, EmptyAtom "SHALL be ignored"
+			if x == EmptyAtom {
+				x = nil
+			}
 		} else {
 			return nil, nil, fmt.Errorf("unknown atom 0x%02x", b[0])
 		}
-		res = append(res, x)
+		if x != nil {
+			res = append(res, x)
+		}
 		b = b[s:]
 	}
 	return res, b, nil
