@@ -493,31 +493,14 @@ func (s *Session) Close() error {
 	if s.closed {
 		return ErrSessionAlreadyClosed
 	}
-	s.closed = true
-	if err := s.c.Send(s, stream.Token(stream.EndOfSession)); err != nil {
+	if _, err := s.ExecuteMethod(&method.EOSMethodCall{}); err != nil {
 		return err
 	}
-
-	for i := s.ReceiveRetries; i >= 0; i-- {
-		resp, err := s.c.Receive(s)
-		if err != nil {
-			return err
-		}
-		if len(resp) > 0 {
-			if !stream.EqualToken(resp, stream.EndOfSession) {
-				return fmt.Errorf("expected EOS, received other data")
-			}
-			break
-		}
-		if i == 0 {
-			return method.ErrMethodTimeout
-		}
-		time.Sleep(s.ReceiveInterval)
-	}
+	s.closed = true
 	return nil
 }
 
-func (s *Session) ExecuteMethod(mc *method.MethodCall) (stream.List, error) {
+func (s *Session) ExecuteMethod(mc method.Call) (stream.List, error) {
 	if s.closed {
 		return nil, ErrSessionAlreadyClosed
 	}
@@ -566,6 +549,18 @@ func (s *Session) ExecuteMethod(mc *method.MethodCall) (stream.List, error) {
 	reply, err := stream.Decode(resp)
 	if err != nil {
 		return nil, err
+	}
+
+	if mc.IsEOS() {
+		if len(reply) != 1 {
+			return nil, method.ErrReceivedUnexpectedResponse
+		}
+		if tok, ok := reply[0].(stream.TokenType); ok {
+			if tok == stream.EndOfSession {
+				return reply, nil
+			}
+		}
+		return nil, fmt.Errorf("expected EOS, received other data")
 	}
 
 	if len(reply) < 2 {
