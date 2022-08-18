@@ -59,6 +59,11 @@ var (
 	ErrMethodStatusAuthorityLockedOut  = MethodStatusCodeMap[0x12]
 )
 
+type Call interface {
+	MarshalBinary() ([]byte, error)
+	IsEOS() bool
+}
+
 type MethodCall struct {
 	buf bytes.Buffer
 	// Used to verify detect programming errors
@@ -82,6 +87,10 @@ func (m *MethodCall) Clone() *MethodCall {
 	mn := &MethodCall{bytes.Buffer{}, m.depth, m.flags}
 	mn.buf.Write(m.buf.Bytes())
 	return mn
+}
+
+func (m *MethodCall) IsEOS() bool {
+	return false
 }
 
 func (m *MethodCall) StartList() {
@@ -175,4 +184,15 @@ func (m *MethodCall) MarshalBinary() ([]byte, error) {
 		return nil, ErrMethodListUnbalanced
 	}
 	return mn.buf.Bytes(), nil
+}
+
+type EOSMethodCall struct {
+}
+
+func (m *EOSMethodCall) MarshalBinary() ([]byte, error) {
+	return stream.Token(stream.EndOfSession), nil
+}
+
+func (m *EOSMethodCall) IsEOS() bool {
+	return true
 }
