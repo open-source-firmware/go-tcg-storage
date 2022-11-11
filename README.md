@@ -170,18 +170,18 @@ These drives have been found to work without issues
 | Corsair | Force MP510 | NVMe | Pyrite v1 |
 | Intel | P4510 (SSDPE2KX020T8O) | NVMe | Opal v2 |
 | Intel | P4610 (SSDPE2KE032T8O) | NVMe | Opal v2 |
-| Seagate | Momentus Thin (ST500LT015) | SATA | Opal v2 |
-| Seagate | 7E2000 (ST2000NX0343) | SAS3 | Enterprise |
-| Seagate | Exos X14 (ST10000NM0608) | SAS3 | Enterprise |
-| Samsung | SSD 860 | SATA | Opal v2 |
-| Samsung | SSD 970 EVO Plus | NVMe | Opal v2 |
-| Samsung | SSD 980 Pro (MZVL2250HCHQ) | NVMe | Opal v2 |
+| Sabrent | Rocket 4.0 2TB | NVMe | Pyrite v2 |
+| Samsung | PM1735 (MZPLJ12THALA-00007) | NVMe | Opal v2 |
 | Samsung | PM961 (MZVLW512HMJP-000L7) | NVMe | Opal v2 |
 | Samsung | PM983 (MZ1LB1T9HALS-00007) | NVMe | Opal v2 |
 | Samsung | PM9A1 (MZVL2256HCHQ-00B00) | NVMe | Pyrite v2 |
 | Samsung | PM9A3 (MZQL23T8HCLS-00A07) | NVMe | Opal v2 |
-| Samsung | PM1735 (MZPLJ12THALA-00007) | NVMe | Opal v2 |
-| Sabrent | Rocket 4.0 2TB | NVMe | Pyrite v2 |
+| Samsung | SSD 860 | SATA | Opal v2 |
+| Samsung | SSD 970 EVO Plus | NVMe | Opal v2 |
+| Samsung | SSD 980 Pro (MZVL2250HCHQ) | NVMe | Opal v2 |
+| Seagate | 7E2000 (ST2000NX0343) | SAS3 | Enterprise |
+| Seagate | Exos X14 (ST10000NM0608) | SAS3 | Enterprise |
+| Seagate | Momentus Thin (ST500LT015) | SATA | Opal v2 |
 | Toshiba | MG08SCP16TE | SAS3 | Enterprise |
 
 *Samsung PNs ending in "7" seems to indicate Opal v2 features*
