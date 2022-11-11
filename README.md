@@ -183,6 +183,7 @@ These drives have been found to work without issues
 | Seagate | 7E2000 (ST2000NX0343) | SAS3 | Enterprise |
 | Seagate | Exos X14 (ST10000NM0608) | SAS3 | Enterprise |
 | Seagate | Momentus Thin (ST500LT015) | SATA | Opal v2 |
+| SK hynix | PC611 (HFS001TD9TNI-L2B0B) | NVMe | Opal v2 |
 | Toshiba | MG08SCP16TE | SAS3 | Enterprise |
 
 *Samsung PNs ending in "7" seems to indicate Opal v2 features*
