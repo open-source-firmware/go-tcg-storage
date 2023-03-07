@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
@@ -44,7 +43,7 @@ func main() {
 	}
 	flag.Parse()
 
-	sysblk, err := ioutil.ReadDir("/sys/class/block/")
+	sysblk, err := os.ReadDir("/sys/class/block/")
 	if err != nil {
 		log.Printf("Failed to enumerate block devices: %v", err)
 		return
