@@ -268,7 +268,6 @@ func main() {
 		return
 	} else {
 		log.Printf("Successfully authenticated as %s", username)
-		msidOk = true
 	}
 
 	log.Printf("Locking SP LockingInfo:")
