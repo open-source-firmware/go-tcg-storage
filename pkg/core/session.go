@@ -151,8 +151,10 @@ var (
 	}
 )
 
-type SessionOpt func(s *Session)
-type ControlSessionOpt func(s *ControlSession)
+type (
+	SessionOpt        func(s *Session)
+	ControlSessionOpt func(s *ControlSession)
+)
 
 func WithComID(c ComID) ControlSessionOpt {
 	return func(s *ControlSession) {
@@ -255,7 +257,9 @@ func NewControlSession(d drive.DriveIntf, d0 *Level0Discovery, opts ...ControlSe
 	// Try to reset the synchronous protocol stack for the ComID to minimize
 	// the dependencies on the implicit state. However, I suspect not all drives
 	// implement it so we do it best-effort.
-	StackReset(d, s.ComID)
+	if err := StackReset(d, s.ComID); err != nil {
+		return nil, err
+	}
 
 	// Set preferred options
 	rhp := InitialHostProperties
@@ -269,8 +273,8 @@ func NewControlSession(d drive.DriveIntf, d0 *Level0Discovery, opts ...ControlSe
 	rhp.MaxPackets = 1024
 
 	// TODO: These are not fully implemented yet, so let's not advertise them
-	//rhp.SequenceNumbers = true
-	//rhp.AckNak = true
+	// rhp.SequenceNumbers = true
+	// rhp.AckNak = true
 
 	var err error
 	hp, tp, err = s.properties(&rhp)

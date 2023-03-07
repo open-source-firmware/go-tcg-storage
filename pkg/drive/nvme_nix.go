@@ -20,30 +20,28 @@ const (
 	NVME_SECURITY_RECV  = 0x82
 )
 
-var (
-	NVME_IOCTL_ADMIN_CMD = ioctl.Iowr('N', 0x41, unsafe.Sizeof(nvmePassthruCommand{}))
-)
+var NVME_IOCTL_ADMIN_CMD = ioctl.Iowr('N', 0x41, unsafe.Sizeof(nvmePassthruCommand{}))
 
 // Defined in <linux/nvme_ioctl.h>
 type nvmePassthruCommand struct {
 	opcode       uint8
-	flags        uint8
-	rsvd1        uint16
+	flags        uint8  //nolint:structcheck,unused
+	rsvd1        uint16 //nolint:structcheck,unused
 	nsid         uint32
-	cdw2         uint32
-	cdw3         uint32
-	metadata     uint64
+	cdw2         uint32 //nolint:structcheck,unused
+	cdw3         uint32 //nolint:structcheck,unused
+	metadata     uint64 //nolint:structcheck,unused
 	addr         uint64
-	metadata_len uint32
+	metadata_len uint32 //nolint:structcheck,unused
 	data_len     uint32
 	cdw10        uint32
-	cdw11        uint32
-	cdw12        uint32
-	cdw13        uint32
-	cdw14        uint32
-	cdw15        uint32
-	timeout_ms   uint32
-	result       uint32
+	cdw11        uint32 //nolint:structcheck,unused
+	cdw12        uint32 //nolint:structcheck,unused
+	cdw13        uint32 //nolint:structcheck,unused
+	cdw14        uint32 //nolint:structcheck,unused
+	cdw15        uint32 //nolint:structcheck,unused
+	timeout_ms   uint32 //nolint:structcheck,unused
+	result       uint32 //nolint:structcheck,unused
 }
 
 type nvmeAdminCommand nvmePassthruCommand

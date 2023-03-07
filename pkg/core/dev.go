@@ -160,7 +160,9 @@ func (d *Core) Discovery0() error {
 		if err != nil {
 			return err
 		}
-		io.CopyN(ioutil.Discard, frdr, int64(fhdr.Size))
+		if _, err := io.CopyN(ioutil.Discard, frdr, int64(fhdr.Size)); err != nil {
+			return err
+		}
 		fsize -= binary.Size(fhdr) + int(fhdr.Size)
 	}
 	d.DiskInfo.Level0Discovery = d0

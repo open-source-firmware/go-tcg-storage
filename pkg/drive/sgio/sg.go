@@ -56,10 +56,12 @@ var (
 )
 
 // SCSI CDB types
-type CDB6 [6]byte
-type CDB10 [10]byte
-type CDB12 [12]byte
-type CDB16 [16]byte
+type (
+	CDB6  [6]byte
+	CDB10 [10]byte
+	CDB12 [12]byte
+	CDB16 [16]byte
+)
 
 // Determine native endianness of system
 func init() {
@@ -78,23 +80,23 @@ type sgIoHdr struct {
 	dxfer_direction CDBDirection // data transfer direction
 	cmd_len         uint8        // SCSI command length (<= 16 bytes)
 	mx_sb_len       uint8        // max length to write to sbp
-	iovec_count     uint16       // 0 implies no scatter gather
+	iovec_count     uint16       //nolint:structcheck,unused // 0 implies no scatter gather
 	dxfer_len       uint32       // byte count of data transfer
 	dxferp          uintptr      // points to data transfer memory or scatter gather list
 	cmdp            uintptr      // points to command to perform
 	sbp             uintptr      // points to sense_buffer memory
 	timeout         uint32       // MAX_UINT -> no timeout (unit: millisec)
-	flags           uint32       // 0 -> default, see SG_FLAG...
-	pack_id         int32        // unused internally (normally)
-	usr_ptr         uintptr      // unused internally
+	flags           uint32       //nolint:structcheck,unused // 0 -> default, see SG_FLAG...
+	pack_id         int32        //nolint:structcheck,unused // unused internally (normally)
+	usr_ptr         uintptr      //nolint:structcheck,unused // unused internally
 	status          uint8        // SCSI status
-	masked_status   uint8        // shifted, masked scsi status
-	msg_status      uint8        // messaging level data (optional)
-	sb_len_wr       uint8        // byte count actually written to sbp
+	masked_status   uint8        //nolint:structcheck,unused // shifted, masked scsi status
+	msg_status      uint8        //nolint:structcheck,unused // messaging level data (optional)
+	sb_len_wr       uint8        //nolint:structcheck,unused // byte count actually written to sbp
 	host_status     uint16       // errors from host adapter
 	driver_status   uint16       // errors from software driver
-	resid           int32        // dxfer_len - actual_transferred
-	duration        uint32       // time taken by cmd (unit: millisec)
+	resid           int32        //nolint:structcheck,unused // dxfer_len - actual_transferred
+	duration        uint32       //nolint:structcheck,unused // time taken by cmd (unit: millisec)
 	info            uint32       // auxiliary information
 }
 
