@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"fmt"
 	"io"
-	"io/ioutil"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/feature"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
@@ -160,7 +159,7 @@ func (d *Core) Discovery0() error {
 		if err != nil {
 			return err
 		}
-		if _, err := io.CopyN(ioutil.Discard, frdr, int64(fhdr.Size)); err != nil {
+		if _, err := io.CopyN(io.Discard, frdr, int64(fhdr.Size)); err != nil {
 			return err
 		}
 		fsize -= binary.Size(fhdr) + int(fhdr.Size)
