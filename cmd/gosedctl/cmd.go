@@ -50,6 +50,11 @@ type resetDeviceEnterprise struct {
 	ErasePassword string `flag:"" required:"" short:"e" help:"Password to authenticate as EaseMaster"`
 }
 
+type unlockEnterprise struct {
+	Device       string `flag:"" required:"" short:"d" help:"Path to SED device (e.g. /dev/nvme0)"`
+	BandMasterPW string `flag:"" required:"" short:"b" help:"Password for BandMaster0 authority for configuration, lock and unlock operations."`
+}
+
 // cli is the main command line interface struct required by kong command line parser
 var cli struct {
 	InitialSetup           initialSetupCmd           `cmd:"" help:"Take ownership of a given OPAL SSC device"`
@@ -58,6 +63,7 @@ var cli struct {
 	RevertTper             revertTPerCmd             `cmd:"" help:""`
 	InitialSetupEnterprise initialSetupEnterpriseCmd `cmd:"" help:"Take ownership of a given Enterprise SSC device"`
 	RevertEnterprise       resetDeviceEnterprise     `cmd:"" help:"delete after use"`
+	UnlockEnterprise       unlockEnterprise          `cmd:"" help:"Unlocks global range with BandMaster0"`
 }
 
 // Run executes when the initial-setup command is invoked
@@ -445,5 +451,47 @@ func (r *resetDeviceEnterprise) Run(ctx *context) error {
 		return fmt.Errorf("failed to set BandMaster0 Pin to MSID")
 	}
 
+	return nil
+}
+
+func (u *unlockEnterprise) Run(ctx *context) error {
+	coreObj, err := core.NewCore(u.Device)
+	if err != nil {
+		return fmt.Errorf("NewCore(%s) failed: %v", u.Device, err)
+	}
+
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	if err != nil {
+		return fmt.Errorf("FindComID() failed: %v", err)
+	}
+
+	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.Level0Discovery, core.WithComID(comID))
+	if err != nil {
+		return fmt.Errorf("NewControllSession() failed: %v", err)
+	}
+	defer cs.Close()
+
+	serial, err := coreObj.SerialNumber()
+	if err != nil {
+		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+	}
+
+	salt := fmt.Sprintf("%-20s", serial)
+	pwhash := pbkdf2.Key(([]byte(u.BandMasterPW)), []byte(salt[:20]), 75000, 32, sha1.New)
+
+	lockingSession, err := cs.NewSession(uid.EnterpriseLockingSP)
+	if err != nil {
+		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
+	}
+
+	defer lockingSession.Close()
+
+	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityBandMaster0, pwhash); err != nil {
+		return fmt.Errorf("authenticating as BandMaster0 failed: %v", err)
+	}
+
+	if err := table.UnlockGlobalRangeEnterprise(lockingSession, uid.GlobalRangeRowUID); err != nil {
+		return fmt.Errorf("failed to unlock global range: %v", err)
+	}
 	return nil
 }
