@@ -83,6 +83,19 @@ Flags:
   -e, --erase-password=STRING    Password to authenticate as EaseMaster
 ```
 
+unlock-enterprise:
+```
+gosedctl unlock-enterprise --device=STRING --band-master-pw=STRING
+
+Unlocks global range with BandMaster0
+
+Flags:
+  -h, --help                     Show context-sensitive help.
+
+  -d, --device=STRING            Path to SED device (e.g. /dev/nvme0)
+  -b, --band-master-pw=STRING    Password for BandMaster0 authority for configuration, lock and unlock operations.
+```
+
 ## Roadmap
 The intent of this command is to replace all other commands functionality and provide one binary with all capabilities.
 
