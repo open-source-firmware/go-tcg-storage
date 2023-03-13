@@ -26,7 +26,7 @@ Load-PBA
 sudo ./gosedctl load-pba -d /dev/<device> -p <password> -i <path/to/image>
 ```
 
-## Command documentation
+## Command documentation - OPAL SSC
 initial-setup
 ```
 gosedctl initial-setup --device=STRING
@@ -51,6 +51,21 @@ Flags:
   -d, --device=STRING      Path to SED device (e.g. /dev/nvme0)
   -p, --password=STRING
   -i, --path=STRING        Path to PBA image
+```
+
+## Command documentation - Enterprise SSC
+```
+gosedctl initial-setup-enterprise --device=STRING --sid-password=STRING --band-master-0-pw=STRING --erase-master-pw=STRING
+
+Take ownership of a given Enterprise SSC device
+
+Flags:
+  -h, --help                       Show context-sensitive help.
+
+  -d, --device=STRING              Path to SED device (e.g. /dev/nvme0)
+  -p, --sid-password=STRING        New password for SID authority
+  -b, --band-master-0-pw=STRING    Password for BandMaster0 authority for configuration, lock and unlock operations.
+  -e, --erase-master-pw=STRING     Password for EraseMaster authority for erase operations of ranges.
 ```
 
 ## Roadmap
