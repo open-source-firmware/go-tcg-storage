@@ -378,14 +378,14 @@ func (cs *ControlSession) NewSession(spid uid.SPID, opts ...SessionOpt) (*Sessio
 		// level. For normal Core devices I can't get it to work (INVALID_PARAMETER)
 		// so only do it for Enterprise drives for now.
 		mc.StartOptionalParameter(5, "SessionTimeout")
-		mc.UInt(30000 /* 30 sec */)
+		mc.UInt(60000 /* 60 sec */) // Match it to the ATA implementation of sedutil
 		mc.EndOptionalParameter()
 	}
 
 	// Try with the method call with the optional parameters first,
 	// and if that fails fall back to the basic method call (basemc).
 	resp, err := cs.ExecuteMethod(mc)
-	if err == method.ErrMethodStatusInvalidParameter {
+	if errors.Is(err, method.ErrMethodStatusInvalidParameter) {
 		resp, err = cs.ExecuteMethod(basemc)
 	}
 	if err != nil {
