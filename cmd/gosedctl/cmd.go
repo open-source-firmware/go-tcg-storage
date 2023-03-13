@@ -44,6 +44,12 @@ type initialSetupEnterpriseCmd struct {
 	EraseMasterPW string `flag:"" required:"" short:"e" help:"Password for EraseMaster authority for erase operations of ranges."`
 }
 
+type resetDeviceEnterprise struct {
+	Device        string `flag:"" required:"" short:"d" help:"Path to SED device (e.g. /dev/nvme0)"`
+	SIDPassword   string `flag:"" required:"" short:"p" help:"Password to SID authority"`
+	ErasePassword string `flag:"" required:"" short:"e" help:"Password to authenticate as EaseMaster"`
+}
+
 // cli is the main command line interface struct required by kong command line parser
 var cli struct {
 	InitialSetup           initialSetupCmd           `cmd:"" help:"Take ownership of a given OPAL SSC device"`
@@ -51,6 +57,7 @@ var cli struct {
 	RevertNoerase          revertNoeraseCmd          `cmd:"" help:""`
 	RevertTper             revertTPerCmd             `cmd:"" help:""`
 	InitialSetupEnterprise initialSetupEnterpriseCmd `cmd:"" help:"Take ownership of a given Enterprise SSC device"`
+	RevertEnterprise       resetDeviceEnterprise     `cmd:"" help:"delete after use"`
 }
 
 // Run executes when the initial-setup command is invoked
@@ -354,6 +361,71 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 
 	if err := table.EnableGlobalRangeEnterprise(lockingSession); err != nil {
 		return fmt.Errorf("failed to set global range values: %v", err)
+	}
+
+	return nil
+}
+
+func (r *resetDeviceEnterprise) Run(ctx *context) error {
+	coreObj, err := core.NewCore(r.Device)
+	if err != nil {
+		return fmt.Errorf("NewCore(%s) failed: %v", r.Device, err)
+	}
+
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	if err != nil {
+		return fmt.Errorf("FindComID() failed: %v", err)
+	}
+
+	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.Level0Discovery, core.WithComID(comID))
+	if err != nil {
+		return fmt.Errorf("NewControllSession() failed: %v", err)
+	}
+	defer cs.Close()
+
+	serial, err := coreObj.SerialNumber()
+	if err != nil {
+		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+	}
+
+	salt := fmt.Sprintf("%-20s", serial)
+	eraseHash := pbkdf2.Key(([]byte(r.ErasePassword)), []byte(salt[:20]), 75000, 32, sha1.New)
+
+	lockingSession, err := cs.NewSession(uid.EnterpriseLockingSP)
+	if err != nil {
+		return err
+	}
+
+	if err := table.ThisSP_Authenticate(lockingSession, uid.EraseMaster, eraseHash); err != nil {
+		return fmt.Errorf("authenticating as EraseMaster failed: %v", err)
+	}
+
+	if err := table.EraseBand(lockingSession, uid.InvokingID(uid.Band1Enterprise)); err != nil {
+		return fmt.Errorf("failed to erase global range: %v", err)
+	}
+
+	if err := lockingSession.Close(); err != nil {
+		return fmt.Errorf("failed to close lockingSession: %v", err)
+	}
+
+	adminSession, err := cs.NewSession(uid.AdminSP)
+	if err != nil {
+		return fmt.Errorf("failed to open session to AdminSP: %v", err)
+	}
+
+	adminHash := pbkdf2.Key(([]byte(r.SIDPassword)), []byte(salt[:20]), 75000, 32, sha1.New)
+
+	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, adminHash); err != nil {
+		return fmt.Errorf("failed to authenticate to AdminSP: %v", err)
+	}
+
+	msid, err := table.Admin_C_PIN_MSID_GetPIN(adminSession)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve MSID: %v", err)
+	}
+
+	if err := table.Admin_C_Pin_SID_SetPIN(adminSession, msid); err != nil {
+		return fmt.Errorf("failed to set AdminSP credential to MSID: %v", err)
 	}
 
 	return nil
