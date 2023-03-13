@@ -3,6 +3,7 @@ package core
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 
@@ -159,7 +160,7 @@ func (d *Core) Discovery0() error {
 		if err != nil {
 			return err
 		}
-		if _, err := io.CopyN(io.Discard, frdr, int64(fhdr.Size)); err != nil {
+		if _, err := io.CopyN(io.Discard, frdr, int64(fhdr.Size)); err != nil && !errors.Is(err, io.EOF) {
 			return err
 		}
 		fsize -= binary.Size(fhdr) + int(fhdr.Size)
