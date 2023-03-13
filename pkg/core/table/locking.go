@@ -563,3 +563,68 @@ func RevertLockingSP(s *core.Session, keep bool, pwhash []byte) error {
 	}
 	return nil
 }
+
+func SetBandMaster0Pin(s *core.Session, band0PinHash []byte) error {
+	if s.ProtocolLevel != core.ProtocolLevelEnterprise {
+		return fmt.Errorf("invalid Protocol Level for operation")
+	}
+	mc := NewSetCall(s, uid.Admin_C_Pin_BandMaster0)
+	mc.Token(stream.StartName)
+	mc.Bytes([]byte("PIN"))
+	mc.Bytes(band0PinHash)
+	mc.Token(stream.EndName)
+	mc.EndList()
+	mc.EndList()
+
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func SetEraseMasterPin(s *core.Session, erasePinHash []byte) error {
+	if s.ProtocolLevel != core.ProtocolLevelEnterprise {
+		return fmt.Errorf("invalid Protocol Level for operation")
+	}
+	mc := NewSetCall(s, uid.Admin_C_Pin_EraseMaster)
+	mc.Token(stream.StartName)
+	mc.Bytes([]byte("PIN"))
+	mc.Bytes(erasePinHash)
+	mc.Token(stream.EndName)
+	mc.EndList()
+	mc.EndList()
+
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func EnableGlobalRangeEnterprise(s *core.Session) error {
+	mc := NewSetCall(s, uid.GlobalRangeRowUID)
+	mc.Token(stream.StartName)
+	mc.Bytes([]byte("ReadLockEnabled"))
+	mc.Token(stream.OpalTrue)
+	mc.Token(stream.EndName)
+	mc.Token(stream.StartName)
+	mc.Bytes([]byte("WriteLockEnabled"))
+	mc.Token(stream.OpalTrue)
+	mc.Token(stream.EndName)
+	mc.Token(stream.StartName)
+	mc.Bytes([]byte("ReadLocked"))
+	mc.Token(stream.OpalTrue)
+	mc.Token(stream.EndName)
+	mc.Token(stream.StartName)
+	mc.Bytes([]byte("WriteLocked"))
+	mc.Token(stream.OpalTrue)
+	mc.Token(stream.EndName)
+	mc.EndList()
+	mc.EndList()
+
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
+}
