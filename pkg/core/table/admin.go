@@ -41,11 +41,22 @@ func Admin_C_Pin_SID_SetPIN(s *core.Session, password []byte) error {
 	}
 	mc := NewSetCall(s, uid.Admin_C_PIN_SIDRow)
 	mc.Token(stream.StartName)
-	mc.Token(stream.OpalPIN)
+	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
+		mc.Bytes([]byte("PIN"))
+	} else {
+		mc.Token(stream.OpalPIN)
+	}
+
 	mc.Bytes(password)
 	mc.Token(stream.EndName)
 	mc.EndList()
-	mc.EndOptionalParameter()
+	// We have to branch here for Enterprise SSC
+	if s.ProtocolLevel == core.ProtocolLevelEnterprise {
+		mc.EndList()
+	} else {
+		mc.EndOptionalParameter()
+	}
+
 	_, err := s.ExecuteMethod(mc)
 	if err != nil {
 		return err
