@@ -39,7 +39,7 @@ const (
 	SG_IO = 0x2285
 
 	// Timeout in milliseconds
-	DEFAULT_TIMEOUT = 20000
+	DEFAULT_TIMEOUT = 60000
 
 	PIO_DATA_IN  = 4
 	PIO_DATA_OUT = 5
