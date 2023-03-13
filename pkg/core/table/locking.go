@@ -602,6 +602,19 @@ func SetEraseMasterPin(s *core.Session, erasePinHash []byte) error {
 	return nil
 }
 
+func EraseBand(s *core.Session, band uid.InvokingID) error {
+	if s.ProtocolLevel != core.ProtocolLevelEnterprise {
+		return fmt.Errorf("invalid Protocol Level for operation")
+	}
+
+	mc := method.NewMethodCall(band, uid.MethodIDEraseEnterprise, s.MethodFlags)
+
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
+}
+
 func EnableGlobalRangeEnterprise(s *core.Session) error {
 	mc := NewSetCall(s, uid.GlobalRangeRowUID)
 	mc.Token(stream.StartName)

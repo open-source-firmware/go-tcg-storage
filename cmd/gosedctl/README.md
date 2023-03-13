@@ -54,6 +54,7 @@ Flags:
 ```
 
 ## Command documentation - Enterprise SSC
+initial-setup-enterprise:
 ```
 gosedctl initial-setup-enterprise --device=STRING --sid-password=STRING --band-master-0-pw=STRING --erase-master-pw=STRING
 
@@ -66,6 +67,20 @@ Flags:
   -p, --sid-password=STRING        New password for SID authority
   -b, --band-master-0-pw=STRING    Password for BandMaster0 authority for configuration, lock and unlock operations.
   -e, --erase-master-pw=STRING     Password for EraseMaster authority for erase operations of ranges.
+```
+
+revert-enterprise:
+```
+gosedctl revert-enterprise --device=STRING --sid-password=STRING --erase-password=STRING
+
+delete after use
+
+Flags:
+  -h, --help                     Show context-sensitive help.
+
+  -d, --device=STRING            Path to SED device (e.g. /dev/nvme0)
+  -p, --sid-password=STRING      Password to SID authority
+  -e, --erase-password=STRING    Password to authenticate as EaseMaster
 ```
 
 ## Roadmap
