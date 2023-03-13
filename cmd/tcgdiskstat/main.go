@@ -150,6 +150,9 @@ func outputTable(state Devices) {
 				if l.MediaEncryption {
 					state += "E"
 				}
+				if l.MBRShadowing {
+					state += "S"
+				}
 			}
 			if b := s.Level0.BlockSID; b != nil {
 				if !b.SIDValueState {

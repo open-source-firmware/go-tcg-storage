@@ -51,6 +51,7 @@ type Locking struct {
 	MediaEncryption  bool
 	MBREnabled       bool
 	MBRDone          bool
+	MBRShadowing     bool
 }
 
 type CommonSSC struct {
@@ -174,6 +175,8 @@ func ReadLockingFeature(rdr io.Reader) (*Locking, error) {
 	f.MediaEncryption = raw&0x8 > 0
 	f.MBREnabled = raw&0x10 > 0
 	f.MBRDone = raw&0x20 > 0
+	// If MBR Shadowing feature is absent (i.e., is not supported), then this bit SHALL be 1.
+	f.MBRShadowing = raw&0x40 < 1
 	return f, nil
 }
 
