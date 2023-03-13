@@ -641,3 +641,22 @@ func EnableGlobalRangeEnterprise(s *core.Session) error {
 	}
 	return nil
 }
+
+func UnlockGlobalRangeEnterprise(s *core.Session, band uid.RowUID) error {
+	mc := NewSetCall(s, band)
+	mc.Token(stream.StartName)
+	mc.Bytes([]byte("ReadLocked"))
+	mc.Token(stream.OpalFalse)
+	mc.Token(stream.EndName)
+	mc.Token(stream.StartName)
+	mc.Bytes([]byte("WriteLocked"))
+	mc.Token(stream.OpalFalse)
+	mc.Token(stream.EndName)
+	mc.EndList()
+	mc.EndList()
+
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
+}
