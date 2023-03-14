@@ -242,19 +242,19 @@ func main() {
 		return
 	}
 
-	auth := [8]byte{}
+	var auth uid.AuthorityObjectUID
 	username := ""
 	if cs.ProtocolLevel == tcg.ProtocolLevelEnterprise {
 		s, err = cs.NewSession(uid.EnterpriseLockingSP)
-		copy(auth[:], []byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x00, 0x80, 0x01}) // BandMaster0
+		auth = uid.LockingAuthorityBandMaster0
 		username = "BandMaster0"
 	} else {
 		s, err = cs.NewSession(uid.LockingSP)
 		if os.Getenv("TCGSDIAG_AS_USER") == "" {
-			copy(auth[:], []byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x01, 0x00, 0x01}) // Admin1
+			auth = uid.LockingAuthorityAdmin1
 			username = "Admin1"
 		} else {
-			copy(auth[:], []byte{0x00, 0x00, 0x00, 0x09, 0x00, 0x03, 0x00, 0x01}) // User1
+			auth = uid.LockingAuthorityUser1
 			username = "User1"
 		}
 	}
@@ -263,6 +263,9 @@ func main() {
 		return
 	}
 	sessions[0] = s
+	fmt.Printf("MSID: %s\n", string(msidPin))
+	fmt.Printf("Auth: %v\n", auth)
+
 	if err := table.ThisSP_Authenticate(s, auth, msidPin); err != nil {
 		log.Printf("table.ThisSP_Authenticate (Locking SP, %s) failed: %v", username, err)
 		return
