@@ -55,6 +55,11 @@ type unlockEnterprise struct {
 	BandMasterPW string `flag:"" required:"" short:"b" help:"Password for BandMaster0 authority for configuration, lock and unlock operations."`
 }
 
+type resetSIDcmd struct {
+	Device      string `flag:"" required:"" short:"d" help:"Path to SED device (e.g. /dev/nvme0)"`
+	SIDPassword string `flag:"" required:"" short:"p" help:"Password to SID authority"`
+}
+
 // cli is the main command line interface struct required by kong command line parser
 var cli struct {
 	InitialSetup           initialSetupCmd           `cmd:"" help:"Take ownership of a given OPAL SSC device"`
@@ -64,6 +69,7 @@ var cli struct {
 	InitialSetupEnterprise initialSetupEnterpriseCmd `cmd:"" help:"Take ownership of a given Enterprise SSC device"`
 	RevertEnterprise       resetDeviceEnterprise     `cmd:"" help:"delete after use"`
 	UnlockEnterprise       unlockEnterprise          `cmd:"" help:"Unlocks global range with BandMaster0"`
+	ResetSID               resetSIDcmd               `cmd:"" help:"Resets the SID PIN to MSID"`
 }
 
 // Run executes when the initial-setup command is invoked
@@ -493,5 +499,56 @@ func (u *unlockEnterprise) Run(ctx *context) error {
 	if err := table.UnlockGlobalRangeEnterprise(lockingSession, uid.GlobalRangeRowUID); err != nil {
 		return fmt.Errorf("failed to unlock global range: %v", err)
 	}
+	return nil
+}
+
+func (r *resetSIDcmd) Run(ctx *context) error {
+	coreObj, err := core.NewCore(r.Device)
+	if err != nil {
+		return fmt.Errorf("NewCore(%s) failed: %v", r.Device, err)
+	}
+
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	if err != nil {
+		return fmt.Errorf("FindComID() failed: %v", err)
+	}
+
+	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.Level0Discovery, core.WithComID(comID))
+	if err != nil {
+		return fmt.Errorf("NewControllSession() failed: %v", err)
+	}
+	defer cs.Close()
+
+	serial, err := coreObj.SerialNumber()
+	if err != nil {
+		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+	}
+
+	salt := fmt.Sprintf("%-20s", serial)
+
+	adminSession, err := cs.NewSession(uid.AdminSP)
+	if err != nil {
+		return fmt.Errorf("failed to open session to AdminSP: %v", err)
+	}
+
+	adminHash := pbkdf2.Key(([]byte(r.SIDPassword)), []byte(salt[:20]), 75000, 32, sha1.New)
+
+	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, adminHash); err != nil {
+		return fmt.Errorf("failed to authenticate to AdminSP: %v", err)
+	}
+
+	msid, err := table.Admin_C_PIN_MSID_GetPIN(adminSession)
+	if err != nil {
+		return fmt.Errorf("failed to retrieve MSID: %v", err)
+	}
+
+	if err := table.Admin_C_Pin_SID_SetPIN(adminSession, msid); err != nil {
+		return fmt.Errorf("failed to set AdminSP credential to MSID: %v", err)
+	}
+
+	if err := adminSession.Close(); err != nil {
+		return fmt.Errorf("failed to close Session to AdminSP")
+	}
+
 	return nil
 }
