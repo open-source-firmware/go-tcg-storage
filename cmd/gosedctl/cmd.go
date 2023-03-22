@@ -351,18 +351,24 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 
 	defer lockingSession.Close()
 
-	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityBandMaster0, pwhash); err != nil {
-		return fmt.Errorf("authenticating as BandMaster0 failed: %v", err)
-	}
-
 	band0pw := pbkdf2.Key([]byte(i.BandMaster0PW), []byte(salt[:20]), 75000, 32, sha1.New)
+
+	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityBandMaster0, msid); err != nil {
+		if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityBandMaster0, pwhash); err != nil {
+			if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityBandMaster0, band0pw); err != nil {
+				return fmt.Errorf("authenticating as BandMaster0 failed: %v", err)
+			}
+		}
+	}
 
 	if err := table.SetBandMaster0Pin(lockingSession, band0pw); err != nil {
 		return fmt.Errorf("failed to set BandMaster0 PIN: %v", err)
 	}
 
-	if err := table.ThisSP_Authenticate(lockingSession, uid.EraseMaster, pwhash); err != nil {
-		return fmt.Errorf("authenticating as EraseMaster failed: %v", err)
+	if err := table.ThisSP_Authenticate(lockingSession, uid.EraseMaster, msid); err != nil {
+		if err := table.ThisSP_Authenticate(lockingSession, uid.EraseMaster, pwhash); err != nil {
+			return fmt.Errorf("authenticating as EraseMaster failed: %v", err)
+		}
 	}
 
 	erasePw := pbkdf2.Key([]byte(i.EraseMasterPW), []byte(salt[:20]), 75000, 32, sha1.New)
