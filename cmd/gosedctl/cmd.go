@@ -330,11 +330,13 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 		return fmt.Errorf("Admin_C_PIN_MSID_GetPin() failed: %v", err)
 	}
 
-	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, msid); err != nil {
-		return fmt.Errorf("authenticating as AdminSP failed: %v", err)
-	}
-
 	pwhash := pbkdf2.Key([]byte(i.SIDPassword), []byte(salt[:20]), 75000, 32, sha1.New)
+
+	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, msid); err != nil {
+		if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, pwhash); err != nil {
+			return fmt.Errorf("authenticating as AdminSP failed: %v", err)
+		}
+	}
 
 	if err := table.Admin_C_Pin_SID_SetPIN(adminSession, pwhash); err != nil {
 		return fmt.Errorf("Admin_C_PIN_SID_SetPIN() failed: %v", err)
@@ -365,13 +367,15 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 		return fmt.Errorf("failed to set BandMaster0 PIN: %v", err)
 	}
 
+	erasePw := pbkdf2.Key([]byte(i.EraseMasterPW), []byte(salt[:20]), 75000, 32, sha1.New)
+
 	if err := table.ThisSP_Authenticate(lockingSession, uid.EraseMaster, msid); err != nil {
 		if err := table.ThisSP_Authenticate(lockingSession, uid.EraseMaster, pwhash); err != nil {
-			return fmt.Errorf("authenticating as EraseMaster failed: %v", err)
+			if err := table.ThisSP_Authenticate(lockingSession, uid.EraseMaster, erasePw); err != nil {
+				return fmt.Errorf("authenticating as EraseMaster failed: %v", err)
+			}
 		}
 	}
-
-	erasePw := pbkdf2.Key([]byte(i.EraseMasterPW), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	if err := table.SetEraseMasterPin(lockingSession, erasePw); err != nil {
 		return fmt.Errorf("failed to set EraseMaster PIN: %v", err)
