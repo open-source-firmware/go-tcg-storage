@@ -7,7 +7,7 @@ build:
 	go build ${LDFLAGS} -v -o target/tcgsdiag $(CURDIR)/cmd/tcgsdiag
 	go build ${LDFLAGS} -v -o target/tcgdiskstat $(CURDIR)/cmd/tcgdiskstat
 	go build ${LDFLAGS} -v -o target/sedlockctl $(CURDIR)/cmd/sedlockctl
-	go build ${LDFLAGS} -v -o target/sedlockctl $(CURDIR)/cmd/gosedctl
+	go build ${LDFLAGS} -v -o target/gosedctl $(CURDIR)/cmd/gosedctl
 
 .PHONY: build-release
 build-release: build-release-amd64 build-release-arm64
