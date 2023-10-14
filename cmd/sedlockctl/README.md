@@ -14,7 +14,7 @@ Flags:
       --sidhash=STRING
   -u, --user=STRING
   -p, --password=STRING
-      --hash="sedutil-dta"
+  -h, --hash="sedutil-dta"
 
 Commands:
   list          List all ranges (default)

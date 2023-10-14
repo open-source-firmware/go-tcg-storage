@@ -37,7 +37,7 @@ var cli struct {
 	Sidhash    string       `flag:"" optional:""`
 	User       string       `flag:"" optional:"" short:"u"`
 	Password   string       `flag:"" optional:"" short:"p"`
-	Hash       string       `flag:"" optional:"" default:"sedutil-dta"`
+	Hash       string       `flag:"" optional:"" short:"h" default:"sedutil-dta" enum:"sedutil-dta,sedutil-sha512"`
 	List       listCmd      `cmd:"" help:"List all ranges (default)"`
 	LockAll    lockAllCmd   `cmd:"" help:"Locks all ranges completely"`
 	UnlockAll  unlockAllCmd `cmd:"" help:"Unlocks all ranges completely"`

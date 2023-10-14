@@ -81,6 +81,8 @@ func main() {
 		switch cli.Hash {
 		case "sedutil-dta":
 			pin = HashSedutilDTA(cli.Password, sn)
+		case "sedutil-sha512":
+			pin = HashSedutil512(cli.Password, sn)
 		default:
 			log.Fatalf("Unknown hash method %q", cli.Hash)
 		}
