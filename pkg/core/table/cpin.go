@@ -7,9 +7,9 @@
 package table
 
 import (
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
+	"github.com/matfax/go-tcg-storage/pkg/core"
+	"github.com/matfax/go-tcg-storage/pkg/core/method"
+	"github.com/matfax/go-tcg-storage/pkg/core/uid"
 )
 
 // ref: 5.3.2.12 Credential Table Group - C_PIN (Object Table)

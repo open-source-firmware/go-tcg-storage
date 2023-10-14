@@ -13,10 +13,10 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
+	"github.com/matfax/go-tcg-storage/pkg/core"
+	"github.com/matfax/go-tcg-storage/pkg/core/method"
+	"github.com/matfax/go-tcg-storage/pkg/core/stream"
+	"github.com/matfax/go-tcg-storage/pkg/core/uid"
 )
 
 var ErrMBRNotSupproted = errors.New("drive does not support MBR")

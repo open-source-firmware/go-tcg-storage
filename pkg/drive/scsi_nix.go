@@ -10,7 +10,7 @@ import (
 	"runtime"
 	"strings"
 
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive/sgio"
+	"github.com/matfax/go-tcg-storage/pkg/drive/sgio"
 )
 
 type scsiDrive struct {

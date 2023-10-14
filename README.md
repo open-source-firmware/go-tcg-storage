@@ -4,7 +4,7 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/open-source-firmware/go-tcg-storage)](https://goreportcard.com/report/github.com/open-source-firmware/go-tcg-storage)
 [![GoDoc](https://godoc.org/github.com/open-source-firmware/go-tcg-storage?status.svg)](https://pkg.go.dev/github.com/open-source-firmware/go-tcg-storage@main)
 [![Slack](https://slack.osfw.dev/badge.svg)](https://slack.osfw.dev)
-[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/open-source-firmware/go-tcg-storage/blob/master/LICENSE)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](https://github.com/matfax/go-tcg-storage/blob/master/LICENSE)
 
 Go library for interfacing TCG Storage and Security Subsystem Class (SSC) functions on storage devices.
 
@@ -20,13 +20,13 @@ Need support for another standard? Let us know by filing a feature request!
 ## Tools
 
  * [sedlockctl](cmd/sedlockctl/README.md) is a tool that helps you manage SED/TCG drives.<br>
-   Install it: `go install github.com/open-source-firmware/go-tcg-storage/cmd/sedlockctl@main`
+   Install it: `go install github.com/matfax/go-tcg-storage/cmd/sedlockctl@main`
 
  * [tcgsdiag](cmd/tcgsdiag/README.md) lets you list a whole lot of diagnostic information about TCG drives.<br>
-   Install it: `go install github.com/open-source-firmware/go-tcg-storage/cmd/tcgsdiag@main`
+   Install it: `go install github.com/matfax/go-tcg-storage/cmd/tcgsdiag@main`
 
  * [tcgdiskstat](cmd/tcgdiskstat/README.md) is like `blkid` or `lsscsi` but for TCG drives.<br>
-   Install it: `go install github.com/open-source-firmware/go-tcg-storage/cmd/tcgdiskstat@main`
+   Install it: `go install github.com/matfax/go-tcg-storage/cmd/tcgdiskstat@main`
 
 
 ## Supported Transports
@@ -75,10 +75,10 @@ is implementing.
 import (
 	"log"
 
-	tcg "github.com/open-source-firmware/go-tcg-storage/pkg/core"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
+	tcg "github.com/matfax/go-tcg-storage/pkg/core"
+	"github.com/matfax/go-tcg-storage/pkg/core/table"
+	"github.com/matfax/go-tcg-storage/pkg/core/uid"
+	"github.com/matfax/go-tcg-storage/pkg/drive"
 )
 
 func main() {
@@ -121,8 +121,8 @@ The most minimal example looks something like this:
 ```go
 
 import (
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
+	"github.com/matfax/go-tcg-storage/pkg/drive"
+	"github.com/matfax/go-tcg-storage/pkg/locking"
 )
 
 func main() {
@@ -141,8 +141,8 @@ A slightly more realistic example looks like this:
 ```go
 
 import (
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
+	"github.com/matfax/go-tcg-storage/pkg/drive"
+	"github.com/matfax/go-tcg-storage/pkg/locking"
 )
 
 func main() {

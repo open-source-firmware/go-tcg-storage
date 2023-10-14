@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
+	"github.com/matfax/go-tcg-storage/pkg/core"
+	"github.com/matfax/go-tcg-storage/pkg/core/table"
+	"github.com/matfax/go-tcg-storage/pkg/core/uid"
 
 	"golang.org/x/crypto/pbkdf2"
 )

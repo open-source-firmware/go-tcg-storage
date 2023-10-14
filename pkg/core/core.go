@@ -11,7 +11,7 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
+	"github.com/matfax/go-tcg-storage/pkg/drive"
 )
 
 // The following needs to be reworked and/or moved. Not sure where to yet.

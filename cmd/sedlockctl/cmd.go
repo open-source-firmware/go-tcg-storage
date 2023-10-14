@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
+	"github.com/matfax/go-tcg-storage/pkg/core/table"
+	"github.com/matfax/go-tcg-storage/pkg/locking"
 )
 
 type context struct {

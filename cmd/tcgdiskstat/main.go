@@ -10,8 +10,8 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
+	"github.com/matfax/go-tcg-storage/pkg/core"
+	"github.com/matfax/go-tcg-storage/pkg/drive"
 )
 
 var (

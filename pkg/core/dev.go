@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/feature"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
+	"github.com/matfax/go-tcg-storage/pkg/core/feature"
+	"github.com/matfax/go-tcg-storage/pkg/drive"
 )
 
 // Core holds the device interface to access IFSend/IFReceive functions as well as disk information

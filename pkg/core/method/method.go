@@ -10,8 +10,8 @@ import (
 	"bytes"
 	"errors"
 
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
+	"github.com/matfax/go-tcg-storage/pkg/core/stream"
+	"github.com/matfax/go-tcg-storage/pkg/core/uid"
 )
 
 type MethodFlag int

@@ -13,10 +13,10 @@ import (
 	"math/rand"
 	"time"
 
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/stream"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
-	"github.com/open-source-firmware/go-tcg-storage/pkg/drive"
+	"github.com/matfax/go-tcg-storage/pkg/core/method"
+	"github.com/matfax/go-tcg-storage/pkg/core/stream"
+	"github.com/matfax/go-tcg-storage/pkg/core/uid"
+	"github.com/matfax/go-tcg-storage/pkg/drive"
 )
 
 var (
