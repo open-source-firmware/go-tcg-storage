@@ -5,7 +5,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/matfax/go-tcg-storage/pkg/core/hash"
@@ -39,7 +38,7 @@ func main() {
 	}
 	defer func() {
 		if err := coreObj.Close(); err != nil {
-			fmt.Println(err)
+			log.Fatalf("drive.Close: %v", err)
 		}
 	}()
 
@@ -73,7 +72,7 @@ func main() {
 	}
 	defer func() {
 		if err := cs.Close(); err != nil {
-			fmt.Println(err)
+			log.Fatalf("locking.Close: %v", err)
 		}
 	}()
 
@@ -109,7 +108,7 @@ func main() {
 	}
 	defer func() {
 		if err := l.Close(); err != nil {
-			fmt.Println(err)
+			log.Fatalf("locking.Close: %v", err)
 		}
 	}()
 
