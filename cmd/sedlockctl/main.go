@@ -77,7 +77,8 @@ func main() {
 	}()
 
 	var auth locking.LockingSPAuthenticator
-	pin := []byte{}
+
+	var pin []byte
 	if cli.Password != "" {
 		switch cli.Hash {
 		case "sedutil-dta":

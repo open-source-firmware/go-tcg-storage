@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 
 	hash "github.com/matfax/go-tcg-storage/pkg/core/hash"
 
@@ -30,7 +29,7 @@ type initialSetupCmd struct {
 }
 
 type loadPBAImageCmd struct {
-	PBAImage      string `required:"" arg:"" type:"path" help:"Path to PBA image"`
+	PBAImage      []byte `required:"" arg:"" type:"filecontent" help:"Path to PBA image"`
 	DeviceEmbed   `embed:""`
 	PasswordEmbed `embed:"" envprefix:"SID_"`
 }
@@ -209,15 +208,6 @@ func (t *initialSetupCmd) Run(_ *context) (returnErr error) {
 }
 
 func (l *loadPBAImageCmd) Run(_ *context) (returnErr error) {
-	img, err := os.ReadFile(l.PBAImage)
-	if err != nil {
-		return fmt.Errorf("ReadFile(l.PBAImage) failed: %v", err)
-	}
-
-	if l.Password == "" {
-		return fmt.Errorf("empty password not allowed")
-	}
-
 	coreObj, err := core.NewCore(l.Device)
 	if err != nil {
 		return fmt.Errorf("NewCore() failed: %v", err)
@@ -250,7 +240,7 @@ func (l *loadPBAImageCmd) Run(_ *context) (returnErr error) {
 	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityAdmin1, pwhash); err != nil {
 		return fmt.Errorf("authenticating as Admin1 failed: %v", err)
 	}
-	if err := table.LoadPBAImage(lockingSession, img); err != nil {
+	if err := table.LoadPBAImage(lockingSession, l.PBAImage); err != nil {
 		return fmt.Errorf("LoadPBAImage() failed: %v", err)
 	}
 
