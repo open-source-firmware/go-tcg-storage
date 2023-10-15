@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
-	hash "github.com/matfax/go-tcg-storage/pkg/core/hash"
-
+	"github.com/alecthomas/kong"
 	core "github.com/matfax/go-tcg-storage/pkg/core"
+	hash "github.com/matfax/go-tcg-storage/pkg/core/hash"
 	"github.com/matfax/go-tcg-storage/pkg/core/table"
 	"github.com/matfax/go-tcg-storage/pkg/core/uid"
 )
@@ -29,7 +29,7 @@ type initialSetupCmd struct {
 }
 
 type loadPBAImageCmd struct {
-	PBAImage      []byte `required:"" arg:"" type:"filecontent" help:"Path to PBA image"`
+	PBAImage      kong.FileContentFlag `required:"" arg:"" help:"Path to PBA image"`
 	DeviceEmbed   `embed:""`
 	PasswordEmbed `embed:"" envprefix:"SID_"`
 }
