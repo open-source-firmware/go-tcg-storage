@@ -31,7 +31,7 @@ type readMBRCmd struct {
 }
 
 var cli struct {
-	Device     string       `required:"" short:"d" type:"path" help:"Path to SED device (e.g. /dev/nvme0)"`
+	Device     string       `required:"" short:"d" type:"existingfile" help:"Path to SED device (e.g. /dev/nvme0)"`
 	Sidpin     string       `optional:""`
 	Sidpinmsid bool         `optional:""`
 	Sidhash    string       `optional:""`

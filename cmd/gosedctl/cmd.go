@@ -14,7 +14,7 @@ import (
 type context struct{}
 
 type DeviceEmbed struct {
-	Device string `required:"" arg:"" type:"path" help:"Path to SED device (e.g. /dev/nvme0)"`
+	Device string `required:"" arg:"" type:"existingfile" help:"Path to SED device (e.g. /dev/nvme0)"`
 }
 
 type PasswordEmbed struct {
