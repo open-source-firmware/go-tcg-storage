@@ -16,3 +16,14 @@ func TestSedutilHashCompatibility(t *testing.T) {
 		t.Errorf("Unexpected PBKDF2 hash, got %s want %s", hex.EncodeToString(got), hex.EncodeToString(want))
 	}
 }
+
+func TestSedutilSha512(t *testing.T) {
+	got := HashSedutil512("dummy", "S2RBNB0HA12200B")
+	want := []byte{
+		85, 196, 70, 116, 162, 150, 160, 93, 174, 31, 202, 3, 60, 245, 89, 141, 90, 6,
+		213, 174, 233, 186, 186, 106, 59, 233, 12, 222, 253, 226, 174, 42,
+	}
+	if !bytes.Equal(want, got) {
+		t.Errorf("Unexpected PBKDF2 hash, got %s want %s", hex.EncodeToString(got), hex.EncodeToString(want))
+	}
+}
