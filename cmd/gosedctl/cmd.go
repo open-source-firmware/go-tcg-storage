@@ -1,63 +1,70 @@
 package main
 
 import (
-	"crypto/sha1"
 	"fmt"
+	hash "github.com/matfax/go-tcg-storage/pkg/core/hash"
 	"os"
 
-	"github.com/matfax/go-tcg-storage/pkg/core"
+	core "github.com/matfax/go-tcg-storage/pkg/core"
 	"github.com/matfax/go-tcg-storage/pkg/core/table"
 	"github.com/matfax/go-tcg-storage/pkg/core/uid"
-
-	"golang.org/x/crypto/pbkdf2"
 )
 
 // context is the context struct required by kong command line parser
 type context struct{}
 
+type DeviceEmbed struct {
+	Device string `required:"" arg:"" type:"path" help:"Path to SED device (e.g. /dev/nvme0)"`
+}
+
+type PasswordEmbed struct {
+	Password string `required:"" env:"PWD" help:"SID Password"`
+	Hash     string `optional:"" env:"HASH" default:"sedutil-dta" enum:"sedutil-dta,sedutil-sha512" help:"Either use sedutil-dta (sha1) or sedutil-sha512 for hashing"`
+}
+
 // initialSetupCmd is the struct for the initial-setup cmd required by kong command line parser
 type initialSetupCmd struct {
-	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
-	Password string `flag:"" optional:"" short:"p"`
+	DeviceEmbed   `embed:""`
+	PasswordEmbed `embed:"" envprefix:"SID_"`
 }
 
 type loadPBAImageCmd struct {
-	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
-	Password string `flag:"" required:"" short:"p"`
-	Path     string `flag:"" required:"" short:"i" help:"Path to PBA image"`
+	PBAImage      string `required:"" arg:"" type:"path" help:"Path to PBA image"`
+	DeviceEmbed   `embed:""`
+	PasswordEmbed `embed:"" envprefix:"SID_"`
 }
 
 type revertTPerCmd struct {
-	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
-	Password string `flag:"" required:"" short:"p"`
+	DeviceEmbed   `embed:""`
+	PasswordEmbed `embed:"" envprefix:"SID_"`
 }
 
 type revertNoeraseCmd struct {
-	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
-	Password string `flag:"" required:"" short:"p"`
+	DeviceEmbed   `embed:""`
+	PasswordEmbed `embed:"" envprefix:"SID_"`
 }
 
 type initialSetupEnterpriseCmd struct {
-	Device        string `flag:"" required:"" short:"d" help:"Path to SED device (e.g. /dev/nvme0)"`
-	SIDPassword   string `flag:"" required:"" short:"p" help:"New password for SID authority"`
-	BandMaster0PW string `flag:"" required:"" short:"b" help:"Password for BandMaster0 authority for configuration, lock and unlock operations."`
-	EraseMasterPW string `flag:"" required:"" short:"e" help:"Password for EraseMaster authority for erase operations of ranges."`
+	DeviceEmbed   `embed:""`
+	SIDPassword   PasswordEmbed `embed:"" prefix:"sid-" envprefix:"SID_" help:"New password for SID authority"`
+	BandMaster0PW PasswordEmbed `embed:"" prefix:"bandmaster-" envprefix:"BANDMASTER_" help:"Password for BandMaster0 authority for configuration, lock and unlock operations"`
+	EraseMasterPW PasswordEmbed `embed:"" prefix:"erase-master-" envprefix:"ERASE_MASTER_" help:"Password for EraseMaster authority for erase operations of ranges"`
 }
 
 type resetDeviceEnterprise struct {
-	Device        string `flag:"" required:"" short:"d" help:"Path to SED device (e.g. /dev/nvme0)"`
-	SIDPassword   string `flag:"" required:"" short:"p" help:"Password to SID authority"`
-	ErasePassword string `flag:"" required:"" short:"e" help:"Password to authenticate as EaseMaster"`
+	DeviceEmbed        `embed:""`
+	SIDPassword        PasswordEmbed `embed:"" prefix:"sid-" envprefix:"SID_" help:"Password for SID authority"`
+	EaseMasterPassword PasswordEmbed `embed:"" prefix:"erase-" envprefix:"ERASE_" help:"Password to authenticate as EaseMaster"`
 }
 
 type unlockEnterprise struct {
-	Device       string `flag:"" required:"" short:"d" help:"Path to SED device (e.g. /dev/nvme0)"`
-	BandMasterPW string `flag:"" required:"" short:"b" help:"Password for BandMaster0 authority for configuration, lock and unlock operations."`
+	DeviceEmbed   `embed:""`
+	BandMaster0PW PasswordEmbed `embed:"" prefix:"bandmaster-" envprefix:"BANDMASTER_" help:"Password for BandMaster0 authority for configuration, lock and unlock operations"`
 }
 
 type resetSIDcmd struct {
-	Device      string `flag:"" required:"" short:"d" help:"Path to SED device (e.g. /dev/nvme0)"`
-	SIDPassword string `flag:"" required:"" short:"p" help:"Password to SID authority"`
+	DeviceEmbed   `embed:""`
+	PasswordEmbed `embed:"" envprefix:"SID_"`
 }
 
 // cli is the main command line interface struct required by kong command line parser
@@ -70,6 +77,25 @@ var cli struct {
 	RevertEnterprise       resetDeviceEnterprise     `cmd:"" help:"delete after use"`
 	UnlockEnterprise       unlockEnterprise          `cmd:"" help:"Unlocks global range with BandMaster0"`
 	ResetSID               resetSIDcmd               `cmd:"" help:"Resets the SID PIN to MSID"`
+}
+
+func (t *PasswordEmbed) GenerateHash(coreObj *core.Core) ([]byte, error) {
+	serial, err := coreObj.SerialNumber()
+	if err != nil {
+		return nil, fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+	}
+	salt := fmt.Sprintf("%-20s", serial)
+
+	switch t.Hash {
+	// Drive-Trust-Alliance uses sha1
+	case "sedutil-dta":
+		return hash.HashSedutilDTA(t.Password, salt), nil
+	// ChubbyAnt uses sha512
+	case "sedutil-sha512":
+		return hash.HashSedutil512(t.Password, salt), nil
+	default:
+		return nil, fmt.Errorf("unknown hash method %q", t.Hash)
+	}
 }
 
 // Run executes when the initial-setup command is invoked
@@ -97,7 +123,7 @@ func (t *initialSetupCmd) Run(ctx *context) error {
 		return fmt.Errorf("cs.NewSession() failed: %v", err)
 	}
 
-	// Get the MSID (only works if device hasnt been claimed)
+	// Get the MSID (only works if device hasn't been claimed)
 	fmt.Println("Read MSID Pin")
 	msid, err := table.Admin_C_PIN_MSID_GetPIN(adminSession)
 	if err != nil {
@@ -110,14 +136,10 @@ func (t *initialSetupCmd) Run(ctx *context) error {
 		return fmt.Errorf("ThisSp_Authenticate failed: %v", err)
 	}
 	fmt.Println("Set new password")
-	// Set the new SID password. Password needs to be hashed.
-	// The used algorithm is the same as used in DriveTrustAlliance implementation of sedutil-cli
-	serial, err := coreObj.SerialNumber()
+	pwhash, err := t.PasswordEmbed.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-	salt := fmt.Sprintf("%-20s", serial)
-	pwhash := pbkdf2.Key([]byte(t.Password), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	if err := table.Admin_C_Pin_SID_SetPIN(adminSession, pwhash); err != nil {
 		return fmt.Errorf("Admin_C_PIN_SID_SetPIN() failed: %v", err)
@@ -179,9 +201,9 @@ func (t *initialSetupCmd) Run(ctx *context) error {
 }
 
 func (l *loadPBAImageCmd) Run(ctx *context) error {
-	img, err := os.ReadFile(l.Path)
+	img, err := os.ReadFile(l.PBAImage)
 	if err != nil {
-		return fmt.Errorf("ReadFile(l.Path) failed: %v", err)
+		return fmt.Errorf("ReadFile(l.PBAImage) failed: %v", err)
 	}
 
 	if l.Password == "" {
@@ -202,12 +224,10 @@ func (l *loadPBAImageCmd) Run(ctx *context) error {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
 
-	serial, err := coreObj.SerialNumber()
+	pwhash, err := l.PasswordEmbed.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-	salt := fmt.Sprintf("%-20s", serial)
-	pwhash := pbkdf2.Key([]byte(l.Password), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	lockingSession, err := cs.NewSession(uid.LockingSP)
 	if err != nil {
@@ -248,12 +268,10 @@ func (r *revertNoeraseCmd) Run(ctx *context) error {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
 
-	serial, err := coreObj.SerialNumber()
+	pwhash, err := r.PasswordEmbed.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-	salt := fmt.Sprintf("%-20s", serial)
-	pwhash := pbkdf2.Key([]byte(r.Password), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	lockingSession, err := cs.NewSession(uid.LockingSP)
 	if err != nil {
@@ -292,12 +310,11 @@ func (r *revertTPerCmd) Run(ctx *context) error {
 	if err != nil {
 		return fmt.Errorf("cs.NewSession() failed: %v", err)
 	}
-	serial, err := coreObj.SerialNumber()
+
+	pwhash, err := r.PasswordEmbed.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-	salt := fmt.Sprintf("%-20s", serial)
-	pwhash := pbkdf2.Key([]byte(r.Password), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, pwhash); err != nil {
 		return fmt.Errorf("authenticating as AdminSP failed: %v", err)
@@ -335,20 +352,15 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 		return fmt.Errorf("cs.NewSession() failed: %v", err)
 	}
 
-	// We need the serial number as salt for password hashing of old and new password.
-	serial, err := coreObj.SerialNumber()
-	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
-	}
-
-	salt := fmt.Sprintf("%-20s", serial)
-
 	msid, err := table.Admin_C_PIN_MSID_GetPIN(adminSession)
 	if err != nil {
 		return fmt.Errorf("Admin_C_PIN_MSID_GetPin() failed: %v", err)
 	}
 
-	pwhash := pbkdf2.Key([]byte(i.SIDPassword), []byte(salt[:20]), 75000, 32, sha1.New)
+	pwhash, err := i.SIDPassword.GenerateHash(coreObj)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %v", err)
+	}
 
 	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, msid); err != nil {
 		if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, pwhash); err != nil {
@@ -375,7 +387,10 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 		}
 	}()
 
-	band0pw := pbkdf2.Key([]byte(i.BandMaster0PW), []byte(salt[:20]), 75000, 32, sha1.New)
+	band0pw, err := i.BandMaster0PW.GenerateHash(coreObj)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %v", err)
+	}
 
 	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityBandMaster0, msid); err != nil {
 		if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityBandMaster0, pwhash); err != nil {
@@ -389,7 +404,10 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 		return fmt.Errorf("failed to set BandMaster0 PIN: %v", err)
 	}
 
-	erasePw := pbkdf2.Key([]byte(i.EraseMasterPW), []byte(salt[:20]), 75000, 32, sha1.New)
+	erasePw, err := i.EraseMasterPW.GenerateHash(coreObj)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %v", err)
+	}
 
 	if err := table.ThisSP_Authenticate(lockingSession, uid.EraseMaster, msid); err != nil {
 		if err := table.ThisSP_Authenticate(lockingSession, uid.EraseMaster, pwhash); err != nil {
@@ -431,13 +449,10 @@ func (r *resetDeviceEnterprise) Run(ctx *context) error {
 		}
 	}()
 
-	serial, err := coreObj.SerialNumber()
+	eraseHash, err := r.EaseMasterPassword.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-
-	salt := fmt.Sprintf("%-20s", serial)
-	eraseHash := pbkdf2.Key(([]byte(r.ErasePassword)), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	lockingSession, err := cs.NewSession(uid.EnterpriseLockingSP)
 	if err != nil {
@@ -461,7 +476,10 @@ func (r *resetDeviceEnterprise) Run(ctx *context) error {
 		return fmt.Errorf("failed to open session to AdminSP: %v", err)
 	}
 
-	adminHash := pbkdf2.Key(([]byte(r.SIDPassword)), []byte(salt[:20]), 75000, 32, sha1.New)
+	adminHash, err := r.SIDPassword.GenerateHash(coreObj)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %v", err)
+	}
 
 	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, adminHash); err != nil {
 		return fmt.Errorf("failed to authenticate to AdminSP: %v", err)
@@ -517,13 +535,10 @@ func (u *unlockEnterprise) Run(ctx *context) error {
 		}
 	}()
 
-	serial, err := coreObj.SerialNumber()
+	pwhash, err := u.BandMaster0PW.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-
-	salt := fmt.Sprintf("%-20s", serial)
-	pwhash := pbkdf2.Key(([]byte(u.BandMasterPW)), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	lockingSession, err := cs.NewSession(uid.EnterpriseLockingSP)
 	if err != nil {
@@ -567,19 +582,15 @@ func (r *resetSIDcmd) Run(ctx *context) error {
 		}
 	}()
 
-	serial, err := coreObj.SerialNumber()
-	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
-	}
-
-	salt := fmt.Sprintf("%-20s", serial)
-
 	adminSession, err := cs.NewSession(uid.AdminSP)
 	if err != nil {
 		return fmt.Errorf("failed to open session to AdminSP: %v", err)
 	}
 
-	adminHash := pbkdf2.Key(([]byte(r.SIDPassword)), []byte(salt[:20]), 75000, 32, sha1.New)
+	adminHash, err := r.PasswordEmbed.GenerateHash(coreObj)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %v", err)
+	}
 
 	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, adminHash); err != nil {
 		return fmt.Errorf("failed to authenticate to AdminSP: %v", err)
