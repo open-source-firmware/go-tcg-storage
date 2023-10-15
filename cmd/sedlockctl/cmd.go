@@ -31,13 +31,13 @@ type readMBRCmd struct {
 }
 
 var cli struct {
-	Device     string       `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
-	Sidpin     string       `flag:"" optional:""`
-	Sidpinmsid bool         `flag:"" optional:""`
-	Sidhash    string       `flag:"" optional:""`
-	User       string       `flag:"" optional:"" short:"u"`
-	Password   string       `flag:"" optional:"" short:"p"`
-	Hash       string       `flag:"" optional:"" short:"h" default:"sedutil-dta" enum:"sedutil-dta,sedutil-sha512"`
+	Device     string       `required:"" short:"d" type:"path" help:"Path to SED device (e.g. /dev/nvme0)"`
+	Sidpin     string       `optional:""`
+	Sidpinmsid bool         `optional:""`
+	Sidhash    string       `optional:""`
+	User       string       `optional:"" short:"u"`
+	Password   string       `optional:"" short:"p" help:"SID Password"`
+	Hash       string       `optional:"" short:"h" default:"sedutil-dta" enum:"sedutil-dta,sedutil-sha512" help:"Either use sedutil-dta (sha1) or sedutil-sha512 for hashing"`
 	List       listCmd      `cmd:"" help:"List all ranges (default)"`
 	LockAll    lockAllCmd   `cmd:"" help:"Locks all ranges completely"`
 	UnlockAll  unlockAllCmd `cmd:"" help:"Unlocks all ranges completely"`

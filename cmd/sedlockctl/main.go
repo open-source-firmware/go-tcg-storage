@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/matfax/go-tcg-storage/pkg/core/hash"
+
 	"github.com/alecthomas/kong"
 	"github.com/matfax/go-tcg-storage/pkg/core"
 	"github.com/matfax/go-tcg-storage/pkg/locking"
@@ -51,7 +53,7 @@ func main() {
 	if cli.Sidpin != "" {
 		switch cli.Sidhash {
 		case "sedutil-dta":
-			spin = HashSedutilDTA(cli.Sidpin, sn)
+			spin = hash.HashSedutilDTA(cli.Sidpin, sn)
 		default:
 			log.Fatalf("Unknown hash method %q", cli.Sidhash)
 		}
@@ -80,9 +82,9 @@ func main() {
 	if cli.Password != "" {
 		switch cli.Hash {
 		case "sedutil-dta":
-			pin = HashSedutilDTA(cli.Password, sn)
+			pin = hash.HashSedutilDTA(cli.Password, sn)
 		case "sedutil-sha512":
-			pin = HashSedutil512(cli.Password, sn)
+			pin = hash.HashSedutil512(cli.Password, sn)
 		default:
 			log.Fatalf("Unknown hash method %q", cli.Hash)
 		}
