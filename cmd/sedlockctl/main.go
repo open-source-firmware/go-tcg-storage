@@ -7,10 +7,10 @@ package main
 import (
 	"log"
 
-	"github.com/matfax/go-tcg-storage/pkg/core/hash"
-
 	"github.com/alecthomas/kong"
+	plugins "github.com/matfax/go-tcg-storage/pkg/cli"
 	"github.com/matfax/go-tcg-storage/pkg/core"
+	"github.com/matfax/go-tcg-storage/pkg/core/hash"
 	"github.com/matfax/go-tcg-storage/pkg/locking"
 	// TODO: Move to locking API when it has MBR functions
 )
@@ -26,6 +26,7 @@ func main() {
 		kong.Name(programName),
 		kong.Description(programDesc),
 		kong.UsageOnError(),
+		kong.Resolvers(plugins.ResolvePassword()),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
 			Summary: true,

@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/alecthomas/kong"
+	plugins "github.com/matfax/go-tcg-storage/pkg/cli"
 )
 
 const (
@@ -15,6 +16,7 @@ func main() {
 		kong.Name(programName),
 		kong.Description(programDesc),
 		kong.UsageOnError(),
+		kong.Resolvers(plugins.ResolvePassword()),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
 			Summary: true,

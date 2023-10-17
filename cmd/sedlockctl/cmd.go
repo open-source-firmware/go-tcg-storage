@@ -36,7 +36,7 @@ var cli struct {
 	Sidpinmsid bool         `optional:""`
 	Sidhash    string       `optional:""`
 	User       string       `optional:"" short:"u"`
-	Password   string       `optional:"" short:"p" help:"SID Password"`
+	Password   string       `required:"" short:"p" type:"password" help:"SID Password"`
 	Hash       string       `optional:"" short:"h" default:"sedutil-dta" enum:"sedutil-dta,sedutil-sha512" help:"Either use sedutil-dta (sha1) or sedutil-sha512 for hashing"`
 	List       listCmd      `cmd:"" help:"List all ranges (default)"`
 	LockAll    lockAllCmd   `cmd:"" help:"Locks all ranges completely"`
