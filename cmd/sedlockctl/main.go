@@ -8,10 +8,10 @@ import (
 	"log"
 
 	"github.com/alecthomas/kong"
-	plugins "github.com/matfax/go-tcg-storage/pkg/cli"
-	"github.com/matfax/go-tcg-storage/pkg/core"
-	"github.com/matfax/go-tcg-storage/pkg/core/hash"
-	"github.com/matfax/go-tcg-storage/pkg/locking"
+	plugins "github.com/open-source-firmware/go-tcg-storage/pkg/cli"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/hash"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
 	// TODO: Move to locking API when it has MBR functions
 )
 

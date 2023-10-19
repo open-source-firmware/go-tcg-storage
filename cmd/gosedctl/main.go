@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/alecthomas/kong"
-	plugins "github.com/matfax/go-tcg-storage/pkg/cli"
+	plugins "github.com/open-source-firmware/go-tcg-storage/pkg/cli"
 )
 
 const (
