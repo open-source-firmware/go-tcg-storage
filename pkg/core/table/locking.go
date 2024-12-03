@@ -756,3 +756,64 @@ func DataStoreWrite(s *core.Session, buffer []byte, off uint, chunkSize uint) er
 
 	return nil
 }
+
+func AcePermitUsers(s *core.Session, ace uid.RowUID, users []uid.AuthorityObjectUID) error {
+	mc := NewSetCall(s, ace)
+	mc.Token(stream.StartName)
+	mc.UInt(AceColumnBooleanExpr)
+	mc.StartList()
+
+	for i, user := range users {
+		mc.Token(stream.StartName)
+		mc.HalfUID(uid.ColumnTypeAuthorityObjectRef.HalfUid())
+		mc.Bytes(user[:])
+		mc.Token(stream.EndName)
+
+		if i > 0 {
+			mc.Token(stream.StartName)
+			mc.HalfUID(uid.ColumnTypeBooleanACE.HalfUid())
+			mc.Token(stream.OpalBooleanOr)
+			mc.Token(stream.EndName)
+		}
+	}
+	mc.EndList()
+	mc.Token(stream.EndName)
+
+	FinishSetCall(s, mc)
+
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EnableAuthority(s *core.Session, user uid.AuthorityObjectUID) error {
+	mc := NewSetCall(s, user.RowUID())
+	mc.Token(stream.StartName)
+	mc.UInt(Authority_Enabled_Column)
+	mc.Token(stream.OpalTrue)
+	mc.Token(stream.EndName)
+	FinishSetCall(s, mc)
+
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
+}
+
+func LockingUserSetPIN(s *core.Session, password []byte, user uid.AuthorityObjectUID) error {
+	if len(password) < 1 {
+		return fmt.Errorf("invalid length of password")
+	}
+	mc := NewSetCall(s, uid.Locking_C_PINTable.Row([4]byte{user[4], user[5], user[6], user[7]}))
+	mc.Token(stream.StartName)
+	mc.Token(stream.OpalPIN)
+	mc.Bytes(password)
+	mc.Token(stream.EndName)
+	FinishSetCall(s, mc)
+
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
+}
