@@ -273,6 +273,9 @@ func main() {
 	log.Printf("Locking SP LockingInfo:")
 	spew.Dump(table.LockingInfo(s))
 
+	log.Printf("Locking SP LockingSecretProtect:")
+	spew.Dump(table.LockingSecretProtect(s))
+
 	log.Printf("Locking SP MBRTableInfo:")
 	mbi, err := table.MBR_TableInfo(s)
 	if err != nil {
