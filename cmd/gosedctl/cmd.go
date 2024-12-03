@@ -255,7 +255,7 @@ func (r *revertNoeraseCmd) Run(ctx *context) error {
 		return fmt.Errorf("authenticating as Admin1 failed: %v", err)
 	}
 
-	if err := table.RevertLockingSP(lockingSession, true, pwhash); err != nil {
+	if err := table.RevertLockingSP(lockingSession, true); err != nil {
 		return fmt.Errorf("RevertLockingSP() failed: %v", err)
 	}
 	return nil
