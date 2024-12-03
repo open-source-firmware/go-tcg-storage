@@ -32,6 +32,9 @@ const (
 	ResetPowerOff ResetType = 0
 	ResetHardware ResetType = 1
 	ResetHotPlug  ResetType = 2
+	// The parameter number for KeepGlobalRangeKey SHALL be 0x060000
+	// TCG Storage Security Subsystem Class: Opal | Version 2.02 | Revision 1.0 | Page 86
+	KeepGlobalRangeKey uint = 0x060000
 )
 
 type ProtectMechanism uint
@@ -620,9 +623,7 @@ func RevertLockingSP(s *core.Session, keep bool, pwhash []byte) error {
 	mc := method.NewMethodCall(uid.InvokeIDThisSP, uid.OpalRevertSP, s.MethodFlags)
 	if keep {
 		mc.Token(stream.StartName)
-		// KeepGlobalRangeKey, TCG Storage Security Subsystem Class: Opal | Version 2.02 | Revision 1.0 | Page 85
-		// sedutil-cli looks like a Short-Atom without byte or integer indicator
-		mc.RawByte([]byte{0x83, 0x06, 0x00, 0x00})
+		mc.UInt(KeepGlobalRangeKey)
 		mc.Token(stream.OpalTrue)
 		mc.Token(stream.EndName)
 	}
