@@ -34,6 +34,22 @@ const (
 	ResetHotPlug  ResetType = 2
 )
 
+type ProtectMechanism uint
+
+const (
+	VendorUnique               ProtectMechanism = 0
+	AuthenticationDataRequired ProtectMechanism = 1
+)
+
+type SecretProtect struct {
+	UID              uid.UID
+	Table            uid.RowUID
+	Column           uint
+	ProtectMechanism []ProtectMechanism
+}
+
+const ProtectMechanismColumn uint = 3
+
 type LockingInfoRow struct {
 	UID                  uid.RowUID
 	Name                 *string
@@ -57,6 +73,58 @@ func LockingSPActivate(s *core.Session) error {
 		return err
 	}
 	return nil
+}
+
+func LockingSecretProtect(s *core.Session) ([]SecretProtect, error) {
+	if uids, err := Enumerate(s, uid.Locking_SecretProtect); err != nil {
+		return nil, err
+	} else {
+		result := make([]SecretProtect, len(uids))
+		for i, rowUid := range uids {
+			val, err := GetFullRow(s, rowUid)
+			if err != nil {
+				return nil, err
+			}
+
+			for col, val := range val {
+				switch col {
+				case "0", "UID":
+					v, ok := val.([]byte)
+					if !ok {
+						return nil, method.ErrMalformedMethodResponse
+					}
+					copy(result[i].UID[:], v[:8])
+				case "1", "Table":
+					v, ok := val.([]byte)
+					if !ok {
+						return nil, method.ErrMalformedMethodResponse
+					}
+					copy(result[i].Table[:], v[:8])
+				case "2", "Column":
+					v, ok := val.(uint)
+					if !ok {
+						return nil, method.ErrMalformedMethodResponse
+					}
+					result[i].Column = v
+				case "3", "ProtectMechanisms":
+					v, ok := val.(stream.List)
+					if !ok {
+						return nil, method.ErrMalformedMethodResponse
+					}
+					mechanisms := make([]ProtectMechanism, len(v))
+					for n, val := range v {
+						mechanism, ok := val.(uint)
+						if !ok {
+							return nil, method.ErrMalformedMethodResponse
+						}
+						mechanisms[n] = ProtectMechanism(mechanism)
+					}
+					result[i].ProtectMechanism = mechanisms
+				}
+			}
+		}
+		return result, nil
+	}
 }
 
 func LockingInfo(s *core.Session) (*LockingInfoRow, error) {
