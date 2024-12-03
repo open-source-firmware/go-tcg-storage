@@ -619,7 +619,7 @@ func LoadPBAImage(s *core.Session, image []byte) error {
 	return nil
 }
 
-func RevertLockingSP(s *core.Session, keep bool, pwhash []byte) error {
+func RevertLockingSP(s *core.Session, keep bool) error {
 	mc := method.NewMethodCall(uid.InvokeIDThisSP, uid.OpalRevertSP, s.MethodFlags)
 	if keep {
 		mc.Token(stream.StartName)
