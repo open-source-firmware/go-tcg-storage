@@ -19,16 +19,16 @@ type Core struct {
 }
 
 func NewCore(device string) (*Core, error) {
-	drive, err := drive.Open(device)
+	d, err := drive.Open(device)
 	if err != nil {
 		return nil, fmt.Errorf("open device %s failed: %v", device, err)
 	}
-	ident, err := drive.Identify()
+	ident, err := d.Identify()
 	if err != nil {
 		return nil, fmt.Errorf("identify device %s failed: %v", device, err)
 	}
 	c := &Core{
-		DriveIntf: drive,
+		DriveIntf: d,
 		DiskInfo: DiskInfo{
 			Identity:        ident,
 			Level0Discovery: &Level0Discovery{},
