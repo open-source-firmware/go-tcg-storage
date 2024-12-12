@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/sha1"
 	"fmt"
+	"github.com/davecgh/go-spew/spew"
 	"os"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
@@ -60,6 +61,17 @@ type resetSIDcmd struct {
 	SIDPassword string `flag:"" required:"" short:"p" help:"Password to SID authority"`
 }
 
+type readDataStoreCmd struct {
+	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
+	Password string `flag:"" required:"" short:"p"`
+}
+
+type writeDataStoreCmd struct {
+	Path     string `flag:"" required:"" short:"i" help:"Path to DataStore content"`
+	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
+	Password string `flag:"" required:"" short:"p"`
+}
+
 // cli is the main command line interface struct required by kong command line parser
 var cli struct {
 	InitialSetup           initialSetupCmd           `cmd:"" help:"Take ownership of a given OPAL SSC device"`
@@ -70,6 +82,8 @@ var cli struct {
 	RevertEnterprise       resetDeviceEnterprise     `cmd:"" help:"delete after use"`
 	UnlockEnterprise       unlockEnterprise          `cmd:"" help:"Unlocks global range with BandMaster0"`
 	ResetSID               resetSIDcmd               `cmd:"" help:"Resets the SID PIN to MSID"`
+	ReadDataStore          readDataStoreCmd          `cmd:"" help:"Reads the DataStore table"`
+	WriteDataStore         writeDataStoreCmd         `cmd:"" help:"Writes to DataStore table"`
 }
 
 // Run executes when the initial-setup command is invoked
@@ -558,6 +572,117 @@ func (r *resetSIDcmd) Run(ctx *context) error {
 
 	if err := adminSession.Close(); err != nil {
 		return fmt.Errorf("failed to close Session to AdminSP")
+	}
+
+	return nil
+}
+
+func (l *readDataStoreCmd) Run(ctx *context) error {
+	if l.Password == "" {
+		return fmt.Errorf("empty password not allowed")
+	}
+
+	coreObj, err := core.NewCore(l.Device)
+	if err != nil {
+		return fmt.Errorf("NewCore() failed: %v", err)
+	}
+
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	if err != nil {
+		return fmt.Errorf("FindComID() failed: %v", err)
+	}
+	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.Level0Discovery, core.WithComID(comID))
+	if err != nil {
+		return fmt.Errorf("NewControllSession() failed: %v", err)
+	}
+
+	serial, err := coreObj.SerialNumber()
+	if err != nil {
+		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+	}
+	salt := fmt.Sprintf("%-20s", serial)
+	pwhash := pbkdf2.Key([]byte(l.Password), []byte(salt[:20]), 75000, 32, sha1.New)
+
+	lockingSession, err := cs.NewSession(uid.LockingSP)
+	if err != nil {
+		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
+	}
+	defer lockingSession.Close()
+	// Elevate the session to Admin1 with required credentials
+	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityAdmin1, pwhash); err != nil {
+		return fmt.Errorf("authenticating as Admin1 failed: %v", err)
+	}
+
+	info, err := table.DataStoreTableInfo(lockingSession)
+	if err != nil {
+		return fmt.Errorf("DataStoreTableInfo() failed: %v", err)
+	} else {
+		spew.Dump(info)
+	}
+	var buf = make([]byte, 4096)
+	read, err := table.DataStoreRead(lockingSession, buf, 0, uint(info.RecommendedAccessGranularity))
+	if err != nil {
+		return fmt.Errorf("DataStoreRead() failed: %v", err)
+	}
+	fmt.Printf("DataStoreRead() red %d bytes\n", read)
+	spew.Dump(buf)
+	return nil
+}
+
+func (l *writeDataStoreCmd) Run(ctx *context) error {
+	data, err := os.ReadFile(l.Path)
+	if err != nil {
+		return fmt.Errorf("ReadFile(l.Path) failed: %v", err)
+	}
+
+	if l.Password == "" {
+		return fmt.Errorf("empty password not allowed")
+	}
+
+	coreObj, err := core.NewCore(l.Device)
+	if err != nil {
+		return fmt.Errorf("NewCore() failed: %v", err)
+	}
+
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	if err != nil {
+		return fmt.Errorf("FindComID() failed: %v", err)
+	}
+	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.Level0Discovery, core.WithComID(comID))
+	if err != nil {
+		return fmt.Errorf("NewControllSession() failed: %v", err)
+	}
+
+	serial, err := coreObj.SerialNumber()
+	if err != nil {
+		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+	}
+	salt := fmt.Sprintf("%-20s", serial)
+	pwhash := pbkdf2.Key([]byte(l.Password), []byte(salt[:20]), 75000, 32, sha1.New)
+
+	lockingSession, err := cs.NewSession(uid.LockingSP)
+	if err != nil {
+		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
+	}
+	defer lockingSession.Close()
+	// Elevate the session to Admin1 with required credentials
+	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityAdmin1, pwhash); err != nil {
+		return fmt.Errorf("authenticating as Admin1 failed: %v", err)
+	}
+
+	info, err := table.DataStoreTableInfo(lockingSession)
+	if err != nil {
+		return fmt.Errorf("DataStoreTableInfo() failed: %v", err)
+	} else {
+		spew.Dump(info)
+	}
+
+	if uint(len(data)) > uint(info.Size) {
+		return fmt.Errorf("data is too large %d > %d", len(data), info.Size)
+	}
+
+	if err := table.DataStoreWrite(lockingSession, data, 0, uint(info.RecommendedAccessGranularity)); err != nil {
+		return fmt.Errorf("DataStoreWrite() failed: %v", err)
 	}
 
 	return nil
