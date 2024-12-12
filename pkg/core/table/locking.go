@@ -732,6 +732,13 @@ func DataStoreRead(s *core.Session, buffer []byte, off uint, chunkSize uint) (ui
 	return dataRead, nil
 }
 
+func tcgMin(a, b uint) uint {
+	if a < b {
+		return a
+	}
+	return b
+}
+
 func DataStoreWrite(s *core.Session, buffer []byte, off uint, chunkSize uint) error {
 	var targetUId uid.InvokingID
 	copy(targetUId[:], uid.Locking_DataStoreTable[:])
@@ -739,7 +746,7 @@ func DataStoreWrite(s *core.Session, buffer []byte, off uint, chunkSize uint) er
 	bufferLen := uint(len(buffer))
 
 	for pos := uint(0); pos < bufferLen; pos += chunkSize {
-		chunk := buffer[pos:min(pos+chunkSize, bufferLen)]
+		chunk := buffer[pos:tcgMin(pos+chunkSize, bufferLen)]
 		mc := method.NewMethodCall(targetUId, uid.OpalSet, s.MethodFlags)
 		mc.Token(stream.StartName)
 		mc.Token(stream.OpalWhere)
