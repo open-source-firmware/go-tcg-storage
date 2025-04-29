@@ -162,7 +162,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 	/* fixup length field to indicate full page length */
 	l := inqHdr.Length + 5
 	if l < SCSI_INQUIRY_STD_LENGTH {
-		return nil, fmt.Errorf("unexpected respsonse length of SCSI_INQUIRY (%u < %u)", l, SCSI_INQUIRY_STD_LENGTH)
+		return nil, fmt.Errorf("unexpected respsonse length of SCSI_INQUIRY (%d < %d)", l, SCSI_INQUIRY_STD_LENGTH)
 	}
 
 	respBuf = make([]byte, SCSI_VPD_STD_LENGTH)
