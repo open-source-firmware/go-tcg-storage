@@ -84,7 +84,7 @@ func (t *PasswordEmbed) GenerateHash(coreObj *core.Core) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
 	}
-	salt := fmt.Sprintf("%-20s", serial)
+	salt := string(serial)
 
 	switch t.Hash {
 	// Drive-Trust-Alliance uses sha1
