@@ -12,7 +12,6 @@ import (
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/hash"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
-	// TODO: Move to locking API when it has MBR functions
 )
 
 var (
@@ -54,6 +53,8 @@ func main() {
 		switch cli.Sidhash {
 		case "sedutil-dta":
 			spin = hash.HashSedutilDTA(cli.Sidpin, sn)
+		case "sedutil-sha512":
+			spin = hash.HashSedutil512(cli.Sidpin, sn)
 		default:
 			log.Fatalf("Unknown hash method %q", cli.Sidhash)
 		}
