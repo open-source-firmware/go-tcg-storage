@@ -18,6 +18,7 @@ package sgio
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -37,10 +38,14 @@ const (
 	SCSI_INQUIRY            = 0x12
 	SCSI_INQUIRY_STD_LENGTH = 0x24 // expected minimal length of SCSI_INQUERY according to SPC-3 (and newer)
 
-	SCSI_VPD_STD_LENGTH = 0xFF // max page size - should be enoough for most VPDs
+	SCSI_VPD_STD_LENGTH = 0xFF // max page size - should be enough for most VPDs
 	SCSI_VPD_PAGE_SV    = 0x00 // VPD page indicating other supported VPD pages
 	SCSI_VPD_PAGE_SN    = 0x80 // Unit serial number VPD page
 	SCSI_VPD_PAGE_DI    = 0x83 // Device Identification VPD page
+)
+
+var (
+	ErrUnexpectedResp = errors.New("unexpected SCSI response")
 )
 
 type SCSIProtocol int
@@ -127,13 +132,11 @@ func (id IdentifyDeviceResponse) String() string {
 		strings.TrimSpace(ATAString(id.Model[:])))
 }
 
-/*
-	 INQUIRY - Returns parsed inquiry data.
-		- request standard inquiry first
-		- check supported VPDs
-		- query for serial number, if page 0x80 is supported
-	    - query for protocol type, if page 0x83 is supported
-*/
+//	 INQUIRY - Returns parsed inquiry data.
+//		- request standard inquiry first
+//		- check supported VPDs
+//		- query for serial number, if page 0x80 is supported
+//	    - query for protocol type, if page 0x83 is supported
 func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 	respBuf := make([]byte, SCSI_INQUIRY_STD_LENGTH)
 
@@ -159,10 +162,10 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 		return nil, err
 	}
 
-	/* fixup length field to indicate full page length */
+	// fixup length field to indicate full page length
 	l := inqHdr.Length + 5
 	if l < SCSI_INQUIRY_STD_LENGTH {
-		return nil, fmt.Errorf("unexpected respsonse length of SCSI_INQUIRY (%d < %d)", l, SCSI_INQUIRY_STD_LENGTH)
+		return nil, fmt.Errorf("%w: length of SCSI_INQUIRY (%d < %d)", ErrUnexpectedResp, l, SCSI_INQUIRY_STD_LENGTH)
 	}
 
 	respBuf = make([]byte, SCSI_VPD_STD_LENGTH)
@@ -181,7 +184,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 	haveSN := false
 	haveDI := false
 
-	/* validate response */
+	// validate response
 	l = vpdHdr.PageLength + 4
 	if (vpdHdr.PageCode == SCSI_VPD_PAGE_SV) && (l > 4) && (l <= SCSI_VPD_STD_LENGTH) {
 		supList := respBuf[4:l]
@@ -228,13 +231,12 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 
 		didlen := binary.BigEndian.Uint16(respBuf[2:4]) + 4 // page length (n-3)
 		if (respBuf[1] == SCSI_VPD_PAGE_DI) && (didlen > 4) && (didlen <= 2048) {
-			/* Device Identification VPD page - decode length and descriptor list */
+			// Device Identification VPD page - decode length and descriptor list
 
 			did := respBuf[4:didlen] // identification descriptor list (full)
 
-			/* We are only interested in the protocol identifier.
-			   Loop through all ID descriptors and check for a valid protocol field.
-			*/
+			// We are only interested in the protocol identifier.
+			// Loop through all ID descriptors and check for a valid protocol field.
 			for {
 				if len(did) <= 4 {
 					break
