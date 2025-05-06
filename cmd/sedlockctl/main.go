@@ -5,6 +5,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/alecthomas/kong"
@@ -34,9 +35,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("drive.Open: %v", err)
 	}
-	defer coreObj.Close()
+	defer func() {
+		if err := coreObj.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
-	snRaw, err := coreObj.DriveIntf.SerialNumber()
+	snRaw, err := coreObj.SerialNumber()
 	if err != nil {
 		log.Fatalf("drive.SerialNumber: %v", err)
 	}
@@ -64,7 +69,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("locking.Initalize: %v", err)
 	}
-	defer cs.Close()
+	defer func() {
+		if err := cs.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	var auth locking.LockingSPAuthenticator
 	pin := []byte{}
@@ -94,7 +103,11 @@ func main() {
 	if err != nil {
 		log.Fatalf("locking.NewSession: %v", err)
 	}
-	defer l.Close()
+	defer func() {
+		if err := l.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	// Run the command
 	err = ctx.Run(&context{session: l})

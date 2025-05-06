@@ -29,7 +29,7 @@ type Devices []DeviceState
 
 func main() {
 	flag.Usage = func() {
-		fmt.Fprintf(flag.CommandLine.Output(), "Usage of %s:\n", os.Args[0])
+		fmt.Printf("Usage of %s:\n", os.Args[0])
 		fmt.Println()
 		flag.PrintDefaults()
 		fmt.Println()
@@ -67,34 +67,45 @@ func main() {
 			log.Printf("drive.Open(%s): %v", devpath, err)
 			continue
 		}
-		defer core.Close()
+		defer func() {
+			if err := core.Close(); err != nil {
+				fmt.Println(err)
+			}
+		}()
 
 		state = append(state, DeviceState{
 			Device:   devpath,
-			Identity: core.DiskInfo.Identity,
-			Level0:   core.DiskInfo.Level0Discovery,
+			Identity: core.Identity,
+			Level0:   core.Level0Discovery,
 		})
 	}
 
-	if *outputFmt == "json" {
-		outputJSON(state)
-	} else if *outputFmt == "openmetrics" {
-		outputMetrics(state)
-	} else if *outputFmt == "table" {
-		outputTable(state)
-	} else {
+	switch *outputFmt {
+	case "json":
+		err = outputJSON(state)
+	case "openmetrics":
+		err = outputMetrics(state)
+	case "table":
+		err = outputTable(state)
+	default:
 		fmt.Printf("Unsupported output format %q\n", *outputFmt)
 		flag.Usage()
 		os.Exit(2)
 	}
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
-func outputJSON(state Devices) {
+func outputJSON(state Devices) error {
 	b, err := json.MarshalIndent(state, "", "  ")
 	if err != nil {
-		log.Fatalf("Failed to marshal JSON: %v", err)
+		return err
 	}
-	os.Stdout.Write(b)
+	if _, err := os.Stdout.Write(b); err != nil {
+		return err
+	}
+	return nil
 }
 
 func sscFeatures(l0 *core.Level0Discovery) []string {
@@ -123,10 +134,12 @@ func sscFeatures(l0 *core.Level0Discovery) []string {
 	return feat
 }
 
-func outputTable(state Devices) {
+func outputTable(state Devices) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	if !*noHeader {
-		fmt.Fprintf(w, "DEVICE\tMODEL\tSERIAL\tFIRMWARE\tPROTOCOL\tSSC\tSTATE\n")
+		if _, err := fmt.Fprintf(w, "DEVICE\tMODEL\tSERIAL\tFIRMWARE\tPROTOCOL\tSSC\tSTATE\n"); err != nil {
+			return err
+		}
 	}
 	for _, s := range state {
 		var feat []string
@@ -167,7 +180,7 @@ func outputTable(state Devices) {
 			feat = []string{"-"}
 		}
 
-		fmt.Fprint(w,
+		if _, err := fmt.Fprint(w,
 			s.Device, "\t",
 			s.Identity.Model, "\t",
 			s.Identity.SerialNumber, "\t",
@@ -175,7 +188,9 @@ func outputTable(state Devices) {
 			s.Identity.Protocol, "\t",
 			strings.Join(feat, ","), "\t",
 			state, "\t",
-			"\n")
+			"\n"); err != nil {
+			return err
+		}
 	}
-	w.Flush()
+	return w.Flush()
 }
