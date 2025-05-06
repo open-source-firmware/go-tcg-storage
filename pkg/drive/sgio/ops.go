@@ -237,11 +237,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 
 			// We are only interested in the protocol identifier.
 			// Loop through all ID descriptors and check for a valid protocol field.
-			for {
-				if len(did) <= 4 {
-					break
-				}
-
+			for len(did) <= 4 {
 				l := did[3]                    // identifier length (n-3)
 				part := did[:l+4]              // identifier descriptor
 				piv := (part[1] & 0x80) > 0    // protocol identifier valid bit
