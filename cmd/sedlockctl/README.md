@@ -26,10 +26,47 @@ Commands:
   <device> read-mbr      Prints the binary data in the MBR area
 ```
 
-Example:
+#### unlock-all:
+```
+Usage: sedlockctl <device> unlock-all --password=STRING [flags]
+
+Unlocks all ranges completely
+
+Flags:
+  -h, --help               Show context-sensitive help.
+      --sidpin=STRING
+      --sidpinmsid
+      --sidhash="dta"      Use dta (sha1) or sha512 for SID Pin hashing
+  -u, --user=STRING
+  -p, --password=STRING    SID Password ($PASS)
+      --hash="dta"         Use dta (sha1) or sha512 for password hashing ($HASH)
+
+  -k, --keep-mbr-done      Keep MBRDone status as is
+```
+
+#### mbrdone:
+```
+Usage: sedlockctl <device> mbrdone --password=STRING [flags]
+
+Sets the MBRDone property (hide/show Shadow MBR)
+
+Flags:
+  -h, --help               Show context-sensitive help.
+      --sidpin=STRING
+      --sidpinmsid
+      --sidhash="dta"      Use dta (sha1) or sha512 for SID Pin hashing
+  -u, --user=STRING
+  -p, --password=STRING    SID Password ($PASS)
+      --hash="dta"         Use dta (sha1) or sha512 for password hashing ($HASH)
+
+      --done               Status to set the MBRDone
+```
+
+
+### Example:
 
 ```
-$ sudo target/sedlockctl --password debug /dev/sdd list
+$ sudo target/sedlockctl /dev/sdd list -p debug
 Range   0: whole disk [write locked] [read locked] [global]
 Range   1: disabled
 Range   2: disabled
@@ -42,7 +79,7 @@ Range   8: disabled
 $ sudo fdisk -l /dev/sdd
 fdisk: cannot open /dev/sdd: Input/output error
 $ sudo target/sedlockctl --password debug /dev/sdd unlock-all
-$ sudo target/sedlockctl --password debug /dev/sdd list
+$ sudo target/sedlockctl -p debug /dev/sdd list
 Range   0: whole disk [global]
 Range   1: disabled
 Range   2: disabled
