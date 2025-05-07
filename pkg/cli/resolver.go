@@ -2,9 +2,10 @@ package kong
 
 import (
 	"fmt"
+	"strings"
+
 	"github.com/alecthomas/kong"
 	"golang.org/x/term"
-	"strings"
 )
 
 func ResolvePassword() kong.Resolver {
@@ -12,8 +13,6 @@ func ResolvePassword() kong.Resolver {
 		if flag.Tag.Type != "password" || flag.Tag.TypeName != "string" || !flag.Required {
 			return nil, nil
 		}
-
-		pwd := ctx.FlagValue(flag).(string)
 
 		fmt.Printf("No value has been provided for flag `%s`.\n", flag.ShortSummary())
 		if flag.Help != "" {
@@ -28,7 +27,7 @@ func ResolvePassword() kong.Resolver {
 			return "", fmt.Errorf("password could not be read: %v", err)
 		}
 
-		pwd = string(bytePassword)
+		pwd := string(bytePassword)
 		if pwd == "" {
 			return nil, nil
 		}
