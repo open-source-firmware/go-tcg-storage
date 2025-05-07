@@ -23,7 +23,7 @@ type lockAllCmd struct{}
 type unlockAllCmd struct{}
 
 type mbrDoneCmd struct {
-	Stat bool `required:"" help:"Status to set the MBRDone"`
+	Stat bool `optional:"" help:"Status to set the MBRDone"`
 }
 
 type readMBRCmd struct {
