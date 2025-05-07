@@ -9,12 +9,12 @@ Go SEDlock control (temporary name)
 Flags:
   -h, --help                  Show context-sensitive help.
   -d, --device=STRING         Path to SED device (e.g. /dev/nvme0)
-      --sidpin=STRING
+      --sidpin=STRING         Use dta (sha1) or sha512 for SID Pin hashing
       --sidpinmsid
       --sidhash=STRING
   -u, --user=STRING
   -p, --password=STRING       SID Password
-      --hash="sedutil-dta"    Either use sedutil-dta (sha1) or sedutil-sha512 for hashing
+      --hash="dta"            Use dta (sha1) or sha512 for password hashing
 
 Commands:
   list          List all ranges (default)

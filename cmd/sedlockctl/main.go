@@ -51,9 +51,9 @@ func main() {
 	spin := []byte{}
 	if cli.Sidpin != "" {
 		switch cli.Sidhash {
-		case "sedutil-dta":
+		case "sedutil-dta", "sha1", "dta":
 			spin = hash.HashSedutilDTA(cli.Sidpin, sn)
-		case "sedutil-sha512":
+		case "sedutil-sha512", "sha512":
 			spin = hash.HashSedutil512(cli.Sidpin, sn)
 		default:
 			log.Fatalf("Unknown hash method %q", cli.Sidhash)
@@ -83,9 +83,9 @@ func main() {
 	var pin []byte
 	if cli.Password != "" {
 		switch cli.Hash {
-		case "sedutil-dta":
+		case "sedutil-dta", "sha1", "dta":
 			pin = hash.HashSedutilDTA(cli.Password, sn)
-		case "sedutil-sha512":
+		case "sedutil-sha512", "sha512":
 			pin = hash.HashSedutil512(cli.Password, sn)
 		default:
 			log.Fatalf("Unknown hash method %q", cli.Hash)

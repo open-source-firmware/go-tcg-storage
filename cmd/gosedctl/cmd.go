@@ -19,7 +19,7 @@ type DeviceEmbed struct {
 
 type PasswordEmbed struct {
 	Password string `required:"" env:"PWD" help:"SID Password" type:"password"`
-	Hash     string `optional:"" env:"HASH" default:"sedutil-dta" enum:"sedutil-dta,sedutil-sha512" help:"Either use sedutil-dta (sha1) or sedutil-sha512 for hashing"`
+	Hash     string `optional:"" env:"HASH" default:"dta" enum:"sedutil-dta,sedutil-sha512,dta,sha1,sha512" help:"Use dta (sha1) or sha512 for hashing"`
 }
 
 // initialSetupCmd is the struct for the initial-setup cmd required by kong command line parser
@@ -88,10 +88,10 @@ func (t *PasswordEmbed) GenerateHash(coreObj *core.Core) ([]byte, error) {
 
 	switch t.Hash {
 	// Drive-Trust-Alliance uses sha1
-	case "sedutil-dta":
+	case "sedutil-dta", "sha1", "dta":
 		return hash.HashSedutilDTA(t.Password, salt), nil
 	// ChubbyAnt uses sha512
-	case "sedutil-sha512":
+	case "sedutil-sha512", "sha512":
 		return hash.HashSedutil512(t.Password, salt), nil
 	default:
 		return nil, fmt.Errorf("unknown hash method %q", t.Hash)

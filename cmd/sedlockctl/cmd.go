@@ -20,7 +20,9 @@ type listCmd struct{}
 
 type lockAllCmd struct{}
 
-type unlockAllCmd struct{}
+type unlockAllCmd struct {
+	KeepMbrDone bool `optional:"" help:"Keep MBRDone status as is"`
+}
 
 type mbrDoneCmd struct {
 	Stat bool `optional:"" help:"Status to set the MBRDone"`
@@ -34,10 +36,10 @@ var cli struct {
 	Device     string       `required:"" short:"d" type:"existingfile" help:"Path to SED device (e.g. /dev/nvme0)"`
 	Sidpin     string       `optional:""`
 	Sidpinmsid bool         `optional:""`
-	Sidhash    string       `optional:""`
+	Sidhash    string       `optional:"" default:"dta" enum:"sedutil-dta,sedutil-sha512,dta,sha1,sha512" help:"Use dta (sha1) or sha512 for SID Pin hashing"`
 	User       string       `optional:"" short:"u"`
-	Password   string       `required:"" short:"p" type:"password" help:"SID Password"`
-	Hash       string       `optional:"" default:"sedutil-dta" enum:"sedutil-dta,sedutil-sha512" help:"Either use sedutil-dta (sha1) or sedutil-sha512 for hashing"`
+	Password   string       `required:"" short:"p" env:"PWD" type:"password" help:"SID Password"`
+	Hash       string       `optional:"" env:"HASH" default:"dta" enum:"sedutil-dta,sedutil-sha512,dta,sha1,sha512" help:"Use dta (sha1) or sha512 for password hashing"`
 	List       listCmd      `cmd:"" help:"List all ranges (default)"`
 	LockAll    lockAllCmd   `cmd:"" help:"Locks all ranges completely"`
 	UnlockAll  unlockAllCmd `cmd:"" help:"Unlocks all ranges completely"`
@@ -82,6 +84,11 @@ func (u unlockAllCmd) Run(ctx *context) error {
 		}
 		if err := r.UnlockWrite(); err != nil {
 			return fmt.Errorf("write unlock range %d failed: %v", i, err)
+		}
+	}
+	if !u.KeepMbrDone {
+		if err := ctx.session.SetMBRDone(true); err != nil {
+			return fmt.Errorf("SetMBRDone failed: %v", err)
 		}
 	}
 	return nil
