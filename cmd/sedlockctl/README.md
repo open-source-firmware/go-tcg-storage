@@ -13,8 +13,8 @@ Flags:
       --sidpinmsid
       --sidhash=STRING
   -u, --user=STRING
-  -p, --password=STRING
-  -h, --hash="sedutil-dta"
+  -p, --password=STRING       SID Password
+      --hash="sedutil-dta"    Either use sedutil-dta (sha1) or sedutil-sha512 for hashing
 
 Commands:
   list          List all ranges (default)
