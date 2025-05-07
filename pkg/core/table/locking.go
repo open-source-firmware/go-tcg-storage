@@ -402,7 +402,7 @@ func MBRControl_Set(s *core.Session, row *MBRControl) error {
 	return err
 }
 
-type MBRTableInfo struct {
+type ByteTableInfo struct {
 	// Size in bytes
 	Size uint32
 
@@ -413,7 +413,21 @@ type MBRTableInfo struct {
 	RecommendedAccessGranularity uint32
 }
 
-func (m *MBRTableInfo) SuggestBufferSize(s *core.Session) uint {
+func (m *ByteTableInfo) Align(value uint32) uint32 {
+	alignValue := m.MandatoryWriteGranularity
+	if m.RecommendedAccessGranularity > 1 {
+		alignValue = m.RecommendedAccessGranularity
+	}
+
+	remainder := value % alignValue
+	if remainder == 0 {
+		return value
+	} else {
+		return value + alignValue - remainder
+	}
+}
+
+func (m *ByteTableInfo) SuggestBufferSize(s *core.Session) uint {
 	ms := s.ControlSession.HostProperties.MaxIndTokenSize
 	if s.ControlSession.HostProperties.MaxAggTokenSize > ms {
 		ms = s.ControlSession.HostProperties.MaxAggTokenSize
@@ -428,8 +442,8 @@ func (m *MBRTableInfo) SuggestBufferSize(s *core.Session) uint {
 	return ms
 }
 
-func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
-	tcol, err := GetFullRow(s, uid.Base_TableRowForTable(uid.Locking_MBRTable))
+func byteTableInfoGet(s *core.Session, tbl uid.TableUID) (*ByteTableInfo, error) {
+	tcol, err := GetFullRow(s, uid.Base_TableRowForTable(tbl))
 	if err != nil {
 		if err == ErrEmptyResult {
 			return nil, ErrMBRNotSupproted
@@ -437,7 +451,7 @@ func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
 		return nil, err
 	}
 
-	mi := &MBRTableInfo{
+	mi := &ByteTableInfo{
 		MandatoryWriteGranularity:    1,
 		RecommendedAccessGranularity: 1,
 	}
@@ -469,6 +483,10 @@ func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
 		return nil, errors.New("device did not specify MBR size")
 	}
 	return mi, nil
+}
+
+func MBR_TableInfo(s *core.Session) (*ByteTableInfo, error) {
+	return byteTableInfoGet(s, uid.Locking_MBRTable)
 }
 
 func MBR_Read(s *core.Session, p []byte, off uint32) (int, error) {
@@ -654,6 +672,152 @@ func UnlockGlobalRangeEnterprise(s *core.Session, band uid.RowUID) error {
 	mc.Token(stream.EndName)
 	mc.EndList()
 	mc.EndList()
+
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
+}
+
+func DataStoreTableInfo(s *core.Session) (*ByteTableInfo, error) {
+	return byteTableInfoGet(s, uid.Locking_DataStoreTable)
+}
+
+func DataStoreRead(s *core.Session, buffer []byte, off uint, chunkSize uint) (uint, error) {
+	bufferLen := uint(len(buffer))
+	dataRead := uint(0)
+
+	for dataRead < bufferLen {
+		end := dataRead + chunkSize
+		if end > bufferLen {
+			end = bufferLen
+		}
+
+		mc := method.NewMethodCall(uid.InvokingID(uid.Locking_DataStoreTable), uid.OpalGet, s.MethodFlags)
+		mc.StartList()
+		mc.StartOptionalParameter(CellBlock_StartRow, "startRow")
+		mc.UInt(off + dataRead)
+		mc.EndOptionalParameter()
+		mc.StartOptionalParameter(CellBlock_EndRow, "endRow")
+		mc.UInt(off + end - 1)
+		mc.EndOptionalParameter()
+		mc.EndList()
+		res, err := s.ExecuteMethod(mc)
+		if err != nil {
+			return 0, err
+		}
+		methodResult, ok := res[0].(stream.List)
+		if !ok {
+			return 0, method.ErrMalformedMethodResponse
+		}
+		if len(methodResult) == 0 {
+			return 0, ErrEmptyResult
+		}
+		inner, ok := methodResult[0].([]uint8)
+		if !ok {
+			return 0, method.ErrMalformedMethodResponse
+		}
+		if len(inner) == 0 {
+			return 0, ErrEmptyResult
+		}
+
+		resultLen := uint(len(inner))
+		copy(buffer[dataRead:dataRead+resultLen], inner[:resultLen])
+
+		dataRead += resultLen
+		if resultLen != chunkSize && dataRead != bufferLen {
+			return dataRead, method.ErrMalformedMethodResponse
+		}
+	}
+	return dataRead, nil
+}
+
+func tcgMin(a, b uint) uint {
+	if a < b {
+		return a
+	}
+	return b
+}
+
+func DataStoreWrite(s *core.Session, buffer []byte, off uint, chunkSize uint) error {
+	var targetUId uid.InvokingID
+	copy(targetUId[:], uid.Locking_DataStoreTable[:])
+
+	bufferLen := uint(len(buffer))
+
+	for pos := uint(0); pos < bufferLen; pos += chunkSize {
+		chunk := buffer[pos:tcgMin(pos+chunkSize, bufferLen)]
+		mc := method.NewMethodCall(targetUId, uid.OpalSet, s.MethodFlags)
+		mc.Token(stream.StartName)
+		mc.Token(stream.OpalWhere)
+		mc.UInt(pos + off)
+		mc.Token(stream.EndName)
+		mc.Token(stream.StartName)
+		mc.Token(stream.OpalValue)
+		mc.Bytes(chunk)
+		mc.Token(stream.EndName)
+		if _, err := s.ExecuteMethod(mc); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func AcePermitUsers(s *core.Session, ace uid.RowUID, users []uid.AuthorityObjectUID) error {
+	mc := NewSetCall(s, ace)
+	mc.Token(stream.StartName)
+	mc.UInt(AceColumnBooleanExpr)
+	mc.StartList()
+
+	for i, user := range users {
+		mc.Token(stream.StartName)
+		mc.HalfUID(uid.ColumnTypeAuthorityObjectRef.HalfUid())
+		mc.Bytes(user[:])
+		mc.Token(stream.EndName)
+
+		if i > 0 {
+			mc.Token(stream.StartName)
+			mc.HalfUID(uid.ColumnTypeBooleanACE.HalfUid())
+			mc.Token(stream.OpalBooleanOr)
+			mc.Token(stream.EndName)
+		}
+	}
+	mc.EndList()
+	mc.Token(stream.EndName)
+
+	FinishSetCall(s, mc)
+
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
+}
+
+func EnableAuthority(s *core.Session, user uid.AuthorityObjectUID) error {
+	mc := NewSetCall(s, user.RowUID())
+	mc.Token(stream.StartName)
+	mc.UInt(Authority_Enabled_Column)
+	mc.Token(stream.OpalTrue)
+	mc.Token(stream.EndName)
+	FinishSetCall(s, mc)
+
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return err
+	}
+	return nil
+}
+
+func LockingUserSetPIN(s *core.Session, password []byte, user uid.AuthorityObjectUID) error {
+	if len(password) < 1 {
+		return fmt.Errorf("invalid length of password")
+	}
+	mc := NewSetCall(s, uid.Locking_C_PINTable.Row([4]byte{user[4], user[5], user[6], user[7]}))
+	mc.Token(stream.StartName)
+	mc.Token(stream.OpalPIN)
+	mc.Bytes(password)
+	mc.Token(stream.EndName)
+	FinishSetCall(s, mc)
 
 	if _, err := s.ExecuteMethod(mc); err != nil {
 		return err

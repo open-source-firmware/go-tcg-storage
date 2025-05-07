@@ -19,12 +19,13 @@ import (
 type TableUID [8]byte
 
 var (
-	CellBlock_StartRow    uint = 1
-	CellBlock_EndRow      uint = 2
-	CellBlock_StartColumn uint = 3
-	CellBlock_EndColumn   uint = 4
-
-	Table_ColumnUID uint = 0
+	CellBlock_StartRow       uint = 1
+	CellBlock_EndRow         uint = 2
+	CellBlock_StartColumn    uint = 3
+	CellBlock_EndColumn      uint = 4
+	Authority_Enabled_Column uint = 5
+	AceColumnBooleanExpr     uint = 3
+	Table_ColumnUID          uint = 0
 
 	ErrEmptyResult = errors.New("empty result")
 )

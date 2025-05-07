@@ -78,7 +78,9 @@ type SingleUser struct {
 	// TODO
 }
 type DataStore struct {
-	// TODO
+	MaxTables          uint16
+	MaxTablesSize      uint32
+	TableSizeAlignment uint32
 }
 
 type OpalV2 struct {
@@ -209,8 +211,21 @@ func ReadSingleUserFeature(rdr io.Reader) (*SingleUser, error) {
 }
 
 func ReadDataStoreFeature(rdr io.Reader) (*DataStore, error) {
-	f := &DataStore{}
-	return f, nil
+	d := struct {
+		_                  [2]byte
+		MaxTables          uint16
+		MaxTablesSize      uint32
+		TableSizeAlignment uint32
+	}{}
+	if err := binary.Read(rdr, binary.BigEndian, &d); err != nil {
+		return nil, err
+	}
+
+	return &DataStore{
+		MaxTables:          d.MaxTables,
+		MaxTablesSize:      d.MaxTablesSize,
+		TableSizeAlignment: d.TableSizeAlignment,
+	}, nil
 }
 
 func ReadOpalV2Feature(rdr io.Reader) (*OpalV2, error) {
