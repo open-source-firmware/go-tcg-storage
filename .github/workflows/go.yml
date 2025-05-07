@@ -5,17 +5,40 @@ on:
     branches: [ main ]
 
 jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Build gosedctl
+        run: go build ./cmd/gosedctl
+
+      - name: Build sedlockctl
+        run: go build ./cmd/sedlockctl
+
+      - name: Build tcgdiskstat
+        run: go build ./cmd/tcgdiskstat
+
+      - name: Build tcgsdiag
+        run: go build ./cmd/tcgsdiag
+
   test:
     name: Test Code
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v3
+        uses: actions/setup-go@v5
         with:
-          go-version: ^1.19
-        id: go
+          go-version: '1.23'
+
       - name: Get dependencies
         run: make get-dependencies
 
@@ -28,10 +51,26 @@ jobs:
           fi
 
       - name: Go vet
-        run: make vet
-
-      - name: Test building
-        run: make build
+        run: go vet ./...
 
       - name: Run tests
-        run: make test
+        run: go test -v ./...
+
+  coverage:
+    name: Code Coverage
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23'
+
+      - name: Generate coverage cmds
+        run: go test -race -covermode=atomic -coverprofile=coverage.out ./...
+
+      - name: Upload coverage report
+        uses: codecov/codecov-action@v5
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}

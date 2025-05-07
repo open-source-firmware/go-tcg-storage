@@ -1,6 +1,6 @@
 # go-tcg-storage
 
-[![Workflow](https://github.com/open-source-firmware/go-tcg-storage/workflows/Release/badge.svg)](https://github.com/open-source-firmware/go-tcg-storage/actions/workflows/release.yml)
+[![codecov](https://codecov.io/gh/open-source-firmware/go-tcg-storage/graph/badge.svg?token=VYR0YKPUD5)](https://codecov.io/gh/open-source-firmware/go-tcg-storage)
 [![Go Report Card](https://goreportcard.com/badge/github.com/open-source-firmware/go-tcg-storage)](https://goreportcard.com/report/github.com/open-source-firmware/go-tcg-storage)
 [![GoDoc](https://godoc.org/github.com/open-source-firmware/go-tcg-storage?status.svg)](https://pkg.go.dev/github.com/open-source-firmware/go-tcg-storage@main)
 [![Slack](https://slack.osfw.dev/badge.svg)](https://slack.osfw.dev)

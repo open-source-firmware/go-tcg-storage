@@ -94,7 +94,7 @@ func (t *initialSetupCmd) Run(ctx *context) error {
 		return fmt.Errorf("NewCore(%s) failed: %v", t.Device, err)
 	}
 	fmt.Println("Find ComID")
-	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.Level0Discovery)
 	if err != nil {
 		return fmt.Errorf("FindComID() failed: %v", err)
 	}
@@ -149,7 +149,9 @@ func (t *initialSetupCmd) Run(ctx *context) error {
 	if err := table.LockingSPActivate(adminSession); err != nil {
 		return fmt.Errorf("LockingSPActivate() failed: %v", err)
 	}
-	adminSession.Close()
+	if err := adminSession.Close(); err != nil {
+		return err
+	}
 
 	fmt.Println("Configure LockingRange0")
 	// Configure LockingRange0
@@ -158,7 +160,11 @@ func (t *initialSetupCmd) Run(ctx *context) error {
 	if err != nil {
 		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
 	}
-	defer lockingSession.Close()
+	defer func() {
+		if err := lockingSession.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 	// Elevate the session to Admin1 with required credentials
 	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityAdmin1, pwhash); err != nil {
 		return fmt.Errorf("authenticating as Admin1 failed: %v", err)
@@ -201,7 +207,7 @@ func (l *loadPBAImageCmd) Run(ctx *context) error {
 		return fmt.Errorf("NewCore() failed: %v", err)
 	}
 
-	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.Level0Discovery)
 	if err != nil {
 		return fmt.Errorf("FindComID() failed: %v", err)
 	}
@@ -221,7 +227,11 @@ func (l *loadPBAImageCmd) Run(ctx *context) error {
 	if err != nil {
 		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
 	}
-	defer lockingSession.Close()
+	defer func() {
+		if err := lockingSession.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 	// Elevate the session to Admin1 with required credentials
 	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityAdmin1, pwhash); err != nil {
 		return fmt.Errorf("authenticating as Admin1 failed: %v", err)
@@ -243,7 +253,7 @@ func (r *revertNoeraseCmd) Run(ctx *context) error {
 		return fmt.Errorf("NewCore() failed: %v", err)
 	}
 
-	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.Level0Discovery)
 	if err != nil {
 		return fmt.Errorf("FindComID() failed: %v", err)
 	}
@@ -263,7 +273,11 @@ func (r *revertNoeraseCmd) Run(ctx *context) error {
 	if err != nil {
 		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
 	}
-	defer lockingSession.Close()
+	defer func() {
+		if err := lockingSession.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 	// Elevate the session to Admin1 with required credentials
 	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityAdmin1, pwhash); err != nil {
 		return fmt.Errorf("authenticating as Admin1 failed: %v", err)
@@ -280,7 +294,7 @@ func (r *revertTPerCmd) Run(ctx *context) error {
 	if err != nil {
 		return fmt.Errorf("NewCore(%s) failed: %v", r.Device, err)
 	}
-	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.Level0Discovery)
 	if err != nil {
 		return fmt.Errorf("FindComID() failed: %v", err)
 	}
@@ -315,7 +329,7 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 		return fmt.Errorf("NewCore(%s) failed: %v", i.Device, err)
 	}
 
-	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.Level0Discovery)
 	if err != nil {
 		return fmt.Errorf("FindComID() failed: %v", err)
 	}
@@ -324,7 +338,11 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 	if err != nil {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
-	defer cs.Close()
+	defer func() {
+		if err := cs.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	adminSession, err := cs.NewSession(uid.AdminSP)
 	if err != nil {
@@ -365,7 +383,11 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
 	}
 
-	defer lockingSession.Close()
+	defer func() {
+		if err := lockingSession.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	band0pw := pbkdf2.Key([]byte(i.BandMaster0PW), []byte(salt[:20]), 75000, 32, sha1.New)
 
@@ -408,7 +430,7 @@ func (r *resetDeviceEnterprise) Run(ctx *context) error {
 		return fmt.Errorf("NewCore(%s) failed: %v", r.Device, err)
 	}
 
-	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.Level0Discovery)
 	if err != nil {
 		return fmt.Errorf("FindComID() failed: %v", err)
 	}
@@ -417,7 +439,11 @@ func (r *resetDeviceEnterprise) Run(ctx *context) error {
 	if err != nil {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
-	defer cs.Close()
+	defer func() {
+		if err := cs.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	serial, err := coreObj.SerialNumber()
 	if err != nil {
@@ -490,7 +516,7 @@ func (u *unlockEnterprise) Run(ctx *context) error {
 		return fmt.Errorf("NewCore(%s) failed: %v", u.Device, err)
 	}
 
-	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.Level0Discovery)
 	if err != nil {
 		return fmt.Errorf("FindComID() failed: %v", err)
 	}
@@ -499,7 +525,11 @@ func (u *unlockEnterprise) Run(ctx *context) error {
 	if err != nil {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
-	defer cs.Close()
+	defer func() {
+		if err := cs.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	serial, err := coreObj.SerialNumber()
 	if err != nil {
@@ -514,7 +544,11 @@ func (u *unlockEnterprise) Run(ctx *context) error {
 		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
 	}
 
-	defer lockingSession.Close()
+	defer func() {
+		if err := lockingSession.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityBandMaster0, pwhash); err != nil {
 		return fmt.Errorf("authenticating as BandMaster0 failed: %v", err)
@@ -532,7 +566,7 @@ func (r *resetSIDcmd) Run(ctx *context) error {
 		return fmt.Errorf("NewCore(%s) failed: %v", r.Device, err)
 	}
 
-	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	comID, _, err := core.FindComID(coreObj.DriveIntf, coreObj.Level0Discovery)
 	if err != nil {
 		return fmt.Errorf("FindComID() failed: %v", err)
 	}
@@ -541,7 +575,11 @@ func (r *resetSIDcmd) Run(ctx *context) error {
 	if err != nil {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
-	defer cs.Close()
+	defer func() {
+		if err := cs.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	serial, err := coreObj.SerialNumber()
 	if err != nil {
