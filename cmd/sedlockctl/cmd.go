@@ -25,7 +25,7 @@ type unlockAllCmd struct {
 }
 
 type mbrDoneCmd struct {
-	Stat bool `optional:"" help:"Status to set the MBRDone"`
+	Done bool `optional:"" help:"Status to set the MBRDone"`
 }
 
 type readMBRCmd struct {
@@ -109,7 +109,7 @@ func (l lockAllCmd) Run(ctx *context) error {
 }
 
 func (m mbrDoneCmd) Run(ctx *context) error {
-	if err := ctx.session.SetMBRDone(m.Stat); err != nil {
+	if err := ctx.session.SetMBRDone(m.Done); err != nil {
 		return fmt.Errorf("SetMBRDone failed: %v", err)
 	}
 	return nil
