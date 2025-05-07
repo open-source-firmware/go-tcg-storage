@@ -89,10 +89,14 @@ func main() {
 	if err != nil {
 		log.Fatalf("core.Open: %v", err)
 	}
-	defer core.Close()
+	defer func() {
+		if err := core.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	fmt.Printf("===> DRIVE SECURITY INFORMATION\n")
-	log.Printf("Drive identity: %s", core.DiskInfo.Identity)
+	log.Printf("Drive identity: %s", core.Identity)
 	spl, err := drive.SecurityProtocols(core.DriveIntf)
 	if err != nil {
 		log.Fatalf("drive.SecurityProtocols: %v", err)
@@ -111,12 +115,12 @@ func main() {
 	fmt.Printf("\n")
 
 	fmt.Printf("===> TCG FEATURE DISCOVERY\n")
-	spew.Dump(core.DiskInfo.Level0Discovery)
+	spew.Dump(core.Level0Discovery)
 	fmt.Printf("\n")
 
 	fmt.Printf("===> TCG ADMIN SP SESSION\n")
 
-	cs := TestControlSession(core.DriveIntf, core.DiskInfo.Level0Discovery, comID)
+	cs := TestControlSession(core.DriveIntf, core.Level0Discovery, comID)
 	if cs == nil {
 		log.Printf("No control session, unable to continue")
 		return
@@ -227,7 +231,9 @@ func main() {
 	}
 
 	log.Printf("Admin SP testing done")
-	s.Close()
+	if err := s.Close(); err != nil {
+		log.Fatal(err)
+	}
 	sessions[0] = nil
 
 	fmt.Printf("\n")
@@ -292,6 +298,7 @@ func main() {
 	}
 
 	lockList, err := table.Locking_Enumerate(s)
+	var errSpew error
 	if err != nil {
 		log.Printf("table.Locking_Enumerate failed: %v", err)
 	} else {
@@ -299,10 +306,13 @@ func main() {
 		for _, luid := range lockList {
 			lr, err := table.Locking_Get(s, luid)
 			if err != nil {
-				spew.Printf("Region %v: <UNKNOWN> (%v)\n", hex.EncodeToString(luid[:]), err)
+				_, errSpew = spew.Printf("Region %v: <UNKNOWN> (%v)\n", hex.EncodeToString(luid[:]), err)
 			} else {
-				spew.Printf("Region %v: %+v\n", hex.EncodeToString(luid[:]), lr)
+				_, errSpew = spew.Printf("Region %v: %+v\n", hex.EncodeToString(luid[:]), lr)
 			}
 		}
+	}
+	if errSpew != nil {
+		log.Fatal(err)
 	}
 }

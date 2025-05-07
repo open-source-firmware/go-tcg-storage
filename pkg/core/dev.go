@@ -168,7 +168,7 @@ func (d *Core) Discovery0() error {
 		}
 		fsize -= binary.Size(fhdr) + int(fhdr.Size)
 	}
-	d.DiskInfo.Level0Discovery = d0
+	d.Level0Discovery = d0
 	return nil
 }
 

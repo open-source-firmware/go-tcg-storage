@@ -20,6 +20,8 @@ func Open(device string) (DriveIntf, error) {
 		return SCSIDrive(d), nil
 	}
 
-	d.Close()
+	if err := d.Close(); err != nil {
+		return nil, err
+	}
 	return nil, ErrDeviceNotSupported
 }

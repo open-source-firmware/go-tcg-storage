@@ -424,7 +424,7 @@ func (cs *ControlSession) NewSession(spid uid.SPID, opts ...SessionOpt) (*Sessio
 
 // Fetch current Host and TPer properties, optionally changing the Host properties.
 func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerProperties, error) {
-	mc := method.NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMProperties, cs.Session.MethodFlags)
+	mc := method.NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMProperties, cs.MethodFlags)
 
 	mc.StartOptionalParameter(0, "HostProperties")
 	mc.StartList()

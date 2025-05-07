@@ -18,6 +18,7 @@ package sgio
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -28,12 +29,23 @@ const (
 	ATA_TRUSTED_SND     = 0x5e
 	ATA_IDENTIFY_DEVICE = 0xec
 
-	SCSI_INQUIRY          = 0x12
 	SCSI_MODE_SENSE_6     = 0x1a
 	SCSI_READ_CAPACITY_10 = 0x25
 	SCSI_ATA_PASSTHRU_16  = 0x85
 	SCSI_SECURITY_IN      = 0xa2
 	SCSI_SECURITY_OUT     = 0xb5
+
+	SCSI_INQUIRY            = 0x12
+	SCSI_INQUIRY_STD_LENGTH = 0x24 // expected minimal length of SCSI_INQUERY according to SPC-3 (and newer)
+
+	SCSI_VPD_STD_LENGTH = 0xFF // max page size - should be enough for most VPDs
+	SCSI_VPD_PAGE_SV    = 0x00 // VPD page indicating other supported VPD pages
+	SCSI_VPD_PAGE_SN    = 0x80 // Unit serial number VPD page
+	SCSI_VPD_PAGE_DI    = 0x83 // Device Identification VPD page
+)
+
+var (
+	ErrUnexpectedResp = errors.New("unexpected SCSI response")
 )
 
 type SCSIProtocol int
@@ -78,6 +90,13 @@ type InquiryResponse struct {
 	SerialNumber []byte
 }
 
+type SimpleVPDResponse struct {
+	Peripheral byte
+	PageCode   byte
+	_          byte
+	PageLength byte
+}
+
 func (inq InquiryResponse) String() string {
 	return fmt.Sprintf("Type=0x%x, Vendor=%s, Product=%s, Serial=%s, Revision=%s",
 		inq.Peripheral,
@@ -113,11 +132,15 @@ func (id IdentifyDeviceResponse) String() string {
 		strings.TrimSpace(ATAString(id.Model[:])))
 }
 
-// INQUIRY - Returns parsed inquiry data.
+//	 INQUIRY - Returns parsed inquiry data.
+//		- request standard inquiry first
+//		- check supported VPDs
+//		- query for serial number, if page 0x80 is supported
+//	    - query for protocol type, if page 0x83 is supported
 func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
-	respBuf := make([]byte, 36)
+	respBuf := make([]byte, SCSI_INQUIRY_STD_LENGTH)
 
-	cdb := CDB6{SCSI_INQUIRY}
+	cdb := CDB6{SCSI_INQUIRY, 0} /* no VPD */
 	binary.BigEndian.PutUint16(cdb[3:], uint16(len(respBuf)))
 
 	if err := SendCDB(fd, cdb[:], CDBFromDevice, &respBuf); err != nil {
@@ -128,59 +151,103 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 		Peripheral   byte // peripheral qualifier, device type
 		_            byte
 		Version      byte
-		_            [5]byte
+		_            byte
+		Length       byte
+		_            [3]byte
 		VendorIdent  [8]byte
 		ProductIdent [16]byte
 		ProductRev   [4]byte
 	}{}
-
 	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &inqHdr); err != nil {
 		return nil, err
 	}
 
-	respBuf = make([]byte, 128)
-	cdb = CDB6{SCSI_INQUIRY}
-	cdb[1] = 0x1 /* Request VPD page 0x80 for serial number */
-	cdb[2] = 0x80
+	// fixup length field to indicate full page length
+	l := inqHdr.Length + 5
+	if l < SCSI_INQUIRY_STD_LENGTH {
+		return nil, fmt.Errorf("%w: length of SCSI_INQUIRY (%d < %d)", ErrUnexpectedResp, l, SCSI_INQUIRY_STD_LENGTH)
+	}
+
+	respBuf = make([]byte, SCSI_VPD_STD_LENGTH)
+	cdb = CDB6{SCSI_INQUIRY, 0x1, SCSI_VPD_PAGE_SV} // Request VPD page 0x00 - supported VPDs
 	binary.BigEndian.PutUint16(cdb[3:], uint16(len(respBuf)))
 
 	if err := SendCDB(fd, cdb[:], CDBFromDevice, &respBuf); err != nil {
 		return nil, err
 	}
 
-	snHdr := struct {
-		_      [3]byte
-		Length byte
-	}{}
-	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &snHdr); err != nil {
-		return nil, err
-	}
-	sn := respBuf[4 : 4+snHdr.Length]
-
-	respBuf = make([]byte, 2048)
-	cdb = CDB6{SCSI_INQUIRY}
-	cdb[1] = 0x1 /* Request VPD page 0x83 for device ID */
-	cdb[2] = 0x83
-	binary.BigEndian.PutUint16(cdb[3:], uint16(len(respBuf)))
-
-	if err := SendCDB(fd, cdb[:], CDBFromDevice, &respBuf); err != nil {
+	var vpdHdr SimpleVPDResponse
+	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &vpdHdr); err != nil {
 		return nil, err
 	}
 
-	didlen := binary.BigEndian.Uint16(respBuf[2:4])
-	did := respBuf[4 : didlen+4]
+	haveSN := false
+	haveDI := false
+
+	// validate response
+	l = vpdHdr.PageLength + 4
+	if (vpdHdr.PageCode == SCSI_VPD_PAGE_SV) && (l > 4) && (l <= SCSI_VPD_STD_LENGTH) {
+		supList := respBuf[4:l]
+
+		for i := range supList {
+			if supList[i] == SCSI_VPD_PAGE_SN {
+				haveSN = true
+			}
+			if supList[i] == SCSI_VPD_PAGE_DI {
+				haveDI = true
+			}
+		}
+	}
+
+	sn := []byte(nil)
+	if haveSN {
+		respBuf = make([]byte, SCSI_VPD_STD_LENGTH)
+		cdb = CDB6{SCSI_INQUIRY, 0x1, 0x80} // Request VPD page 0x80 - serial number
+		binary.BigEndian.PutUint16(cdb[3:], uint16(len(respBuf)))
+
+		if err := SendCDB(fd, cdb[:], CDBFromDevice, &respBuf); err != nil {
+			return nil, err
+		}
+
+		if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &vpdHdr); err != nil {
+			return nil, err
+		}
+
+		l := vpdHdr.PageLength // sn page length includes header!
+		if (vpdHdr.PageCode == SCSI_VPD_PAGE_SN) && (l > 4) && (l <= SCSI_VPD_STD_LENGTH) {
+			sn = respBuf[4:l]
+		}
+	}
+
 	proto := SCSIProtocol(-1)
-	for {
-		if len(did) == 0 {
-			break
+	if haveDI {
+		respBuf = make([]byte, 2048)
+		cdb = CDB6{SCSI_INQUIRY, 0x1, 0x83} // Request VPD page 0x80 - device identification
+		binary.BigEndian.PutUint16(cdb[3:], uint16(len(respBuf)))
+
+		if err := SendCDB(fd, cdb[:], CDBFromDevice, &respBuf); err != nil {
+			return nil, err
 		}
-		l := did[3]
-		part := did[:l+4]
-		piv := part[1]&0x80 > 0
-		if piv {
-			proto = SCSIProtocol(part[0] >> 4)
+
+		didlen := binary.BigEndian.Uint16(respBuf[2:4]) + 4 // page length (n-3)
+		if (respBuf[1] == SCSI_VPD_PAGE_DI) && (didlen > 4) && (didlen <= 2048) {
+			// Device Identification VPD page - decode length and descriptor list
+
+			did := respBuf[4:didlen] // identification descriptor list (full)
+
+			// We are only interested in the protocol identifier.
+			// Loop through all ID descriptors and check for a valid protocol field.
+			for len(did) <= 4 {
+				l := did[3]                    // identifier length (n-3)
+				part := did[:l+4]              // identifier descriptor
+				piv := (part[1] & 0x80) > 0    // protocol identifier valid bit
+				assoc := (part[1] & 0x30) >> 4 // association field
+				if piv && assoc >= 1 && assoc <= 2 {
+					proto = SCSIProtocol(part[0] >> 4)
+				}
+				did = did[l+4:]
+			}
 		}
-		did = did[l+4:]
 	}
 	resp := InquiryResponse{
 		Protocol:     proto,
