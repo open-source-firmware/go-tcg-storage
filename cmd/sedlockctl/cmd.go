@@ -21,7 +21,7 @@ type listCmd struct{}
 type lockAllCmd struct{}
 
 type unlockAllCmd struct {
-	KeepMbrDone bool `optional:"" help:"Keep MBRDone status as is"`
+	KeepMbrDone bool `optional:"" short:"k" help:"Keep MBRDone status as is"`
 }
 
 type mbrDoneCmd struct {
