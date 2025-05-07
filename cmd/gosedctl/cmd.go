@@ -142,7 +142,7 @@ func (t *initialSetupCmd) Run(_ *context) (returnErr error) {
 		return fmt.Errorf("ThisSp_Authenticate failed: %v", err)
 	}
 	fmt.Println("Set new password")
-	pwhash, err := t.PasswordEmbed.GenerateHash(coreObj)
+	pwhash, err := t.GenerateHash(coreObj)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %v", err)
 	}
@@ -222,7 +222,7 @@ func (l *loadPBAImageCmd) Run(_ *context) (returnErr error) {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
 
-	pwhash, err := l.PasswordEmbed.GenerateHash(coreObj)
+	pwhash, err := l.GenerateHash(coreObj)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %v", err)
 	}
@@ -266,7 +266,7 @@ func (r *revertNoeraseCmd) Run(_ *context) (returnErr error) {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
 
-	pwhash, err := r.PasswordEmbed.GenerateHash(coreObj)
+	pwhash, err := r.GenerateHash(coreObj)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %v", err)
 	}
@@ -309,7 +309,7 @@ func (r *revertTPerCmd) Run(_ *context) error {
 		return fmt.Errorf("cs.NewSession() failed: %v", err)
 	}
 
-	pwhash, err := r.PasswordEmbed.GenerateHash(coreObj)
+	pwhash, err := r.GenerateHash(coreObj)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %v", err)
 	}
@@ -585,7 +585,7 @@ func (r *resetSIDcmd) Run(_ *context) (returnErr error) {
 		return fmt.Errorf("failed to open session to AdminSP: %v", err)
 	}
 
-	adminHash, err := r.PasswordEmbed.GenerateHash(coreObj)
+	adminHash, err := r.GenerateHash(coreObj)
 	if err != nil {
 		return fmt.Errorf("failed to hash password: %v", err)
 	}
