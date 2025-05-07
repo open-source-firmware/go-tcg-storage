@@ -17,6 +17,7 @@ func main() {
 		kong.Description(programDesc),
 		kong.UsageOnError(),
 		kong.Resolvers(plugins.ResolvePassword()),
+		kong.NamedMapper("accessiblefile", plugins.AccessibleFileMapper()),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
 			Summary: true,

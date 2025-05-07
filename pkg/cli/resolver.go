@@ -2,6 +2,7 @@ package kong
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 
 	"github.com/alecthomas/kong"
@@ -10,8 +11,12 @@ import (
 
 func ResolvePassword() kong.Resolver {
 	return kong.ResolverFunc(func(ctx *kong.Context, parent *kong.Path, flag *kong.Flag) (interface{}, error) {
-		if flag.Tag.Type != "password" || flag.Tag.TypeName != "string" || !flag.Required {
+		if flag.Tag.Type != "password" || !flag.Required {
 			return nil, nil
+		}
+
+		if flag.Target.Kind() != reflect.String {
+			return nil, fmt.Errorf(`'password' type must be applied to a string not %s`, flag.Target.Type())
 		}
 
 		fmt.Printf("No value has been provided for flag `%s`.\n", flag.ShortSummary())

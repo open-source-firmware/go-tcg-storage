@@ -26,13 +26,14 @@ func main() {
 		kong.Description(programDesc),
 		kong.UsageOnError(),
 		kong.Resolvers(plugins.ResolvePassword()),
+		kong.NamedMapper("accessiblefile", plugins.AccessibleFileMapper()),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
 			Summary: true,
 		}))
 
 	// Set up connection and initialize session to device.
-	coreObj, err := core.NewCore(cli.Device)
+	coreObj, err := core.NewCore(cli.Device.Device)
 	if err != nil {
 		log.Fatalf("drive.Open: %v", err)
 	}

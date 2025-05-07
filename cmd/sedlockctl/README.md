@@ -10,21 +10,20 @@ Arguments:
   <device>    Path to SED device (e.g. /dev/nvme0)
 
 Flags:
-  -h, --help                  Show context-sensitive help.
-  -d, --device=STRING         Path to SED device (e.g. /dev/nvme0) (deprecated, use <device> instead)
-      --sidpin=STRING         Use dta (sha1) or sha512 for SID Pin hashing
+  -h, --help               Show context-sensitive help.
+      --sidpin=STRING
       --sidpinmsid
-      --sidhash=STRING
+      --sidhash="dta"      Use dta (sha1) or sha512 for SID Pin hashing
   -u, --user=STRING
-  -p, --password=STRING       SID Password
-      --hash="dta"            Use dta (sha1) or sha512 for password hashing
+  -p, --password=STRING    SID Password ($PWD)
+      --hash="dta"         Use dta (sha1) or sha512 for password hashing ($HASH)
 
 Commands:
-  list          List all ranges (default)
-  lock-all      Locks all ranges completely
-  unlock-all    Unlocks all ranges completely
-  mbrdone       Sets the MBRDone property (hide/show Shadow MBR)
-  read-mbr      Prints the binary data in the MBR area
+  <device> list          List all ranges (default)
+  <device> lock-all      Locks all ranges completely
+  <device> unlock-all    Unlocks all ranges completely
+  <device> mbrdone       Sets the MBRDone property (hide/show Shadow MBR)
+  <device> read-mbr      Prints the binary data in the MBR area
 ```
 
 Example:
