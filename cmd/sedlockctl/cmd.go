@@ -124,10 +124,14 @@ func (r readMBRCmd) Run(ctx *context) error {
 		}
 		pos += chk
 		if i < chk {
-			os.Stdout.Write(mbuf[:i])
+			if _, err := os.Stdout.Write(mbuf[:i]); err != nil {
+				return err
+			}
 			break
 		} else {
-			os.Stdout.Write(mbuf)
+			if _, err := os.Stdout.Write(mbuf); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

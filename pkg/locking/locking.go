@@ -185,9 +185,9 @@ func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession
 	}
 
 	lmeta := &LockingSPMeta{}
-	lmeta.D0 = coreObj.DiskInfo.Level0Discovery
+	lmeta.D0 = coreObj.Level0Discovery
 
-	comID, proto, err := core.FindComID(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery)
+	comID, proto, err := core.FindComID(coreObj.DriveIntf, coreObj.Level0Discovery)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -197,7 +197,7 @@ func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession
 		core.WithReceiveTimeout(ic.ReceiveRetries, ic.ReceiveInterval),
 	}
 
-	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.DiskInfo.Level0Discovery, controlSessionOpts...)
+	cs, err := core.NewControlSession(coreObj.DriveIntf, coreObj.Level0Discovery, controlSessionOpts...)
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to create control session (comID 0x%04x): %v", comID, err)
 	}
@@ -206,7 +206,11 @@ func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession
 	if err != nil {
 		return nil, nil, fmt.Errorf("admin session creation failed: %w", err)
 	}
-	defer as.Close()
+	defer func() {
+		if err := as.Close(); err != nil {
+			fmt.Println(err)
+		}
+	}()
 
 	err = nil
 	for _, x := range ic.auths {
@@ -224,12 +228,12 @@ func Initialize(coreObj *core.Core, opts ...InitializeOpt) (*core.ControlSession
 
 	if proto == core.ProtocolLevelEnterprise {
 		copy(lmeta.SPID[:], uid.EnterpriseLockingSP[:])
-		if err := initializeEnterprise(as, coreObj.DiskInfo.Level0Discovery, &ic, lmeta); err != nil {
+		if err := initializeEnterprise(as, coreObj.Level0Discovery, &ic, lmeta); err != nil {
 			return nil, nil, err
 		}
 	} else {
 		copy(lmeta.SPID[:], uid.LockingSP[:])
-		if err := initializeOpalFamily(as, coreObj.DiskInfo.Level0Discovery, &ic, lmeta); err != nil {
+		if err := initializeOpalFamily(as, coreObj.Level0Discovery, &ic, lmeta); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -261,10 +265,10 @@ func initializeOpalFamily(s *core.Session, d0 *core.Level0Discovery, ic *initial
 	if err != nil {
 		return err
 	}
-	if lcs == LifeCycleStateManufactured {
-		// The Locking SP is already activated
+	switch lcs {
+	case LifeCycleStateManufactured:
 		return nil
-	} else if lcs == LifeCycleStateManufacturedInactive {
+	case LifeCycleStateManufacturedInactive:
 		if !ic.activate {
 			return fmt.Errorf("locking SP not active, but activation not requested")
 		}
@@ -272,7 +276,7 @@ func initializeOpalFamily(s *core.Session, d0 *core.Level0Discovery, ic *initial
 		if _, err := s.ExecuteMethod(mc); err != nil {
 			return err
 		}
-	} else {
+	default:
 		return fmt.Errorf("unsupported life cycle state on locking SP: %v", lcs)
 	}
 

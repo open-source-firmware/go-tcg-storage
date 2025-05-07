@@ -1,7 +1,7 @@
 package main
 
 import (
-	"log"
+	"fmt"
 	"os"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -21,7 +21,7 @@ func (mc *metricCollector) Collect(c chan<- prometheus.Metric) {
 func (mc *metricCollector) Describe(c chan<- *prometheus.Desc) {
 }
 
-func outputMetrics(state Devices) {
+func outputMetrics(state Devices) error {
 	var (
 		mDriveInfo = prometheus.NewDesc(
 			"tcg_storage_drive_info",
@@ -104,11 +104,12 @@ func outputMetrics(state Devices) {
 
 	mfs, err := reg.Gather()
 	if err != nil {
-		log.Fatalf("Failed to gather metrics: %v", err)
+		return fmt.Errorf("failed to gather metrics: %v", err)
 	}
 	for _, mf := range mfs {
 		if _, err := expfmt.MetricFamilyToText(os.Stdout, mf); err != nil {
-			log.Fatalf("Failed to serialize metrics: %v", err)
+			return fmt.Errorf("failed to serialize metrics: %v", err)
 		}
 	}
+	return nil
 }
