@@ -45,7 +45,7 @@ var cli struct {
 	Sidpinmsid bool   `optional:""`
 	Sidhash    string `optional:"" default:"dta" enum:"sedutil-dta,sedutil-sha512,dta,sha1,sha512" help:"Use dta (sha1) or sha512 for SID Pin hashing"`
 	User       string `optional:"" short:"u"`
-	Password   string `required:"" short:"p" env:"PWD" type:"password" help:"SID Password"`
+	Password   string `required:"" short:"p" env:"PASS" type:"password" help:"SID Password"`
 	Hash       string `optional:"" env:"HASH" default:"dta" enum:"sedutil-dta,sedutil-sha512,dta,sha1,sha512" help:"Use dta (sha1) or sha512 for password hashing"`
 }
 

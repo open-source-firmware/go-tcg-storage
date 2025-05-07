@@ -15,7 +15,7 @@ Flags:
       --sidpinmsid
       --sidhash="dta"      Use dta (sha1) or sha512 for SID Pin hashing
   -u, --user=STRING
-  -p, --password=STRING    SID Password ($PWD)
+  -p, --password=STRING    SID Password ($PASS)
       --hash="dta"         Use dta (sha1) or sha512 for password hashing ($HASH)
 
 Commands:

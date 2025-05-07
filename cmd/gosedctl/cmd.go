@@ -18,7 +18,7 @@ type DeviceEmbed struct {
 }
 
 type PasswordEmbed struct {
-	Password string `required:"" env:"PWD" help:"SID Password" type:"password"`
+	Password string `required:"" env:"PASS" help:"SID Password" type:"password"`
 	Hash     string `optional:"" env:"HASH" default:"dta" enum:"sedutil-dta,sedutil-sha512,dta,sha1,sha512" help:"Use dta (sha1) or sha512 for hashing"`
 }
 

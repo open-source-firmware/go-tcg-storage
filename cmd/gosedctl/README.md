@@ -44,7 +44,7 @@ Arguments:
 Flags:
   -h, --help                  Show context-sensitive help.
 
-      --password=STRING       SID Password ($SID_PWD)
+      --password=STRING       SID Password ($SID_PASS)
       --hash="dta"            Use dta (sha1) or sha512 for password hashing ($SID_HASH)
 ```
 #### load-pba
@@ -60,7 +60,7 @@ Arguments:
 Flags:
   -h, --help                  Show context-sensitive help.
 
-      --password=STRING       SID Password ($SID_PWD)
+      --password=STRING       SID Password ($SID_PASS)
       --hash="dta"            Use dta (sha1) or sha512 for password hashing ($SID_HASH)
 ```
 
@@ -77,11 +77,11 @@ Arguments:
 Flags:
   -h, --help                               Show context-sensitive help.
 
-      --sid-password=STRING                SID Password ($SID_PWD)
+      --sid-password=STRING                SID Password ($SID_PASS)
       --sid-hash="dta"                     Use dta (sha1) or sha512 for password hashing ($SID_HASH)
-      --bandmaster-password=STRING         SID Password ($BANDMASTER_PWD)
+      --bandmaster-password=STRING         SID Password ($BANDMASTER_PASS)
       --bandmaster-hash="dta"              Use dta (sha1) or sha512 for password hashing ($BANDMASTER_HASH)
-      --erase-master-password=STRING       SID Password ($ERASE_MASTER_PWD)
+      --erase-master-password=STRING       SID Password ($ERASE_MASTER_PASS)
       --erase-master-hash="dta"            Use dta (sha1) or sha512 for password hashing ($ERASE_MASTER_HASH)
 ```
 
@@ -97,9 +97,9 @@ Arguments:
 Flags:
   -h, --help                        Show context-sensitive help.
 
-      --sid-password=STRING         SID Password ($SID_PWD)
+      --sid-password=STRING         SID Password ($SID_PASS)
       --sid-hash="dta"              Use dta (sha1) or sha512 for password hashing ($SID_HASH)
-      --erase-password=STRING       SID Password ($ERASE_PWD)
+      --erase-password=STRING       SID Password ($ERASE_PASS)
       --erase-hash="dta"            Use dta (sha1) or sha512 for password hashing ($ERASE_HASH)
 ```
 
@@ -115,7 +115,7 @@ Arguments:
 Flags:
   -h, --help                             Show context-sensitive help.
 
-      --bandmaster-password=STRING       SID Password ($BANDMASTER_PWD)
+      --bandmaster-password=STRING       SID Password ($BANDMASTER_PASS)
       --bandmaster-hash="dta"            Use dta (sha1) or sha512 for password hashing ($BANDMASTER_HASH)
 ```
 
