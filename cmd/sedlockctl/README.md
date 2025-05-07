@@ -2,13 +2,16 @@
 
 Used to operate SED locking from a Linux shell.
 ```
-Usage: sedlockctl --device=STRING command
+Usage: sedlockctl command <device>
 
 Go SEDlock control (temporary name)
 
+Arguments:
+  <device>    Path to SED device (e.g. /dev/nvme0)
+
 Flags:
   -h, --help                  Show context-sensitive help.
-  -d, --device=STRING         Path to SED device (e.g. /dev/nvme0)
+  -d, --device=STRING         Path to SED device (e.g. /dev/nvme0) (deprecated, use <device> instead)
       --sidpin=STRING         Use dta (sha1) or sha512 for SID Pin hashing
       --sidpinmsid
       --sidhash=STRING

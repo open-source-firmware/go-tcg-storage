@@ -33,7 +33,7 @@ type readMBRCmd struct {
 }
 
 var cli struct {
-	Device     string       `required:"" short:"d" type:"existingfile" help:"Path to SED device (e.g. /dev/nvme0)"`
+	Device     string       `required:"" arg:"" short:"d" type:"existingfile" help:"Path to SED device (e.g. /dev/nvme0)"`
 	Sidpin     string       `optional:""`
 	Sidpinmsid bool         `optional:""`
 	Sidhash    string       `optional:"" default:"dta" enum:"sedutil-dta,sedutil-sha512,dta,sha1,sha512" help:"Use dta (sha1) or sha512 for SID Pin hashing"`
