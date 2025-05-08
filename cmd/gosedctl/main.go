@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/alecthomas/kong"
+	plugins "github.com/open-source-firmware/go-tcg-storage/pkg/cli"
 )
 
 const (
@@ -15,6 +16,8 @@ func main() {
 		kong.Name(programName),
 		kong.Description(programDesc),
 		kong.UsageOnError(),
+		kong.Resolvers(plugins.ResolvePassword()),
+		kong.NamedMapper("accessiblefile", plugins.AccessibleFileMapper()),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
 			Summary: true,

@@ -1,2 +1,6 @@
 **/.*.sw?
-target/
+target/*
+tcgsdiag.linux.*
+tcgdiskstat.linux.*
+sedlockctl.linux.*
+gosedctl.linux.*
