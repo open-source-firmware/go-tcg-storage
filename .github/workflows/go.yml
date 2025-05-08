@@ -1,8 +1,12 @@
 name: Go
 
 on:
+  push:
+    tags: [ 'v*' ]
+    branches: [ 'main' ]
   pull_request:
-    branches: [ main ]
+    tags: [ 'v*' ]
+    branches: [ 'main' ]
 
 jobs:
 
