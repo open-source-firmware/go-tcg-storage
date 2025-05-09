@@ -14,25 +14,26 @@ import (
 type FeatureCode uint16
 
 const (
-	CodeTPer              FeatureCode = 0x0001
-	CodeLocking           FeatureCode = 0x0002
-	CodeGeometry          FeatureCode = 0x0003
-	CodeSecureMsg         FeatureCode = 0x0004
-	CodeEnterprise        FeatureCode = 0x0100
-	CodeOpalV1            FeatureCode = 0x0200
-	CodeSingleUser        FeatureCode = 0x0201
-	CodeDataStore         FeatureCode = 0x0202
-	CodeOpalV2            FeatureCode = 0x0203
-	CodeOpalite           FeatureCode = 0x0301
-	CodePyriteV1          FeatureCode = 0x0302
-	CodePyriteV2          FeatureCode = 0x0303
-	CodeRubyV1            FeatureCode = 0x0304
-	CodeLockingLBA        FeatureCode = 0x0401
-	CodeBlockSID          FeatureCode = 0x0402
-	CodeNamespaceLocking  FeatureCode = 0x0403
-	CodeDataRemoval       FeatureCode = 0x0404
-	CodeNamespaceGeometry FeatureCode = 0x0405
-	CodeSeagatePorts      FeatureCode = 0xC001
+	CodeTPer                           FeatureCode = 0x0001
+	CodeLocking                        FeatureCode = 0x0002
+	CodeGeometry                       FeatureCode = 0x0003
+	CodeSecureMsg                      FeatureCode = 0x0004
+	CodeEnterprise                     FeatureCode = 0x0100
+	CodeOpalV1                         FeatureCode = 0x0200
+	CodeSingleUser                     FeatureCode = 0x0201
+	CodeDataStore                      FeatureCode = 0x0202
+	CodeOpalV2                         FeatureCode = 0x0203
+	CodeOpalite                        FeatureCode = 0x0301
+	CodePyriteV1                       FeatureCode = 0x0302
+	CodePyriteV2                       FeatureCode = 0x0303
+	CodeRubyV1                         FeatureCode = 0x0304
+	CodeLockingLBA                     FeatureCode = 0x0401
+	CodeBlockSID                       FeatureCode = 0x0402
+	CodeNamespaceLocking               FeatureCode = 0x0403
+	CodeDataRemoval                    FeatureCode = 0x0404
+	CodeNamespaceGeometry              FeatureCode = 0x0405
+	CodeShadowMBRForMultipleNamespaces FeatureCode = 0x0407
+	CodeSeagatePorts                   FeatureCode = 0xC001
 )
 
 type TPer struct {
@@ -60,8 +61,12 @@ type CommonSSC struct {
 }
 
 type Geometry struct {
-	// TODO
+	Align                bool
+	LogicalBlockSize     uint32
+	AlignmentGranularity uint64
+	LowestAlignedLBA     uint64
 }
+
 type SecureMsg struct {
 	// TODO
 }
@@ -75,7 +80,10 @@ type OpalV1 struct {
 	// TODO
 }
 type SingleUser struct {
-	// TODO
+	NumberLockingObjectsSupported uint32
+	Policy                        bool
+	Any                           bool
+	All                           bool
 }
 type DataStore struct {
 	// TODO
@@ -130,7 +138,12 @@ type BlockSID struct {
 }
 
 type NamespaceLocking struct {
-	// TODO
+	Range_C                   bool
+	Range_P                   bool
+	SUM_C                     bool
+	MaximumKeyCount           uint32
+	UnusedKeyCount            uint32
+	MaximumRangesPerNamespace uint32
 }
 type DataRemoval struct {
 	// TODO
@@ -142,6 +155,10 @@ type NamespaceGeometry struct {
 type SeagatePort struct {
 	PortIdentifier int32
 	PortLocked     uint8
+}
+
+type ShadowMBRForMultipleNamespaces struct {
+	ANS_C bool
 }
 
 type SeagatePorts struct {
@@ -181,8 +198,22 @@ func ReadLockingFeature(rdr io.Reader) (*Locking, error) {
 }
 
 func ReadGeometryFeature(rdr io.Reader) (*Geometry, error) {
-	f := &Geometry{}
-	return f, nil
+	d := struct {
+		Align                uint8
+		_                    [7]byte
+		LogicalBlockSize     uint32
+		AlignmentGranularity uint64
+		LowestAlignedLBA     uint64
+	}{}
+	if err := binary.Read(rdr, binary.BigEndian, &d); err != nil {
+		return nil, err
+	}
+	return &Geometry{
+		Align:                d.Align&0x1 > 0,
+		LogicalBlockSize:     d.LogicalBlockSize,
+		AlignmentGranularity: d.AlignmentGranularity,
+		LowestAlignedLBA:     d.LowestAlignedLBA,
+	}, nil
 }
 
 func ReadSecureMsgFeature(rdr io.Reader) (*SecureMsg, error) {
@@ -204,8 +235,20 @@ func ReadOpalV1Feature(rdr io.Reader) (*OpalV1, error) {
 }
 
 func ReadSingleUserFeature(rdr io.Reader) (*SingleUser, error) {
-	f := &SingleUser{}
-	return f, nil
+	d := struct {
+		NumberOfLockingObjectsSupported uint32
+		Policy                          uint8
+		_                               [7]byte
+	}{}
+	if err := binary.Read(rdr, binary.BigEndian, &d); err != nil {
+		return nil, err
+	}
+	return &SingleUser{
+		NumberLockingObjectsSupported: d.NumberOfLockingObjectsSupported,
+		Policy:                        d.Policy&0x4 > 0,
+		All:                           d.Policy&0x2 > 0,
+		Any:                           d.Policy&0x1 > 0,
+	}, nil
 }
 
 func ReadDataStoreFeature(rdr io.Reader) (*DataStore, error) {
@@ -273,8 +316,25 @@ func ReadBlockSIDFeature(rdr io.Reader) (*BlockSID, error) {
 }
 
 func ReadNamespaceLockingFeature(rdr io.Reader) (*NamespaceLocking, error) {
-	f := &NamespaceLocking{}
-	return f, nil
+	d := struct {
+		Range                     uint8
+		_                         [3]byte
+		MaximumKeyCount           uint32
+		UnusedKeyCount            uint32
+		MaximumRangesPerNamespace uint32
+	}{}
+	if err := binary.Read(rdr, binary.BigEndian, &d); err != nil {
+		return nil, err
+	}
+
+	return &NamespaceLocking{
+		Range_C:                   d.Range&0x80 > 0,
+		Range_P:                   d.Range&0x40 > 0,
+		SUM_C:                     d.Range&0x20 > 0,
+		MaximumKeyCount:           d.MaximumKeyCount,
+		UnusedKeyCount:            d.UnusedKeyCount,
+		MaximumRangesPerNamespace: d.MaximumRangesPerNamespace,
+	}, nil
 }
 
 func ReadDataRemovalFeature(rdr io.Reader) (*DataRemoval, error) {
@@ -285,6 +345,17 @@ func ReadDataRemovalFeature(rdr io.Reader) (*DataRemoval, error) {
 func ReadNamespaceGeometryFeature(rdr io.Reader) (*NamespaceGeometry, error) {
 	f := &NamespaceGeometry{}
 	return f, nil
+}
+
+func ReadShadowMBRForMultipleNamespacesFeature(rdr io.Reader) (*ShadowMBRForMultipleNamespaces, error) {
+	var raw uint8
+	if err := binary.Read(rdr, binary.BigEndian, &raw); err != nil {
+		return nil, err
+	}
+
+	return &ShadowMBRForMultipleNamespaces{
+		ANS_C: raw&0x1 > 0,
+	}, nil
 }
 
 func ReadSeagatePorts(rdr io.Reader) (*SeagatePorts, error) {
