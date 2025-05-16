@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/alecthomas/kong"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/cmdutil"
 )
 
 const (
@@ -15,6 +16,8 @@ func main() {
 		kong.Name(programName),
 		kong.Description(programDesc),
 		kong.UsageOnError(),
+		kong.Resolvers(cmdutil.ResolvePassword()),
+		kong.NamedMapper("accessiblefile", cmdutil.AccessibleFileMapper()),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
 			Summary: true,

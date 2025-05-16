@@ -17,83 +17,106 @@ go build ./cmd/gosedctl
 ```
 
 ## Usage
-Initial-setup
+
+### Commands
+
 ```
-sudo ./gosedctl initial-setup -d /dev/<device> -p <password>
-```
-Load-PBA
-```
-sudo ./gosedctl load-pba -d /dev/<device> -p <password> -i <path/to/image>
+  initial-setup               Take ownership of a given OPAL SSC device
+  load-pba                    Load PBA image to shadow MBR
+  revert-noerase
+  revert-tper
+  initial-setup-enterprise    Take ownership of a given Enterprise SSC device
+  revert-enterprise           delete after use
+  unlock-enterprise           Unlocks global range with BandMaster0
+  reset-sid                   Resets the SID PIN to MSID
 ```
 
-## Command documentation - OPAL SSC
-initial-setup
+### Command documentation - OPAL SSC
+#### initial-setup
 ```
-gosedctl initial-setup --device=STRING
+gosedctl initial-setup --password=STRING <device>
 
-Take ownership of a given device
+Take ownership of a given OPAL SSC device
 
-Flags:
-  -h, --help                  Show context-sensitive help.
-
-  -d, --device=STRING         Path to SED device (e.g. /dev/nvme0)
-  -p, --password=STRING
-```
-load-pba
-```
-gosedctl load-pba --device=STRING --password=STRING --path=STRING
-
-Load PBA image to shadow MBR
+Arguments:
+  <device>    Path to SED device (e.g. /dev/nvme0)
 
 Flags:
   -h, --help               Show context-sensitive help.
 
-  -d, --device=STRING      Path to SED device (e.g. /dev/nvme0)
-  -p, --password=STRING
-  -i, --path=STRING        Path to PBA image
+      --password=STRING    Authentication password ($SID_PASS)
+      --hash="dta"         Use dta (sha1) or sha512 for password hashing ($SID_HASH)
+```
+#### load-pba
+```
+gosedctl load-pba --password=STRING <pba-image> <device>
+
+Load PBA image to shadow MBR
+
+Arguments:
+  <pba-image>    Path to PBA image
+  <device>       Path to SED device (e.g. /dev/nvme0)
+
+Flags:
+  -h, --help               Show context-sensitive help.
+
+      --password=STRING    Authentication password ($SID_PASS)
+      --hash="dta"         Use dta (sha1) or sha512 for password hashing ($SID_HASH)
 ```
 
-## Command documentation - Enterprise SSC
-initial-setup-enterprise:
+### Command documentation - Enterprise SSC
+#### initial-setup-enterprise:
 ```
-gosedctl initial-setup-enterprise --device=STRING --sid-password=STRING --band-master-0-pw=STRING --erase-master-pw=STRING
+gosedctl initial-setup-enterprise --sid-password=STRING --bandmaster-password=STRING --erase-master-password=STRING <device>
 
 Take ownership of a given Enterprise SSC device
 
+Arguments:
+  <device>    Path to SED device (e.g. /dev/nvme0)
+
 Flags:
-  -h, --help                       Show context-sensitive help.
+  -h, --help                            Show context-sensitive help.
 
-  -d, --device=STRING              Path to SED device (e.g. /dev/nvme0)
-  -p, --sid-password=STRING        New password for SID authority
-  -b, --band-master-0-pw=STRING    Password for BandMaster0 authority for configuration, lock and unlock operations.
-  -e, --erase-master-pw=STRING     Password for EraseMaster authority for erase operations of ranges.
+      --sid-password=STRING             Authentication password ($SID_PASS)
+      --sid-hash="dta"                  Use dta (sha1) or sha512 for password hashing ($SID_HASH)
+      --bandmaster-password=STRING      Authentication password ($BANDMASTER_PASS)
+      --bandmaster-hash="dta"           Use dta (sha1) or sha512 for password hashing ($BANDMASTER_HASH)
+      --erase-master-password=STRING    Authentication password ($ERASE_MASTER_PASS)
+      --erase-master-hash="dta"         Use dta (sha1) or sha512 for password hashing ($ERASE_MASTER_HASH)
 ```
 
-revert-enterprise:
+#### revert-enterprise:
 ```
-gosedctl revert-enterprise --device=STRING --sid-password=STRING --erase-password=STRING
+gosedctl revert-enterprise --sid-password=STRING --erase-password=STRING <device>
 
 delete after use
 
+Arguments:
+  <device>    Path to SED device (e.g. /dev/nvme0)
+
 Flags:
   -h, --help                     Show context-sensitive help.
 
-  -d, --device=STRING            Path to SED device (e.g. /dev/nvme0)
-  -p, --sid-password=STRING      Password to SID authority
-  -e, --erase-password=STRING    Password to authenticate as EaseMaster
+      --sid-password=STRING      Authentication password ($SID_PASS)
+      --sid-hash="dta"           Use dta (sha1) or sha512 for password hashing ($SID_HASH)
+      --erase-password=STRING    Authentication password ($ERASE_PASS)
+      --erase-hash="dta"         Use dta (sha1) or sha512 for password hashing ($ERASE_HASH)
 ```
 
-unlock-enterprise:
+#### unlock-enterprise:
 ```
-gosedctl unlock-enterprise --device=STRING --band-master-pw=STRING
+gosedctl unlock-enterprise --bandmaster-password=STRING <device>
 
 Unlocks global range with BandMaster0
 
-Flags:
-  -h, --help                     Show context-sensitive help.
+Arguments:
+  <device>    Path to SED device (e.g. /dev/nvme0)
 
-  -d, --device=STRING            Path to SED device (e.g. /dev/nvme0)
-  -b, --band-master-pw=STRING    Password for BandMaster0 authority for configuration, lock and unlock operations.
+Flags:
+  -h, --help                          Show context-sensitive help.
+
+      --bandmaster-password=STRING    Authentication password ($BANDMASTER_PASS)
+      --bandmaster-hash="dta"         Use dta (sha1) or sha512 for password hashing ($BANDMASTER_HASH)
 ```
 
 ## Roadmap

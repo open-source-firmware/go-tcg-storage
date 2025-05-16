@@ -5,13 +5,13 @@
 package main
 
 import (
-	"fmt"
 	"log"
 
 	"github.com/alecthomas/kong"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/cmdutil"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/hash"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
-	// TODO: Move to locking API when it has MBR functions
 )
 
 var (
@@ -25,19 +25,21 @@ func main() {
 		kong.Name(programName),
 		kong.Description(programDesc),
 		kong.UsageOnError(),
+		kong.Resolvers(cmdutil.ResolvePassword()),
+		kong.NamedMapper("accessiblefile", cmdutil.AccessibleFileMapper()),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
 			Summary: true,
 		}))
 
 	// Set up connection and initialize session to device.
-	coreObj, err := core.NewCore(cli.Device)
+	coreObj, err := core.NewCore(cli.Device.Device)
 	if err != nil {
 		log.Fatalf("drive.Open: %v", err)
 	}
 	defer func() {
 		if err := coreObj.Close(); err != nil {
-			fmt.Println(err)
+			log.Fatalf("drive.Close: %v", err)
 		}
 	}()
 
@@ -50,8 +52,10 @@ func main() {
 	spin := []byte{}
 	if cli.Sidpin != "" {
 		switch cli.Sidhash {
-		case "sedutil-dta":
-			spin = HashSedutilDTA(cli.Sidpin, sn)
+		case "sedutil-dta", "sha1", "dta":
+			spin = hash.HashSedutilDTA(cli.Sidpin, sn)
+		case "sedutil-sha512", "sha512":
+			spin = hash.HashSedutil512(cli.Sidpin, sn)
 		default:
 			log.Fatalf("Unknown hash method %q", cli.Sidhash)
 		}
@@ -71,16 +75,19 @@ func main() {
 	}
 	defer func() {
 		if err := cs.Close(); err != nil {
-			fmt.Println(err)
+			log.Fatalf("locking.Close: %v", err)
 		}
 	}()
 
 	var auth locking.LockingSPAuthenticator
-	pin := []byte{}
+
+	var pin []byte
 	if cli.Password != "" {
 		switch cli.Hash {
-		case "sedutil-dta":
-			pin = HashSedutilDTA(cli.Password, sn)
+		case "sedutil-dta", "sha1", "dta":
+			pin = hash.HashSedutilDTA(cli.Password, sn)
+		case "sedutil-sha512", "sha512":
+			pin = hash.HashSedutil512(cli.Password, sn)
 		default:
 			log.Fatalf("Unknown hash method %q", cli.Hash)
 		}
@@ -105,7 +112,7 @@ func main() {
 	}
 	defer func() {
 		if err := l.Close(); err != nil {
-			fmt.Println(err)
+			log.Fatalf("locking.Close: %v", err)
 		}
 	}()
 

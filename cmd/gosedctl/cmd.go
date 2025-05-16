@@ -1,63 +1,65 @@
 package main
 
 import (
-	"crypto/sha1"
 	"fmt"
-	"os"
 
+	"github.com/alecthomas/kong"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/cmdutil"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/uid"
-
-	"golang.org/x/crypto/pbkdf2"
 )
 
 // context is the context struct required by kong command line parser
 type context struct{}
 
+type DeviceEmbed struct {
+	Device string `required:"" arg:"" type:"accessiblefile" help:"Path to SED device (e.g. /dev/nvme0)"`
+}
+
 // initialSetupCmd is the struct for the initial-setup cmd required by kong command line parser
 type initialSetupCmd struct {
-	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
-	Password string `flag:"" optional:"" short:"p"`
+	DeviceEmbed           `embed:""`
+	cmdutil.PasswordEmbed `embed:"" envprefix:"SID_"`
 }
 
 type loadPBAImageCmd struct {
-	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
-	Password string `flag:"" required:"" short:"p"`
-	Path     string `flag:"" required:"" short:"i" help:"Path to PBA image"`
+	PBAImage              kong.FileContentFlag `required:"" arg:"" help:"Path to PBA image"`
+	DeviceEmbed           `embed:""`
+	cmdutil.PasswordEmbed `embed:"" envprefix:"SID_"`
 }
 
 type revertTPerCmd struct {
-	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
-	Password string `flag:"" required:"" short:"p"`
+	DeviceEmbed           `embed:""`
+	cmdutil.PasswordEmbed `embed:"" envprefix:"SID_"`
 }
 
 type revertNoeraseCmd struct {
-	Device   string `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
-	Password string `flag:"" required:"" short:"p"`
+	DeviceEmbed           `embed:""`
+	cmdutil.PasswordEmbed `embed:"" envprefix:"SID_"`
 }
 
 type initialSetupEnterpriseCmd struct {
-	Device        string `flag:"" required:"" short:"d" help:"Path to SED device (e.g. /dev/nvme0)"`
-	SIDPassword   string `flag:"" required:"" short:"p" help:"New password for SID authority"`
-	BandMaster0PW string `flag:"" required:"" short:"b" help:"Password for BandMaster0 authority for configuration, lock and unlock operations."`
-	EraseMasterPW string `flag:"" required:"" short:"e" help:"Password for EraseMaster authority for erase operations of ranges."`
+	DeviceEmbed   `embed:""`
+	SIDPassword   cmdutil.PasswordEmbed `embed:"" prefix:"sid-" envprefix:"SID_" help:"New password for SID authority"`
+	BandMaster0PW cmdutil.PasswordEmbed `embed:"" prefix:"bandmaster-" envprefix:"BANDMASTER_" help:"Password for BandMaster0 authority for configuration, lock and unlock operations"`
+	EraseMasterPW cmdutil.PasswordEmbed `embed:"" prefix:"erase-master-" envprefix:"ERASE_MASTER_" help:"Password for EraseMaster authority for erase operations of ranges"`
 }
 
 type resetDeviceEnterprise struct {
-	Device        string `flag:"" required:"" short:"d" help:"Path to SED device (e.g. /dev/nvme0)"`
-	SIDPassword   string `flag:"" required:"" short:"p" help:"Password to SID authority"`
-	ErasePassword string `flag:"" required:"" short:"e" help:"Password to authenticate as EaseMaster"`
+	DeviceEmbed        `embed:""`
+	SIDPassword        cmdutil.PasswordEmbed `embed:"" prefix:"sid-" envprefix:"SID_" help:"Password for SID authority"`
+	EaseMasterPassword cmdutil.PasswordEmbed `embed:"" prefix:"erase-" envprefix:"ERASE_" help:"Password to authenticate as EaseMaster"`
 }
 
 type unlockEnterprise struct {
-	Device       string `flag:"" required:"" short:"d" help:"Path to SED device (e.g. /dev/nvme0)"`
-	BandMasterPW string `flag:"" required:"" short:"b" help:"Password for BandMaster0 authority for configuration, lock and unlock operations."`
+	DeviceEmbed   `embed:""`
+	BandMaster0PW cmdutil.PasswordEmbed `embed:"" prefix:"bandmaster-" envprefix:"BANDMASTER_" help:"Password for BandMaster0 authority for configuration, lock and unlock operations"`
 }
 
 type resetSIDcmd struct {
-	Device      string `flag:"" required:"" short:"d" help:"Path to SED device (e.g. /dev/nvme0)"`
-	SIDPassword string `flag:"" required:"" short:"p" help:"Password to SID authority"`
+	DeviceEmbed           `embed:""`
+	cmdutil.PasswordEmbed `embed:"" envprefix:"SID_"`
 }
 
 // cli is the main command line interface struct required by kong command line parser
@@ -73,7 +75,7 @@ var cli struct {
 }
 
 // Run executes when the initial-setup command is invoked
-func (t *initialSetupCmd) Run(ctx *context) error {
+func (t *initialSetupCmd) Run(_ *context) (returnErr error) {
 	fmt.Printf("Open device: %s", t.Device)
 	coreObj, err := core.NewCore(t.Device)
 	if err != nil {
@@ -97,7 +99,13 @@ func (t *initialSetupCmd) Run(ctx *context) error {
 		return fmt.Errorf("cs.NewSession() failed: %v", err)
 	}
 
-	// Get the MSID (only works if device hasnt been claimed)
+	defer func() {
+		if err := adminSession.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to close admin session: %v", err)
+		}
+	}()
+
+	// Get the MSID (only works if device hasn't been claimed)
 	fmt.Println("Read MSID Pin")
 	msid, err := table.Admin_C_PIN_MSID_GetPIN(adminSession)
 	if err != nil {
@@ -110,14 +118,10 @@ func (t *initialSetupCmd) Run(ctx *context) error {
 		return fmt.Errorf("ThisSp_Authenticate failed: %v", err)
 	}
 	fmt.Println("Set new password")
-	// Set the new SID password. Password needs to be hashed.
-	// The used algorithm is the same as used in DriveTrustAlliance implementation of sedutil-cli
-	serial, err := coreObj.SerialNumber()
+	pwhash, err := t.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-	salt := fmt.Sprintf("%-20s", serial)
-	pwhash := pbkdf2.Key([]byte(t.Password), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	if err := table.Admin_C_Pin_SID_SetPIN(adminSession, pwhash); err != nil {
 		return fmt.Errorf("Admin_C_PIN_SID_SetPIN() failed: %v", err)
@@ -135,8 +139,8 @@ func (t *initialSetupCmd) Run(ctx *context) error {
 	if err := table.LockingSPActivate(adminSession); err != nil {
 		return fmt.Errorf("LockingSPActivate() failed: %v", err)
 	}
-	if err := adminSession.Close(); err != nil {
-		return err
+	if err := adminSession.Close(); err != nil && returnErr == nil {
+		returnErr = fmt.Errorf("failed to close admin session: %v", err)
 	}
 
 	fmt.Println("Configure LockingRange0")
@@ -147,10 +151,11 @@ func (t *initialSetupCmd) Run(ctx *context) error {
 		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
 	}
 	defer func() {
-		if err := lockingSession.Close(); err != nil {
-			fmt.Println(err)
+		if err := lockingSession.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to close session: %v", err)
 		}
 	}()
+
 	// Elevate the session to Admin1 with required credentials
 	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityAdmin1, pwhash); err != nil {
 		return fmt.Errorf("authenticating as Admin1 failed: %v", err)
@@ -178,16 +183,7 @@ func (t *initialSetupCmd) Run(ctx *context) error {
 	return nil
 }
 
-func (l *loadPBAImageCmd) Run(ctx *context) error {
-	img, err := os.ReadFile(l.Path)
-	if err != nil {
-		return fmt.Errorf("ReadFile(l.Path) failed: %v", err)
-	}
-
-	if l.Password == "" {
-		return fmt.Errorf("empty password not allowed")
-	}
-
+func (l *loadPBAImageCmd) Run(_ *context) (returnErr error) {
 	coreObj, err := core.NewCore(l.Device)
 	if err != nil {
 		return fmt.Errorf("NewCore() failed: %v", err)
@@ -202,34 +198,32 @@ func (l *loadPBAImageCmd) Run(ctx *context) error {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
 
-	serial, err := coreObj.SerialNumber()
+	pwhash, err := l.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-	salt := fmt.Sprintf("%-20s", serial)
-	pwhash := pbkdf2.Key([]byte(l.Password), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	lockingSession, err := cs.NewSession(uid.LockingSP)
 	if err != nil {
 		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
 	}
 	defer func() {
-		if err := lockingSession.Close(); err != nil {
-			fmt.Println(err)
+		if err := lockingSession.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to close session: %v", err)
 		}
 	}()
 	// Elevate the session to Admin1 with required credentials
 	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityAdmin1, pwhash); err != nil {
 		return fmt.Errorf("authenticating as Admin1 failed: %v", err)
 	}
-	if err := table.LoadPBAImage(lockingSession, img); err != nil {
+	if err := table.LoadPBAImage(lockingSession, l.PBAImage); err != nil {
 		return fmt.Errorf("LoadPBAImage() failed: %v", err)
 	}
 
 	return nil
 }
 
-func (r *revertNoeraseCmd) Run(ctx *context) error {
+func (r *revertNoeraseCmd) Run(_ *context) (returnErr error) {
 	if r.Password == "" {
 		return fmt.Errorf("empty password not allowed")
 	}
@@ -248,20 +242,18 @@ func (r *revertNoeraseCmd) Run(ctx *context) error {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
 
-	serial, err := coreObj.SerialNumber()
+	pwhash, err := r.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-	salt := fmt.Sprintf("%-20s", serial)
-	pwhash := pbkdf2.Key([]byte(r.Password), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	lockingSession, err := cs.NewSession(uid.LockingSP)
 	if err != nil {
 		return fmt.Errorf("NewSession() to LockingSP failed: %v", err)
 	}
 	defer func() {
-		if err := lockingSession.Close(); err != nil {
-			fmt.Println(err)
+		if err := lockingSession.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to close session: %v", err)
 		}
 	}()
 	// Elevate the session to Admin1 with required credentials
@@ -275,7 +267,7 @@ func (r *revertNoeraseCmd) Run(ctx *context) error {
 	return nil
 }
 
-func (r *revertTPerCmd) Run(ctx *context) error {
+func (r *revertTPerCmd) Run(_ *context) error {
 	coreObj, err := core.NewCore(r.Device)
 	if err != nil {
 		return fmt.Errorf("NewCore(%s) failed: %v", r.Device, err)
@@ -292,12 +284,11 @@ func (r *revertTPerCmd) Run(ctx *context) error {
 	if err != nil {
 		return fmt.Errorf("cs.NewSession() failed: %v", err)
 	}
-	serial, err := coreObj.SerialNumber()
+
+	pwhash, err := r.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-	salt := fmt.Sprintf("%-20s", serial)
-	pwhash := pbkdf2.Key([]byte(r.Password), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, pwhash); err != nil {
 		return fmt.Errorf("authenticating as AdminSP failed: %v", err)
@@ -309,7 +300,7 @@ func (r *revertTPerCmd) Run(ctx *context) error {
 	return nil
 }
 
-func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
+func (i *initialSetupEnterpriseCmd) Run(_ *context) (returnErr error) {
 	coreObj, err := core.NewCore(i.Device)
 	if err != nil {
 		return fmt.Errorf("NewCore(%s) failed: %v", i.Device, err)
@@ -335,20 +326,15 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 		return fmt.Errorf("cs.NewSession() failed: %v", err)
 	}
 
-	// We need the serial number as salt for password hashing of old and new password.
-	serial, err := coreObj.SerialNumber()
-	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
-	}
-
-	salt := fmt.Sprintf("%-20s", serial)
-
 	msid, err := table.Admin_C_PIN_MSID_GetPIN(adminSession)
 	if err != nil {
 		return fmt.Errorf("Admin_C_PIN_MSID_GetPin() failed: %v", err)
 	}
 
-	pwhash := pbkdf2.Key([]byte(i.SIDPassword), []byte(salt[:20]), 75000, 32, sha1.New)
+	pwhash, err := i.SIDPassword.GenerateHash(coreObj)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %v", err)
+	}
 
 	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, msid); err != nil {
 		if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, pwhash); err != nil {
@@ -370,12 +356,15 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 	}
 
 	defer func() {
-		if err := lockingSession.Close(); err != nil {
-			fmt.Println(err)
+		if err := lockingSession.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to close session: %v", err)
 		}
 	}()
 
-	band0pw := pbkdf2.Key([]byte(i.BandMaster0PW), []byte(salt[:20]), 75000, 32, sha1.New)
+	band0pw, err := i.BandMaster0PW.GenerateHash(coreObj)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %v", err)
+	}
 
 	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityBandMaster0, msid); err != nil {
 		if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityBandMaster0, pwhash); err != nil {
@@ -389,7 +378,10 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 		return fmt.Errorf("failed to set BandMaster0 PIN: %v", err)
 	}
 
-	erasePw := pbkdf2.Key([]byte(i.EraseMasterPW), []byte(salt[:20]), 75000, 32, sha1.New)
+	erasePw, err := i.EraseMasterPW.GenerateHash(coreObj)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %v", err)
+	}
 
 	if err := table.ThisSP_Authenticate(lockingSession, uid.EraseMaster, msid); err != nil {
 		if err := table.ThisSP_Authenticate(lockingSession, uid.EraseMaster, pwhash); err != nil {
@@ -410,7 +402,7 @@ func (i *initialSetupEnterpriseCmd) Run(ctx *context) error {
 	return nil
 }
 
-func (r *resetDeviceEnterprise) Run(ctx *context) error {
+func (r *resetDeviceEnterprise) Run(_ *context) (returnErr error) {
 	coreObj, err := core.NewCore(r.Device)
 	if err != nil {
 		return fmt.Errorf("NewCore(%s) failed: %v", r.Device, err)
@@ -426,18 +418,15 @@ func (r *resetDeviceEnterprise) Run(ctx *context) error {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
 	defer func() {
-		if err := cs.Close(); err != nil {
-			fmt.Println(err)
+		if err := cs.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to close session: %v", err)
 		}
 	}()
 
-	serial, err := coreObj.SerialNumber()
+	eraseHash, err := r.EaseMasterPassword.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-
-	salt := fmt.Sprintf("%-20s", serial)
-	eraseHash := pbkdf2.Key(([]byte(r.ErasePassword)), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	lockingSession, err := cs.NewSession(uid.EnterpriseLockingSP)
 	if err != nil {
@@ -461,7 +450,10 @@ func (r *resetDeviceEnterprise) Run(ctx *context) error {
 		return fmt.Errorf("failed to open session to AdminSP: %v", err)
 	}
 
-	adminHash := pbkdf2.Key(([]byte(r.SIDPassword)), []byte(salt[:20]), 75000, 32, sha1.New)
+	adminHash, err := r.SIDPassword.GenerateHash(coreObj)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %v", err)
+	}
 
 	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, adminHash); err != nil {
 		return fmt.Errorf("failed to authenticate to AdminSP: %v", err)
@@ -496,7 +488,7 @@ func (r *resetDeviceEnterprise) Run(ctx *context) error {
 	return nil
 }
 
-func (u *unlockEnterprise) Run(ctx *context) error {
+func (u *unlockEnterprise) Run(_ *context) (returnErr error) {
 	coreObj, err := core.NewCore(u.Device)
 	if err != nil {
 		return fmt.Errorf("NewCore(%s) failed: %v", u.Device, err)
@@ -512,18 +504,15 @@ func (u *unlockEnterprise) Run(ctx *context) error {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
 	defer func() {
-		if err := cs.Close(); err != nil {
-			fmt.Println(err)
+		if err := cs.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to close control session: %v", err)
 		}
 	}()
 
-	serial, err := coreObj.SerialNumber()
+	pwhash, err := u.BandMaster0PW.GenerateHash(coreObj)
 	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
+		return fmt.Errorf("failed to hash password: %v", err)
 	}
-
-	salt := fmt.Sprintf("%-20s", serial)
-	pwhash := pbkdf2.Key(([]byte(u.BandMasterPW)), []byte(salt[:20]), 75000, 32, sha1.New)
 
 	lockingSession, err := cs.NewSession(uid.EnterpriseLockingSP)
 	if err != nil {
@@ -531,8 +520,8 @@ func (u *unlockEnterprise) Run(ctx *context) error {
 	}
 
 	defer func() {
-		if err := lockingSession.Close(); err != nil {
-			fmt.Println(err)
+		if err := lockingSession.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to close session: %v", err)
 		}
 	}()
 
@@ -546,7 +535,7 @@ func (u *unlockEnterprise) Run(ctx *context) error {
 	return nil
 }
 
-func (r *resetSIDcmd) Run(ctx *context) error {
+func (r *resetSIDcmd) Run(_ *context) (returnErr error) {
 	coreObj, err := core.NewCore(r.Device)
 	if err != nil {
 		return fmt.Errorf("NewCore(%s) failed: %v", r.Device, err)
@@ -562,24 +551,20 @@ func (r *resetSIDcmd) Run(ctx *context) error {
 		return fmt.Errorf("NewControllSession() failed: %v", err)
 	}
 	defer func() {
-		if err := cs.Close(); err != nil {
-			fmt.Println(err)
+		if err := cs.Close(); err != nil && returnErr == nil {
+			returnErr = fmt.Errorf("failed to close control session: %v", err)
 		}
 	}()
-
-	serial, err := coreObj.SerialNumber()
-	if err != nil {
-		return fmt.Errorf("coreObj.SerialNumber() failed: %v", err)
-	}
-
-	salt := fmt.Sprintf("%-20s", serial)
 
 	adminSession, err := cs.NewSession(uid.AdminSP)
 	if err != nil {
 		return fmt.Errorf("failed to open session to AdminSP: %v", err)
 	}
 
-	adminHash := pbkdf2.Key(([]byte(r.SIDPassword)), []byte(salt[:20]), 75000, 32, sha1.New)
+	adminHash, err := r.GenerateHash(coreObj)
+	if err != nil {
+		return fmt.Errorf("failed to hash password: %v", err)
+	}
 
 	if err := table.ThisSP_Authenticate(adminSession, uid.AuthoritySID, adminHash); err != nil {
 		return fmt.Errorf("failed to authenticate to AdminSP: %v", err)
