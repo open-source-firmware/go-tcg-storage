@@ -150,6 +150,11 @@ func (m *MethodCall) EndOptionalParameter() {
 	m.buf.Write(stream.Token(stream.EndName))
 }
 
+// adds a Half-UID token (encoded as bytes)
+func (m *MethodCall) HalfUID(b uid.HalfUID) {
+	m.buf.Write(stream.Bytes(b[:]))
+}
+
 // Bytes adds a bytes atom
 func (m *MethodCall) Bytes(b []byte) {
 	m.buf.Write(stream.Bytes(b))

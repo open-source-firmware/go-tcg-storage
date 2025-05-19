@@ -35,6 +35,9 @@ var (
 	OpalWhere        TokenType = 0x00
 	ReadLockEnabled  TokenType = 0x05
 	WriteLockEnabled TokenType = 0x06
+	OpalBooleanAnd   TokenType = 0x00
+	OpalBooleanOr    TokenType = 0x01
+	OpalBooleanNot   TokenType = 0x02
 
 	ErrUnbalancedList = errors.New("message contained unbalanced list structures")
 )
