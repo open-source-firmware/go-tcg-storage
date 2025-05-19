@@ -19,16 +19,16 @@ type Core struct {
 }
 
 func NewCore(device string) (*Core, error) {
-	drive, err := drive.Open(device)
+	d, err := drive.Open(device)
 	if err != nil {
 		return nil, fmt.Errorf("open device %s failed: %v", device, err)
 	}
-	ident, err := drive.Identify()
+	ident, err := d.Identify()
 	if err != nil {
 		return nil, fmt.Errorf("identify device %s failed: %v", device, err)
 	}
 	c := &Core{
-		DriveIntf: drive,
+		DriveIntf: d,
 		DiskInfo: DiskInfo{
 			Identity:        ident,
 			Level0Discovery: &Level0Discovery{},
@@ -49,29 +49,30 @@ type DiskInfo struct {
 // Level0Discovery structure as described in TCG Storage Architecture Core Spec v2.01 rev 1.00
 // (missing data length field, which is only required for parsing)
 type Level0Discovery struct {
-	MajorVersion      int
-	MinorVersion      int
-	Vendor            [32]byte
-	TPer              *feature.TPer
-	Locking           *feature.Locking
-	Geometry          *feature.Geometry
-	SecureMsg         *feature.SecureMsg
-	Enterprise        *feature.Enterprise
-	OpalV1            *feature.OpalV1
-	SingleUser        *feature.SingleUser
-	DataStore         *feature.DataStore
-	OpalV2            *feature.OpalV2
-	Opalite           *feature.Opalite
-	PyriteV1          *feature.PyriteV1
-	PyriteV2          *feature.PyriteV2
-	RubyV1            *feature.RubyV1
-	LockingLBA        *feature.LockingLBA
-	BlockSID          *feature.BlockSID
-	NamespaceLocking  *feature.NamespaceLocking
-	DataRemoval       *feature.DataRemoval
-	NamespaceGeometry *feature.NamespaceGeometry
-	SeagatePorts      *feature.SeagatePorts
-	UnknownFeatures   []uint16
+	MajorVersion                   int
+	MinorVersion                   int
+	Vendor                         [32]byte
+	TPer                           *feature.TPer
+	Locking                        *feature.Locking
+	Geometry                       *feature.Geometry
+	SecureMsg                      *feature.SecureMsg
+	Enterprise                     *feature.Enterprise
+	OpalV1                         *feature.OpalV1
+	SingleUser                     *feature.SingleUser
+	DataStore                      *feature.DataStore
+	OpalV2                         *feature.OpalV2
+	Opalite                        *feature.Opalite
+	PyriteV1                       *feature.PyriteV1
+	PyriteV2                       *feature.PyriteV2
+	RubyV1                         *feature.RubyV1
+	LockingLBA                     *feature.LockingLBA
+	BlockSID                       *feature.BlockSID
+	NamespaceLocking               *feature.NamespaceLocking
+	DataRemoval                    *feature.DataRemoval
+	NamespaceGeometry              *feature.NamespaceGeometry
+	ShadowMBRForMultipleNamespaces *feature.ShadowMBRForMultipleNamespaces
+	SeagatePorts                   *feature.SeagatePorts
+	UnknownFeatures                []uint16
 }
 
 // Perform a Level 0 SSC Discovery.
@@ -151,6 +152,8 @@ func (d *Core) Discovery0() error {
 			d0.DataRemoval, err = feature.ReadDataRemovalFeature(frdr)
 		case feature.CodeNamespaceGeometry:
 			d0.NamespaceGeometry, err = feature.ReadNamespaceGeometryFeature(frdr)
+		case feature.CodeShadowMBRForMultipleNamespaces:
+			d0.ShadowMBRForMultipleNamespaces, err = feature.ReadShadowMBRForMultipleNamespacesFeature(frdr)
 		case feature.CodeSeagatePorts:
 			d0.SeagatePorts, err = feature.ReadSeagatePorts(frdr)
 		default:
