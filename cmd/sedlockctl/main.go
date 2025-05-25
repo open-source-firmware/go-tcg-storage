@@ -8,6 +8,7 @@ import (
 	"log"
 
 	"github.com/alecthomas/kong"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/cmdutil"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/hash"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
@@ -24,6 +25,7 @@ func main() {
 		kong.Name(programName),
 		kong.Description(programDesc),
 		kong.UsageOnError(),
+		kong.NamedMapper("accessiblefile", cmdutil.AccessibleFileMapper()),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
 			Summary: true,

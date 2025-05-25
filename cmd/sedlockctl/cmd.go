@@ -35,7 +35,7 @@ type readMBRCmd struct {
 
 var cli struct {
 	Device struct {
-		Device    string       `arg:"" required:"" help:"Path to SED device (e.g. /dev/nvme0)"`
+		Device    string       `arg:"" required:"" type:"accessiblefile" help:"Path to SED device (e.g. /dev/nvme0)"`
 		List      listCmd      `cmd:"" help:"List all ranges (default)"`
 		LockAll   lockAllCmd   `cmd:"" help:"Locks all ranges completely"`
 		UnlockAll unlockAllCmd `cmd:"" help:"Unlocks all ranges completely"`
