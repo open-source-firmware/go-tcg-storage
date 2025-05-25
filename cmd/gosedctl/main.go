@@ -16,6 +16,7 @@ func main() {
 		kong.Name(programName),
 		kong.Description(programDesc),
 		kong.UsageOnError(),
+		kong.Resolvers(cmdutil.ResolvePassword(true)),
 		kong.NamedMapper("accessiblefile", cmdutil.AccessibleFileMapper()),
 		kong.ConfigureHelp(kong.HelpOptions{
 			Compact: true,
