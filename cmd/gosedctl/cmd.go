@@ -14,7 +14,7 @@ import (
 type context struct{}
 
 type DeviceEmbed struct {
-	Device string `required:"" arg:"" help:"Path to SED device (e.g. /dev/nvme0)"`
+	Device string `required:"" arg:"" type:"accessiblefile" help:"Path to SED device (e.g. /dev/nvme0)"`
 }
 
 // initialSetupCmd is the struct for the initial-setup cmd required by kong command line parser
