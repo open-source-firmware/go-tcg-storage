@@ -8,7 +8,7 @@ import (
 )
 
 type PasswordEmbed struct {
-	Password string `required:"" env:"PASS" help:"Authentication password"`
+	Password string `required:"" env:"PASS" type:"password" help:"Authentication password"`
 	Hash     string `optional:"" env:"HASH" default:"dta" enum:"sedutil-dta,sedutil-sha512,dta,sha1,sha512" help:"Use dta (sha1) or sha512 for password hashing"`
 }
 
