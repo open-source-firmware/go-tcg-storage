@@ -44,7 +44,7 @@ var cli struct {
 	} `arg:""`
 	Sidpin                string `optional:""`
 	Sidpinmsid            bool   `optional:""`
-	Sidhash               string `optional:"" default:"dta" enum:"sedutil-dta,dta,sha1" help:"Use dta (sha1) or sha512 for SID Pin hashing"`
+	Sidhash               string `optional:"" default:"dta" enum:"sedutil-dta,sedutil-sha512,dta,sha1,sha512" help:"Use dta (sha1) or sha512 for SID Pin hashing"`
 	User                  string `optional:"" short:"u"`
 	cmdutil.PasswordEmbed `embed:"" help:"Password for locking ranges"`
 }

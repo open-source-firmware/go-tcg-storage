@@ -13,10 +13,10 @@ Flags:
   -h, --help               Show context-sensitive help.
       --sidpin=STRING
       --sidpinmsid
-      --sidhash="dta"      Use dta (sha1) for SID Pin hashing
+      --sidhash="dta"      Use dta (sha1) or sha512 for SID Pin hashing
   -u, --user=STRING
       --password=STRING    Authentication password ($PASS)
-      --hash="dta"         Use dta (sha1) for password hashing ($HASH)
+      --hash="dta"         Use dta (sha1) or sha512 for password hashing ($HASH)
 
 Commands:
   <device> list          List all ranges (default)
@@ -36,9 +36,10 @@ Flags:
   -h, --help               Show context-sensitive help.
       --sidpin=STRING
       --sidpinmsid
-      --sidhash="dta"      Use dta (sha1) for SID Pin hashing
+      --sidhash="dta"      Use dta (sha1) or sha512 for SID Pin hashing
   -u, --user=STRING
       --password=STRING    Authentication password ($PASS)
+      --hash="dta"         Use dta (sha1) or sha512 for password hashing ($HASH)
 
   -k, --keep-mbr-done      Keep MBRDone status as is
 ```
@@ -53,10 +54,10 @@ Flags:
   -h, --help               Show context-sensitive help.
       --sidpin=STRING
       --sidpinmsid
-      --sidhash="dta"      Use dta (sha1) for SID Pin hashing
+      --sidhash="dta"      Use dta (sha1) or sha512 for SID Pin hashing
   -u, --user=STRING
       --password=STRING    Authentication password ($PASS)
-      --hash="dta"         Use dta (sha1) for password hashing ($HASH)
+      --hash="dta"         Use dta (sha1) or sha512 for password hashing ($HASH)
 
       --done               Status to set the MBRDone
 ```
