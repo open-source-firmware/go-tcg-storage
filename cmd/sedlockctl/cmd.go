@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/open-source-firmware/go-tcg-storage/pkg/cmdutil"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
 )
@@ -20,10 +21,11 @@ type listCmd struct{}
 
 type lockAllCmd struct{}
 
-type unlockAllCmd struct{}
+type unlockAllCmd struct {
+}
 
 type mbrDoneCmd struct {
-	Stat bool `required:"" help:"Status to set the MBRDone"`
+	Done bool `optional:"" help:"Status to set the MBRDone"`
 }
 
 type readMBRCmd struct {
@@ -31,18 +33,19 @@ type readMBRCmd struct {
 }
 
 var cli struct {
-	Device     string       `flag:"" required:"" short:"d"  help:"Path to SED device (e.g. /dev/nvme0)"`
-	Sidpin     string       `flag:"" optional:""`
-	Sidpinmsid bool         `flag:"" optional:""`
-	Sidhash    string       `flag:"" optional:""`
-	User       string       `flag:"" optional:"" short:"u"`
-	Password   string       `flag:"" optional:"" short:"p"`
-	Hash       string       `flag:"" optional:"" default:"sedutil-dta"`
-	List       listCmd      `cmd:"" help:"List all ranges (default)"`
-	LockAll    lockAllCmd   `cmd:"" help:"Locks all ranges completely"`
-	UnlockAll  unlockAllCmd `cmd:"" help:"Unlocks all ranges completely"`
-	Mbrdone    mbrDoneCmd   `cmd:"" help:"Sets the MBRDone property (hide/show Shadow MBR)"`
-	ReadMbr    readMBRCmd   `cmd:"" help:"Prints the binary data in the MBR area"`
+	Device struct {
+		Device    string       `arg:"" required:"" help:"Path to SED device (e.g. /dev/nvme0)"`
+		List      listCmd      `cmd:"" help:"List all ranges (default)"`
+		LockAll   lockAllCmd   `cmd:"" help:"Locks all ranges completely"`
+		UnlockAll unlockAllCmd `cmd:"" help:"Unlocks all ranges completely"`
+		Mbrdone   mbrDoneCmd   `cmd:"" help:"Sets the MBRDone property (hide/show Shadow MBR)"`
+		ReadMbr   readMBRCmd   `cmd:"" help:"Prints the binary data in the MBR area"`
+	} `arg:""`
+	Sidpin                string `optional:""`
+	Sidpinmsid            bool   `optional:""`
+	Sidhash               string `optional:"" default:"dta" enum:"sedutil-dta,dta,sha1" help:"Use dta (sha1) or sha512 for SID Pin hashing"`
+	User                  string `optional:"" short:"u"`
+	cmdutil.PasswordEmbed `embed:"" help:"Password for locking ranges"`
 }
 
 func (l listCmd) Run(ctx *context) error {
@@ -100,7 +103,7 @@ func (l lockAllCmd) Run(ctx *context) error {
 }
 
 func (m mbrDoneCmd) Run(ctx *context) error {
-	if err := ctx.session.SetMBRDone(m.Stat); err != nil {
+	if err := ctx.session.SetMBRDone(m.Done); err != nil {
 		return fmt.Errorf("SetMBRDone failed: %v", err)
 	}
 	return nil

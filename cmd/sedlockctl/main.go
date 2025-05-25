@@ -10,8 +10,8 @@ import (
 
 	"github.com/alecthomas/kong"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/hash"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/locking"
-	// TODO: Move to locking API when it has MBR functions
 )
 
 var (
@@ -31,7 +31,7 @@ func main() {
 		}))
 
 	// Set up connection and initialize session to device.
-	coreObj, err := core.NewCore(cli.Device)
+	coreObj, err := core.NewCore(cli.Device.Device)
 	if err != nil {
 		log.Fatalf("drive.Open: %v", err)
 	}
@@ -50,8 +50,8 @@ func main() {
 	spin := []byte{}
 	if cli.Sidpin != "" {
 		switch cli.Sidhash {
-		case "sedutil-dta":
-			spin = HashSedutilDTA(cli.Sidpin, sn)
+		case "sedutil-dta", "sha1", "dta":
+			spin = hash.HashSedutilDTA(cli.Sidpin, sn)
 		default:
 			log.Fatalf("Unknown hash method %q", cli.Sidhash)
 		}
@@ -76,11 +76,12 @@ func main() {
 	}()
 
 	var auth locking.LockingSPAuthenticator
-	pin := []byte{}
+
+	var pin []byte
 	if cli.Password != "" {
 		switch cli.Hash {
-		case "sedutil-dta":
-			pin = HashSedutilDTA(cli.Password, sn)
+		case "sedutil-dta", "sha1", "dta":
+			pin = hash.HashSedutilDTA(cli.Password, sn)
 		default:
 			log.Fatalf("Unknown hash method %q", cli.Hash)
 		}
