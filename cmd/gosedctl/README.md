@@ -45,7 +45,7 @@ Flags:
   -h, --help               Show context-sensitive help.
 
       --password=STRING    Authentication password ($SID_PASS)
-      --hash="dta"         Use dta (sha1) for password hashing ($SID_HASH)
+      --hash="dta"         Use dta (sha1) or sha512 for password hashing ($SID_HASH)
 ```
 #### load-pba
 ```
@@ -61,7 +61,7 @@ Flags:
   -h, --help               Show context-sensitive help.
 
       --password=STRING    Authentication password ($SID_PASS)
-      --hash="dta"         Use dta (sha1) for password hashing ($SID_HASH)
+      --hash="dta"         Use dta (sha1) or sha512 for password hashing ($SID_HASH)
 ```
 
 ### Command documentation - Enterprise SSC
@@ -78,11 +78,11 @@ Flags:
   -h, --help                            Show context-sensitive help.
 
       --sid-password=STRING             Authentication password ($SID_PASS)
-      --sid-hash="dta"                  Use dta (sha1) for password hashing ($SID_HASH)
+      --sid-hash="dta"                  Use dta (sha1) or sha512 for password hashing ($SID_HASH)
       --bandmaster-password=STRING      Authentication password ($BANDMASTER_PASS)
-      --bandmaster-hash="dta"           Use dta (sha1) for password hashing ($BANDMASTER_HASH)
+      --bandmaster-hash="dta"           Use dta (sha1) or sha512 for password hashing ($BANDMASTER_HASH)
       --erase-master-password=STRING    Authentication password ($ERASE_MASTER_PASS)
-      --erase-master-hash="dta"         Use dta (sha1) for password hashing ($ERASE_MASTER_HASH)
+      --erase-master-hash="dta"         Use dta (sha1) or sha512 for password hashing ($ERASE_MASTER_HASH)
 ```
 
 #### revert-enterprise:
@@ -98,9 +98,9 @@ Flags:
   -h, --help                     Show context-sensitive help.
 
       --sid-password=STRING      Authentication password ($SID_PASS)
-      --sid-hash="dta"           Use dta (sha1) for password hashing ($SID_HASH)
+      --sid-hash="dta"           Use dta (sha1) or sha512 for password hashing ($SID_HASH)
       --erase-password=STRING    Authentication password ($ERASE_PASS)
-      --erase-hash="dta"         Use dta (sha1) for password hashing ($ERASE_HASH)
+      --erase-hash="dta"         Use dta (sha1) or sha512 for password hashing ($ERASE_HASH)
 ```
 
 #### unlock-enterprise:
@@ -116,7 +116,7 @@ Flags:
   -h, --help                          Show context-sensitive help.
 
       --bandmaster-password=STRING    Authentication password ($BANDMASTER_PASS)
-      --bandmaster-hash="dta"         Use dta (sha1) for password hashing ($BANDMASTER_HASH)
+      --bandmaster-hash="dta"         Use dta (sha1) or sha512 for password hashing ($BANDMASTER_HASH)
 ```
 
 ## Roadmap
