@@ -22,6 +22,7 @@ type listCmd struct{}
 type lockAllCmd struct{}
 
 type unlockAllCmd struct {
+	KeepMbrDone bool `optional:"" short:"k" help:"Keep MBRDone status as is"`
 }
 
 type mbrDoneCmd struct {
@@ -85,6 +86,11 @@ func (u unlockAllCmd) Run(ctx *context) error {
 		}
 		if err := r.UnlockWrite(); err != nil {
 			return fmt.Errorf("write unlock range %d failed: %v", i, err)
+		}
+	}
+	if !u.KeepMbrDone {
+		if err := ctx.session.SetMBRDone(true); err != nil {
+			return fmt.Errorf("SetMBRDone failed: %v", err)
 		}
 	}
 	return nil

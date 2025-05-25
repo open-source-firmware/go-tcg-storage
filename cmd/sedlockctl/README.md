@@ -39,7 +39,8 @@ Flags:
       --sidhash="dta"      Use dta (sha1) for SID Pin hashing
   -u, --user=STRING
       --password=STRING    Authentication password ($PASS)
-      --hash="dta"         Use dta (sha1) for password hashing ($HASH)
+
+  -k, --keep-mbr-done      Keep MBRDone status as is
 ```
 
 #### mbrdone:
