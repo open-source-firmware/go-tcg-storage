@@ -587,9 +587,10 @@ func LoadPBAImage(s *core.Session, image []byte) error {
 
 	imgReader := bytes.NewReader(image)
 
-	// Calculate max chunk size
-	// Let's do it like sedutil-cli
-	maxSize := s.ControlSession.TPerProperties.MaxComPacketSize - 200 // 200 just picked a random huge number to count for ComPaket and packet headers
+	// Calculate max chunk size  - let's do it similar to sedutil-cli
+	// The chunk of data must fit in one token. Also keep a space for headers.
+	//     Note: 128B is more than sedutil-cli takes (56 + 50 + 4) and should be enough space
+	maxSize := s.ControlSession.TPerProperties.MaxIndTokenSize - 128
 	fpos := uint(0)
 	readChunk := make([]byte, maxSize)
 	for imgReader.Len() > 0 {
