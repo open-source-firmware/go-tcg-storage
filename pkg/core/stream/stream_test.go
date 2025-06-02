@@ -14,6 +14,26 @@ import (
 	"testing"
 )
 
+func TestUInt(t *testing.T) {
+	testCases := []struct {
+		name string
+		data uint
+		want []byte
+	}{
+		{"32", 32, []byte{uint8(32)}},
+		{"32768", 32768, []byte{0x82, 0x80, 0x00}},
+		{"131072", 131072, []byte{0x84, 0x00, 0x02, 0x00, 0x00}},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := UInt(tc.data)
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Errorf("UInt(%v) = %v; want %v", tc.data, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestBytes(t *testing.T) {
 	testCases := []struct {
 		name string
