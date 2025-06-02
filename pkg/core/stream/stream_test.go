@@ -143,3 +143,29 @@ func TestEqualBytes(t *testing.T) {
 		})
 	}
 }
+
+func TestEqualToken(t *testing.T) {
+	TestCases := []struct {
+		name string
+		data interface{}
+		comp TokenType
+		want bool
+	}{
+		{"Equal TokenType values", StartList, StartList, true},
+		{"Different TokenType values", StartList, EndList, false},
+		{"Equal byte slice representation", Token(StartList), StartList, true},
+		{"Mismatched byte slice", []byte{0}, StartList, false},
+		{"Invalid byte slice length", []byte{0xF0, 0}, StartList, false},
+		{"Unrelated type", "StartList", StartList, false},
+		{"Nil input", nil, StartList, false},
+	}
+
+	for _, tc := range TestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := EqualToken(tc.data, tc.comp)
+			if got != tc.want {
+				t.Errorf("EqualToken(%v, %v) = %v; want %v", tc.data, tc.comp, got, tc.want)
+			}
+		})
+	}
+}
