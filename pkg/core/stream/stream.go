@@ -28,6 +28,7 @@ var (
 	StartTransaction TokenType = 0xFB
 	EndTransaction   TokenType = 0xFC
 	EmptyAtom        TokenType = 0xFF
+
 	OpalFalse        TokenType = 0x00
 	OpalTrue         TokenType = 0x01
 	OpalValue        TokenType = 0x01
@@ -36,7 +37,9 @@ var (
 	ReadLockEnabled  TokenType = 0x05
 	WriteLockEnabled TokenType = 0x06
 
-	ErrUnbalancedList = errors.New("message contained unbalanced list structures")
+	ErrUnbalancedList              = errors.New("message contained unbalanced list structures")
+	ErrMediumIntegerNotImplemented = errors.New("medium integer not implemented")
+	ErrLongIntegerNotImplemented   = errors.New("long integer not implemented")
 )
 
 func (t *TokenType) String() string {
@@ -140,7 +143,7 @@ func internalDecode(b []byte, depth int) (List, []byte, error) {
 				x = bc
 				s += 2
 			} else {
-				return nil, nil, fmt.Errorf("medium integer not implemented")
+				return nil, nil, ErrMediumIntegerNotImplemented
 			}
 		} else if b[0]&0xF0 == 0xE0 { // Long atom
 			isbyte := b[0]&0x02 > 0
@@ -151,7 +154,7 @@ func internalDecode(b []byte, depth int) (List, []byte, error) {
 				x = bc
 				s += 4
 			} else {
-				return nil, nil, fmt.Errorf("long integer not implemented")
+				return nil, nil, ErrLongIntegerNotImplemented
 			}
 		} else if b[0] == byte(StartList) {
 			list, rest, err := internalDecode(b[1:], depth+1)
@@ -174,6 +177,7 @@ func internalDecode(b []byte, depth int) (List, []byte, error) {
 				x = nil
 			}
 		} else {
+			// unreachable
 			return nil, nil, fmt.Errorf("unknown atom 0x%02x", b[0])
 		}
 		if x != nil {
