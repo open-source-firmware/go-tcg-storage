@@ -119,3 +119,27 @@ func TestDecodeLists(t *testing.T) {
 	}
 
 }
+
+func TestEqualBytes(t *testing.T) {
+	TestCases := []struct {
+		name string
+		data interface{}
+		comp []byte
+		want bool
+	}{
+		{"Equal byte slices", []byte{1, 2, 3}, []byte{1, 2, 3}, true},
+		{"Different byte slices", []byte{1, 2, 3}, []byte{4, 5, 6}, false},
+		{"Special nil case", []byte{}, []byte{}, true},
+		{"Unrelated type", "not bytes", []byte{1, 2, 3}, false},
+		{"Nil input", nil, []byte{1, 2, 3}, false},
+	}
+
+	for _, tc := range TestCases {
+		t.Run(tc.name, func(t *testing.T) {
+			result := EqualBytes(tc.data, tc.comp)
+			if result != tc.want {
+				t.Errorf("EqualBytes(%v, %v) = %v; want %v", tc.data, tc.comp, result, tc.want)
+			}
+		})
+	}
+}
