@@ -9,6 +9,7 @@ package stream
 import (
 	"bytes"
 	"encoding/hex"
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -81,11 +82,14 @@ func TestDecode(t *testing.T) {
 		{"16 bytes", "D0 10 01 02 03 04 05 06 07 08 01 02 03 04 05 06 07 08",
 			List{[]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08}}, nil},
 		{"Long byte", "E2 00 00 04 01 02 03 04", List{[]byte{0x01, 0x02, 0x03, 0x04}}, nil},
+		{"EmptyAtom", "FF", List{}, nil},
+		{"ErrMediumIntegerNotImplemented", "C0 00", nil, ErrMediumIntegerNotImplemented},
+		{"ErrLongIntegerNotImplemented", "E0 00 00 00", nil, ErrLongIntegerNotImplemented},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			in, _ := hex.DecodeString(strings.ReplaceAll(tc.data, " ", ""))
-			if got, err := Decode(in); !reflect.DeepEqual(got, tc.want) || err != tc.err {
+			if got, err := Decode(in); !reflect.DeepEqual(got, tc.want) || !errors.Is(err, tc.err) {
 				t.Errorf("In(%+v) = %+v, %+v; want %+v, %+v", in, got, err, tc.want, tc.err)
 			}
 		})
@@ -103,11 +107,12 @@ func TestDecodeLists(t *testing.T) {
 		{"Empty list", "F0 F1", List{List{}}, nil},
 		{"One element", "F0 F8 F1", List{List{Call}}, nil},
 		{"Two nested element", "F0 F0 F8 F8 F1 F1", List{List{List{Call, Call}}}, nil},
+		{"Broken StartList", "F0 C0 00", nil, ErrMediumIntegerNotImplemented},
 	}
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			in, _ := hex.DecodeString(strings.ReplaceAll(tc.data, " ", ""))
-			if got, err := Decode(in); !reflect.DeepEqual(got, tc.want) || err != tc.err {
+			if got, err := Decode(in); !reflect.DeepEqual(got, tc.want) || !errors.Is(err, tc.err) {
 				t.Errorf("In(%+v) = %+v, %+v; want %+v, %+v", in, got, err, tc.want, tc.err)
 			}
 		})
