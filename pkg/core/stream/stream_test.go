@@ -169,3 +169,26 @@ func TestEqualToken(t *testing.T) {
 		})
 	}
 }
+
+func TestEqualUInt(t *testing.T) {
+	testCases := []struct {
+		name string
+		data interface{}
+		comp uint
+		want bool
+	}{
+		{"Equal uint values", uint(42), 42, true},
+		{"Different uint values", uint(42), 0, false},
+		{"Not a uint (int type)", int(42), 42, false},
+		{"Input is nil", nil, 0, false},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := EqualUInt(tc.data, tc.comp)
+			if got != tc.want {
+				t.Errorf("EqualUInt(%v, %v) = %v; want %v", tc.data, tc.comp, got, tc.want)
+			}
+		})
+	}
+}
