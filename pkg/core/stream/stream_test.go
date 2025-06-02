@@ -15,6 +15,33 @@ import (
 	"testing"
 )
 
+func TestTokenType_String(t *testing.T) {
+	testCases := []struct {
+		name string
+		t    TokenType
+		want string
+	}{
+		{"StartList", StartList, "StartList"},
+		{"EndList", EndList, "EndList"},
+		{"StartName", StartName, "StartName"},
+		{"EndName", EndName, "EndName"},
+		{"Call", Call, "Call"},
+		{"EndOfData", EndOfData, "EndOfData"},
+		{"EndOfSession", EndOfSession, "EndOfSession"},
+		{"StartTransaction", StartTransaction, "StartTransaction"},
+		{"EndTransaction", EndTransaction, "EndTransaction"},
+		{"EmptyAtom", EmptyAtom, "EmptyAtom"},
+		{"Unknown", 0, "<Unknown>"},
+	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := tc.t.String(); got != tc.want {
+				t.Errorf("String() = %v, want %v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestUInt(t *testing.T) {
 	testCases := []struct {
 		name string
