@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"os"
 
+	"github.com/alecthomas/kong"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/cmdutil"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/table"
@@ -24,7 +24,7 @@ type initialSetupCmd struct {
 }
 
 type loadPBAImageCmd struct {
-	PBAImage              string `required:"" arg:"" help:"Path to PBA image"`
+	PBAImage              kong.FileContentFlag `required:"" arg:"" help:"Path to PBA image"`
 	DeviceEmbed           `embed:""`
 	cmdutil.PasswordEmbed `embed:"" envprefix:"SID_"`
 }
@@ -178,11 +178,6 @@ func (t *initialSetupCmd) Run(_ *context) (returnErr error) {
 }
 
 func (l *loadPBAImageCmd) Run(_ *context) (returnErr error) {
-	img, err := os.ReadFile(l.PBAImage)
-	if err != nil {
-		return fmt.Errorf("ReadFile(l.PBAImage) failed: %v", err)
-	}
-
 	if l.Password == "" {
 		return fmt.Errorf("empty password not allowed")
 	}
@@ -219,7 +214,7 @@ func (l *loadPBAImageCmd) Run(_ *context) (returnErr error) {
 	if err := table.ThisSP_Authenticate(lockingSession, uid.LockingAuthorityAdmin1, pwhash); err != nil {
 		return fmt.Errorf("authenticating as Admin1 failed: %v", err)
 	}
-	if err := table.LoadPBAImage(lockingSession, img); err != nil {
+	if err := table.LoadPBAImage(lockingSession, l.PBAImage); err != nil {
 		return fmt.Errorf("LoadPBAImage() failed: %v", err)
 	}
 
