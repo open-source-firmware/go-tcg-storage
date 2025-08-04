@@ -13,7 +13,7 @@ import (
 // If confirm is true, the user is prompted to enter the password twice for confirmation.
 func ResolvePassword(confirm bool) kong.Resolver {
 	return kong.ResolverFunc(func(ctx *kong.Context, parent *kong.Path, flag *kong.Flag) (interface{}, error) {
-		if flag.Tag.Type != "password" || !flag.Required || flag.Value.Set && !flag.Value.Target.IsZero() {
+		if flag.Tag.Type != "password" || !flag.Required || flag.Set && !flag.Target.IsZero() {
 			return nil, nil
 		}
 
