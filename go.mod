@@ -1,8 +1,6 @@
 module github.com/open-source-firmware/go-tcg-storage
 
-go 1.23.0
-
-toolchain go1.23.1
+go 1.24.0
 
 require (
 	github.com/alecthomas/kong v1.12.1
@@ -11,7 +9,7 @@ require (
 	github.com/prometheus/client_golang v1.23.0
 	github.com/prometheus/common v0.65.0
 	golang.org/x/crypto v0.41.0
-	golang.org/x/term v0.34.0
+	golang.org/x/term v0.35.0
 )
 
 require (
@@ -20,6 +18,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/procfs v0.16.1 // indirect
-	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/sys v0.36.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 )
