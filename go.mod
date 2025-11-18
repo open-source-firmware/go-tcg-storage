@@ -5,7 +5,7 @@ go 1.23.0
 toolchain go1.23.1
 
 require (
-	github.com/alecthomas/kong v1.12.1
+	github.com/alecthomas/kong v1.13.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dswarbrick/smart v0.0.0-20230625164221-6fe037e2b05f
 	github.com/prometheus/client_golang v1.23.0
