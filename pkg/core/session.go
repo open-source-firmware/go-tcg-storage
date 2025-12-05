@@ -69,6 +69,7 @@ type Session struct {
 	SeqLastAcked    int
 	SeqNextExpected int
 	ReadOnly        bool // Ignored for Control Sessions
+	NoReset         bool
 	ReceiveRetries  int
 	ReceiveInterval time.Duration
 }
@@ -187,6 +188,12 @@ func WithReadOnly() SessionOpt {
 	}
 }
 
+func WithNoReset() ControlSessionOpt {
+	return func(s *ControlSession) {
+		s.NoReset = true
+	}
+}
+
 // Initiate a new control session with a ComID.
 func NewControlSession(d drive.DriveIntf, d0 *Level0Discovery, opts ...ControlSessionOpt) (*ControlSession, error) {
 	// --- Control Sessions
@@ -254,11 +261,15 @@ func NewControlSession(d drive.DriveIntf, d0 *Level0Discovery, opts ...ControlSe
 	} else {
 		s.ProtocolLevel = ProtocolLevelCore
 	}
-	// Try to reset the synchronous protocol stack for the ComID to minimize
-	// the dependencies on the implicit state. However, I suspect not all drives
-	// implement it so we do it best-effort.
-	if err := StackReset(d, s.ComID); err != nil {
-		return nil, err
+	
+	// Some devices react poorly to resets, so we can optionally skip it.
+	if !s.NoReset {
+		// Try to reset the synchronous protocol stack for the ComID to minimize
+		// the dependencies on the implicit state. However, I suspect not all drives
+		// implement it so we do it best-effort.
+		if err := StackReset(d, s.ComID); err != nil {
+			return nil, err
+		}
 	}
 
 	// Set preferred options
