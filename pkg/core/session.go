@@ -71,6 +71,8 @@ type Session struct {
 	ReadOnly        bool // Ignored for Control Sessions
 	ReceiveRetries  int
 	ReceiveInterval time.Duration
+	Password        []byte
+	Authority       uid.AuthorityObjectUID
 }
 
 type ControlSession struct {
@@ -191,6 +193,18 @@ func WithHSN(hsn int) SessionOpt {
 func WithReadOnly() SessionOpt {
 	return func(s *Session) {
 		s.ReadOnly = true
+	}
+}
+
+func WithPassword(pw []byte) SessionOpt {
+	return func(s *Session) {
+		s.Password = pw
+	}
+}
+
+func WithAuthority(auth uid.AuthorityObjectUID) SessionOpt {
+	return func(s *Session) {
+		s.Authority = auth
 	}
 }
 
@@ -356,6 +370,7 @@ func (cs *ControlSession) NewSession(spid uid.SPID, opts ...SessionOpt) (*Sessio
 		HSN:             -1,
 		ReceiveRetries:  cs.ReceiveRetries,
 		ReceiveInterval: cs.ReceiveInterval,
+		Authority:       uid.AuthoritySID,
 	}
 
 	for _, opt := range opts {
@@ -388,6 +403,18 @@ func (cs *ControlSession) NewSession(spid uid.SPID, opts ...SessionOpt) (*Sessio
 		mc.StartOptionalParameter(5, "SessionTimeout")
 		mc.UInt(60000 /* 60 sec */) // Match it to the ATA implementation of sedutil
 		mc.EndOptionalParameter()
+	} else {
+		if s.Password != nil {
+
+			mc.Token(stream.StartName)
+			mc.UInt(0)
+			mc.Bytes(s.Password)
+			mc.Token(stream.EndName)
+			mc.Token(stream.StartName)
+			mc.UInt(3)
+			mc.Bytes(s.Authority[:])
+			mc.Token(stream.EndName)
+		}
 	}
 
 	// Try with the method call with the optional parameters first,
