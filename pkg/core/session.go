@@ -75,6 +75,7 @@ type Session struct {
 
 type ControlSession struct {
 	Session
+	ExtendedProperties       bool
 	HostProperties           HostProperties
 	TPerProperties           TPerProperties
 	MaxComPacketSizeOverride uint
@@ -175,6 +176,12 @@ func WithReceiveTimeout(retries int, interval time.Duration) ControlSessionOpt {
 	}
 }
 
+func WithoutExtendedProperties() ControlSessionOpt {
+	return func(s *ControlSession) {
+		s.ExtendedProperties = false
+	}
+}
+
 func WithHSN(hsn int) SessionOpt {
 	return func(s *Session) {
 		s.HSN = hsn
@@ -228,6 +235,7 @@ func NewControlSession(d drive.DriveIntf, d0 *Level0Discovery, opts ...ControlSe
 			ReceiveRetries:  DefaultReceiveRetries,
 			ReceiveInterval: DefaultReceiveInterval,
 		},
+		ExtendedProperties:       true,
 		HostProperties:           hp,
 		TPerProperties:           tp,
 		MaxComPacketSizeOverride: DefaultMaxComPacketSize,
@@ -277,7 +285,7 @@ func NewControlSession(d drive.DriveIntf, d0 *Level0Discovery, opts ...ControlSe
 	// rhp.AckNak = true
 
 	var err error
-	hp, tp, err = s.properties(&rhp)
+	hp, tp, err = s.properties(&rhp, s.ExtendedProperties)
 	if err != nil {
 		return nil, err
 	}
@@ -423,7 +431,7 @@ func (cs *ControlSession) NewSession(spid uid.SPID, opts ...SessionOpt) (*Sessio
 }
 
 // Fetch current Host and TPer properties, optionally changing the Host properties.
-func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerProperties, error) {
+func (cs *ControlSession) properties(rhp *HostProperties, extended bool) (HostProperties, TPerProperties, error) {
 	mc := method.NewMethodCall(uid.InvokeIDSMU, uid.MethodIDSMProperties, cs.MethodFlags)
 
 	mc.StartOptionalParameter(0, "HostProperties")
@@ -433,15 +441,17 @@ func (cs *ControlSession) properties(rhp *HostProperties) (HostProperties, TPerP
 	mc.NamedUInt("MaxPacketSize", rhp.MaxPacketSize)
 	mc.NamedUInt("MaxPackets", rhp.MaxPackets)
 	mc.NamedUInt("MaxComPacketSize", rhp.MaxComPacketSize)
-	if rhp.MaxResponseComPacketSize != nil {
-		mc.NamedUInt("MaxResponseComPacketSize", *rhp.MaxResponseComPacketSize)
-	}
 	mc.NamedUInt("MaxIndTokenSize", rhp.MaxIndTokenSize)
-	mc.NamedUInt("MaxAggTokenSize", rhp.MaxAggTokenSize)
-	mc.NamedBool("ContinuedTokens", rhp.ContinuedTokens)
-	mc.NamedBool("SequenceNumbers", rhp.SequenceNumbers)
-	mc.NamedBool("AckNak", rhp.AckNak)
-	mc.NamedBool("Asynchronous", rhp.Asynchronous)
+	if extended {
+		if rhp.MaxResponseComPacketSize != nil {
+			mc.NamedUInt("MaxResponseComPacketSize", *rhp.MaxResponseComPacketSize)
+		}
+		mc.NamedUInt("MaxAggTokenSize", rhp.MaxAggTokenSize)
+		mc.NamedBool("ContinuedTokens", rhp.ContinuedTokens)
+		mc.NamedBool("SequenceNumbers", rhp.SequenceNumbers)
+		mc.NamedBool("AckNak", rhp.AckNak)
+		mc.NamedBool("Asynchronous", rhp.Asynchronous)
+	}
 	mc.EndList()
 	mc.EndOptionalParameter()
 
