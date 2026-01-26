@@ -10,7 +10,7 @@ require (
 	github.com/dswarbrick/smart v0.0.0-20230625164221-6fe037e2b05f
 	github.com/prometheus/client_golang v1.23.2
 	github.com/prometheus/common v0.67.5
-	golang.org/x/crypto v0.45.0
+	golang.org/x/crypto v0.47.0
 	golang.org/x/term v0.39.0
 )
 
