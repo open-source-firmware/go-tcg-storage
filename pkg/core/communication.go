@@ -140,12 +140,18 @@ func (c *plainCom) Receive(ses *Session) ([]byte, error) {
 		return nil, ErrTooLargeComPacket
 	}
 	// TODO: Handle OutstandingData and MinTransfer (if needed, haven't checked)
+	if compkthdr.Length == 0 {
+		return []byte{}, nil
+	}
 	pkthdr := packetHeader{}
 	if err := binary.Read(rdr, binary.BigEndian, &pkthdr); err != nil {
 		return nil, err
 	}
 	if uint(pkthdr.Length) > c.hp.MaxPacketSize {
 		return nil, ErrTooLargePacket
+	}
+	if pkthdr.Length == 0 {
+		return []byte{}, nil
 	}
 	// TODO: Handle SeqNumber
 	// TODO: Handle AckType
@@ -156,6 +162,9 @@ func (c *plainCom) Receive(ses *Session) ([]byte, error) {
 	// TODO: Implement buffer management
 	if subpkthdr.Kind != 0 {
 		return nil, fmt.Errorf("only data subpackets are implemented")
+	}
+	if subpkthdr.Length == 0 {
+		return []byte{}, nil
 	}
 	data := rdr.Bytes()
 	data = data[0:subpkthdr.Length]
