@@ -123,6 +123,49 @@ func TestReceive_NonDataSubpacketKind(t *testing.T) {
 	}
 }
 
+// TestReceive_EmptyPackets covers the three Length==0 early-return paths
+// added by the fix for issue #186 (PR #187). Per TCG Storage Architecture
+// Core Specification 2.01 §3.2.3.1 and §3.3.10.2.1, a ComPacket / Packet /
+// SubPacket whose Length field is zero carries no payload and MUST NOT be
+// parsed further.
+func TestReceive_EmptyPackets(t *testing.T) {
+	cases := []struct {
+		name string
+		wire []byte
+	}{
+		{
+			// compkthdr.Length=0;
+			name: "empty ComPacket ignores trailing garbage",
+			wire: buildWire(t, 0, 12, 1, 0, nil),
+		},
+		{
+			// compkthdr.Length=36 (non-zero, ≤ MaxComPacketSize) but
+			// pkthdr.Length=0;
+			name: "empty Packet ignores trailing garbage",
+			wire: buildWire(t, 36, 0, 1, 0, nil),
+		},
+		{
+			// All Lengths non-zero down to the subpacket, which is itself
+			// empty.
+			name: "empty SubPacket returns empty buffer",
+			wire: buildWire(t, 36, 12, 0, 0, nil),
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			c := newTestCom(&fakeDrive{recv: tc.wire}, 2048, 1024)
+			resp, err := c.Receive(&Session{})
+			if err != nil {
+				t.Fatalf("unexpected err: %v", err)
+			}
+			if len(resp) != 0 {
+				t.Errorf("len(resp) = %d, want 0 (resp=%x)", len(resp), resp)
+			}
+		})
+	}
+}
+
 // TestReceive_TruncatedHeaders exercises the three binary.Read error paths
 // by sizing MaxComPacketSize below the offset of each successive header.
 // These HostProperties values are not realistic in production but the
