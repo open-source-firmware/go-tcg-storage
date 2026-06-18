@@ -162,6 +162,46 @@ func TestControlSession(d drive.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.Co
 	return cs
 }
 
+// TestSessions opens as many Admin SP sessions as the TPer allows, then closes
+// all of them again. It returns the number of sessions that could be opened.
+func TestSessions(cs *tcg.ControlSession) int {
+	var sessions []*tcg.Session
+	// Try to open as many sessions as we can
+	maxSessions := 10
+	if cs.TPerProperties.MaxSessions != nil {
+		maxSessions += int(*cs.TPerProperties.MaxSessions)
+	}
+	fmt.Printf("Trying to open %d session(s)\n", maxSessions)
+	for i := 0; i < maxSessions; i++ {
+		var s *tcg.Session
+		var err error
+		if i == 0 || cs.TPerProperties.MaxReadSessions == nil || *cs.TPerProperties.MaxReadSessions == 0 {
+			s, err = cs.NewSession(uid.AdminSP)
+		} else {
+			s, err = cs.NewSession(uid.AdminSP, tcg.WithReadOnly())
+		}
+		if err == method.ErrMethodStatusNoSessionsAvailable || err == method.ErrMethodStatusSPBusy {
+			break
+		}
+		if err != nil {
+			log.Printf("s.NewSession (#%d) failed: %v", i, err)
+			break
+		}
+		sessions = append(sessions, s)
+		fmt.Printf("Session #%d (HSN=0x%x, TSN=0x%x) opened\n", i, s.HSN, s.TSN)
+	}
+	fmt.Printf("Opened %d session(s)\n", len(sessions))
+
+	for i, s := range sessions {
+		if err := s.Close(); err != nil {
+			log.Printf("Session.Close (#%d) failed: %v", i, err)
+			continue
+		}
+		fmt.Printf("Session #%d closed\n", i)
+	}
+	return len(sessions)
+}
+
 func main() {
 	spew.Config.Indent = "  "
 
@@ -212,55 +252,17 @@ func main() {
 		}
 	}()
 
-	var sessions []*tcg.Session
-	// Try to open as many sessions as we can
-	maxSessions := 10
-	if cs.TPerProperties.MaxSessions != nil {
-		maxSessions += int(*cs.TPerProperties.MaxSessions)
-	}
-	fmt.Printf("Trying to open %d session(s)\n", maxSessions)
-	for i := 0; i < maxSessions; i++ {
-		var s *tcg.Session
-		var err error
-		if i == 0 || cs.TPerProperties.MaxReadSessions == nil || *cs.TPerProperties.MaxReadSessions == 0 {
-			s, err = cs.NewSession(uid.AdminSP)
-		} else {
-			s, err = cs.NewSession(uid.AdminSP, tcg.WithReadOnly())
-		}
-		if err == method.ErrMethodStatusNoSessionsAvailable || err == method.ErrMethodStatusSPBusy {
-			break
-		}
-		if err != nil {
-			log.Printf("s.NewSession (#%d) failed: %v", i, err)
-			break
-		}
-		sessions = append(sessions, s)
-		fmt.Printf("Session #%d (HSN=0x%x, TSN=0x%x) opened\n", i, s.HSN, s.TSN)
-	}
-
-	if len(sessions) == 0 {
+	if TestSessions(cs) == 0 {
 		log.Println("No session, unable to continue")
 		return
 	}
-	fmt.Printf("Opened %d session(s)\n", len(sessions))
 
-	defer func() {
-		fmt.Println("Diagnostics done, cleaning up")
-		for i, s := range sessions {
-			if s == nil {
-				fmt.Printf("Session #%d already closed\n", i)
-				continue
-			}
-			if err := s.Close(); err != nil {
-				log.Printf("Session.Close (#%d) failed: %v", i, err)
-				continue
-			}
-			fmt.Printf("Session #%d closed\n", i)
-		}
-	}()
-
-	s := sessions[0]
-	_ = s
+	// Open a clean session. Some drives seem to have issues with the previous attempt to open additional sessions
+	s, err := cs.NewSession(uid.AdminSP)
+	if err != nil {
+		log.Printf("Could not open Admin SP session: %v", err)
+		return
+	}
 
 	msidPin, err := table.Admin_C_PIN_MSID_GetPIN(s)
 	if err != nil {
@@ -323,9 +325,8 @@ func main() {
 
 	fmt.Println("Admin SP testing done")
 	if err := s.Close(); err != nil {
-		log.Printf("Session.Close (#0) failed: %v", err)
+		log.Printf("Closing Admin SP session failed: %v", err)
 	}
-	sessions[0] = nil
 
 	fmt.Println()
 	fmt.Println("===> TCG LOCKING SP SESSION")
@@ -359,7 +360,11 @@ func main() {
 		log.Printf("Could not open Locking SP session: %v", err)
 		return
 	}
-	sessions[0] = s
+	defer func() {
+		if err := s.Close(); err != nil {
+			log.Printf("Closing Locking SP session failed: %v", err)
+		}
+	}()
 	if err := table.ThisSP_Authenticate(s, auth, msidPin); err != nil {
 		log.Printf("table.ThisSP_Authenticate (Locking SP, %s) failed: %v", username, err)
 		return
