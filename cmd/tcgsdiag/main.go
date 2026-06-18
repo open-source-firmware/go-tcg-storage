@@ -24,7 +24,7 @@ func TestComID(d drive.DriveIntf) tcg.ComID {
 		log.Printf("Unable to auto-allocate ComID: %v", err)
 		return tcg.ComIDInvalid
 	}
-	log.Printf("Allocated ComID 0x%08x", comID)
+	fmt.Printf("Allocated ComID 0x%08x", comID)
 	valid, err := tcg.IsComIDValid(d, comID)
 	if err != nil {
 		log.Printf("Unable to validate allocated ComID: %v", err)
@@ -34,13 +34,13 @@ func TestComID(d drive.DriveIntf) tcg.ComID {
 		log.Printf("Allocated ComID not valid")
 		return tcg.ComIDInvalid
 	}
-	log.Printf("ComID validated successfully")
+	fmt.Printf("ComID validated successfully")
 
 	if err := tcg.StackReset(d, comID); err != nil {
 		log.Printf("Unable to reset the synchronous protocol stack: %v", err)
 		return tcg.ComIDInvalid
 	}
-	log.Printf("Synchronous protocol stack reset successfully")
+	fmt.Printf("Synchronous protocol stack reset successfully")
 	return comID
 }
 
@@ -64,16 +64,16 @@ func TestControlSession(d drive.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.Co
 			return nil
 		}
 	}
-	log.Printf("Creating control session with ComID 0x%08x\n", comID)
-	cs, err := tcg.NewControlSession(d, d0, tcg.WithComID(comID))
+	fmt.Printf("Creating control session with ComID 0x%08x\n", comID)
+	cs, err := tcg.NewControlSession(d, d0, tcg.WithComID(comID), tcg.WithoutExtendedProperties())
 	if err != nil {
 		log.Printf("s.NewControlSession failed: %v", err)
 		return nil
 	}
-	log.Printf("Operating using protocol %q", cs.ProtocolLevel.String())
-	log.Printf("Negotiated TPerProperties:")
+	fmt.Printf("Operating using protocol %q\n", cs.ProtocolLevel.String())
+	fmt.Printf("Negotiated TPerProperties:")
 	spew.Dump(cs.TPerProperties)
-	log.Printf("Negotiated HostProperties:")
+	fmt.Printf("Negotiated HostProperties:")
 	spew.Dump(cs.HostProperties)
 	// TODO: Move this to a test case instead
 	if err := cs.Close(); err != nil {
@@ -96,17 +96,17 @@ func main() {
 	}()
 
 	fmt.Printf("===> DRIVE SECURITY INFORMATION\n")
-	log.Printf("Drive identity: %s", core.Identity)
+	fmt.Printf("Drive identity: %s", core.Identity)
 	spl, err := drive.SecurityProtocols(core.DriveIntf)
 	if err != nil {
 		log.Fatalf("drive.SecurityProtocols: %v", err)
 	}
-	log.Printf("SecurityProtocols: %+v", spl)
+	fmt.Printf("SecurityProtocols: %+v", spl)
 	crt, err := drive.Certificate(core.DriveIntf)
 	if err != nil {
 		log.Printf("drive.Certificate: %v", err)
 	}
-	log.Printf("Drive certificate:")
+	fmt.Printf("Drive certificate:")
 	spew.Dump(crt)
 	fmt.Printf("\n")
 
