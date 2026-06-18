@@ -24,7 +24,7 @@ func TestComID(d drive.DriveIntf) tcg.ComID {
 		log.Printf("Unable to auto-allocate ComID: %v", err)
 		return tcg.ComIDInvalid
 	}
-	log.Printf("Allocated ComID 0x%08x", comID)
+	fmt.Printf("Allocated ComID 0x%08x", comID)
 	valid, err := tcg.IsComIDValid(d, comID)
 	if err != nil {
 		log.Printf("Unable to validate allocated ComID: %v", err)
@@ -34,13 +34,13 @@ func TestComID(d drive.DriveIntf) tcg.ComID {
 		log.Printf("Allocated ComID not valid")
 		return tcg.ComIDInvalid
 	}
-	log.Printf("ComID validated successfully")
+	fmt.Printf("ComID validated successfully")
 
 	if err := tcg.StackReset(d, comID); err != nil {
 		log.Printf("Unable to reset the synchronous protocol stack: %v", err)
 		return tcg.ComIDInvalid
 	}
-	log.Printf("Synchronous protocol stack reset successfully")
+	fmt.Printf("Synchronous protocol stack reset successfully")
 	return comID
 }
 
@@ -64,16 +64,16 @@ func TestControlSession(d drive.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.Co
 			return nil
 		}
 	}
-	log.Printf("Creating control session with ComID 0x%08x\n", comID)
-	cs, err := tcg.NewControlSession(d, d0, tcg.WithComID(comID))
+	fmt.Printf("Creating control session with ComID 0x%08x\n", comID)
+	cs, err := tcg.NewControlSession(d, d0, tcg.WithComID(comID), tcg.WithoutExtendedProperties())
 	if err != nil {
 		log.Printf("s.NewControlSession failed: %v", err)
 		return nil
 	}
-	log.Printf("Operating using protocol %q", cs.ProtocolLevel.String())
-	log.Printf("Negotiated TPerProperties:")
+	fmt.Printf("Operating using protocol %q\n", cs.ProtocolLevel.String())
+	fmt.Printf("Negotiated TPerProperties:")
 	spew.Dump(cs.TPerProperties)
-	log.Printf("Negotiated HostProperties:")
+	fmt.Printf("Negotiated HostProperties:")
 	spew.Dump(cs.HostProperties)
 	// TODO: Move this to a test case instead
 	if err := cs.Close(); err != nil {
@@ -96,17 +96,17 @@ func main() {
 	}()
 
 	fmt.Printf("===> DRIVE SECURITY INFORMATION\n")
-	log.Printf("Drive identity: %s", core.Identity)
+	fmt.Printf("Drive identity: %s", core.Identity)
 	spl, err := drive.SecurityProtocols(core.DriveIntf)
 	if err != nil {
 		log.Fatalf("drive.SecurityProtocols: %v", err)
 	}
-	log.Printf("SecurityProtocols: %+v", spl)
+	fmt.Printf("SecurityProtocols: %+v\n", spl)
 	crt, err := drive.Certificate(core.DriveIntf)
 	if err != nil {
 		log.Printf("drive.Certificate: %v", err)
 	}
-	log.Printf("Drive certificate:")
+	fmt.Println("Drive certificate:")
 	spew.Dump(crt)
 	fmt.Printf("\n")
 
@@ -132,6 +132,7 @@ func main() {
 	if cs.TPerProperties.MaxSessions != nil {
 		maxSessions += int(*cs.TPerProperties.MaxSessions)
 	}
+	fmt.Printf("Trying to open %d session(s)\n", maxSessions)
 	for i := 0; i < maxSessions; i++ {
 		var s *tcg.Session
 		var err error
@@ -148,14 +149,14 @@ func main() {
 			break
 		}
 		sessions = append(sessions, s)
-		log.Printf("Session #%d (HSN=0x%x, TSN=%0x) opened", i, s.HSN, s.TSN)
+		fmt.Printf("Session #%d (HSN=0x%x, TSN=%0x) opened\n", i, s.HSN, s.TSN)
 	}
 
 	if len(sessions) == 0 {
 		log.Printf("No session, unable to continue")
 		return
 	}
-	log.Printf("Opened %d sessions", len(sessions))
+	fmt.Printf("Opened %d session(s)\n", len(sessions))
 
 	defer func() {
 		log.Printf("Diagnostics done, cleaning up")
@@ -179,25 +180,25 @@ func main() {
 		log.Printf("table.Admin_C_PIN_MSID_GetPIN failed: %v", err)
 		msidPin = nil
 	} else {
-		log.Printf("MSID PIN:\n%s", hex.Dump(msidPin))
+		fmt.Printf("MSID PIN:\n%s\n", hex.Dump(msidPin))
 	}
 
 	rand, err := table.ThisSP_Random(s, 8)
 	if err != nil {
 		log.Printf("table.ThisSP_Random failed: %v", err)
 	} else {
-		log.Printf("Generated random numbers: %v", rand)
+		fmt.Printf("Generated random numbers: %v\n", rand)
 	}
 
 	tperInfo, err := table.Admin_TPerInfo(s)
 	if err == nil {
-		log.Printf("TPerInfo table:")
+		fmt.Println("TPerInfo table:")
 		spew.Dump(tperInfo)
 	}
 
 	llcs, err := table.Admin_SP_GetLifeCycleState(s, uid.LockingSP)
 	if err == nil {
-		log.Printf("Life cycle state on Locking SP: %d", llcs)
+		fmt.Printf("Life cycle state on Locking SP: %d\n", llcs)
 	} else {
 		llcs = -1
 	}
@@ -207,7 +208,7 @@ func main() {
 		if err := table.ThisSP_Authenticate(s, uid.AuthoritySID, msidPin); err != nil {
 			log.Printf("table.ThisSP_Authenticate (SID) failed: %v", err)
 		} else {
-			log.Printf("Successfully authenticated as Admin SID")
+			fmt.Println("Successfully authenticated as Admin SID")
 			msidOk = true
 		}
 		if llcs == 8 /* Manufactured-Inactive */ && os.Getenv("TCGSDIAG_ACTIVATE") != "" {
@@ -215,7 +216,7 @@ func main() {
 			if _, err := s.ExecuteMethod(mc); err != nil {
 				log.Printf("LockingSP.Activate failed: %v", err)
 			} else {
-				log.Printf("Locking SP activated")
+				fmt.Println("Locking SP activated")
 				llcs = 9
 			}
 		}
@@ -226,25 +227,25 @@ func main() {
 		if err := table.ThisSP_Authenticate(s, uid.AuthorityPSID, []byte(psidPin)); err != nil {
 			log.Printf("table.ThisSP_Authenticate (PSID) failed: %v", err)
 		} else {
-			log.Printf("Successfully authenticated as PSID SID")
+			fmt.Println("Successfully authenticated as PSID SID")
 		}
 	}
 
-	log.Printf("Admin SP testing done")
+	fmt.Println("Admin SP testing done")
 	if err := s.Close(); err != nil {
 		log.Fatal(err)
 	}
 	sessions[0] = nil
 
 	fmt.Printf("\n")
-	fmt.Printf("===> TCG LOCKING SP SESSION\n")
+	fmt.Println("===> TCG LOCKING SP SESSION")
 	if !msidOk {
-		log.Printf("SID is changed from MSID, will not continue")
+		fmt.Println("SID is changed from MSID, will not continue")
 		return
 	}
 
 	if llcs == 8 /* Manufactured-Inactive */ {
-		log.Printf("Locking SP not activated")
+		fmt.Println("Locking SP not activated")
 		return
 	}
 
@@ -273,27 +274,37 @@ func main() {
 		log.Printf("table.ThisSP_Authenticate (Locking SP, %s) failed: %v", username, err)
 		return
 	} else {
-		log.Printf("Successfully authenticated as %s", username)
+		fmt.Printf("Successfully authenticated as %s\n", username)
 	}
 
-	log.Printf("Locking SP LockingInfo:")
-	spew.Dump(table.LockingInfo(s))
+	lockinfo, err := table.LockingInfo(s)
+	if err != nil {
+		log.Printf("Locking SP LockingInfo failed: %v", err)
+	} else {
+		fmt.Println("Locking SP LockingInfo:")
+		spew.Dump(lockinfo)
+	}
 
-	log.Printf("Locking SP LockingSecretProtect:")
-	spew.Dump(table.LockingSecretProtect(s))
+	locksec, err := table.LockingSecretProtect(s)
+	if err != nil {
+		log.Printf("Locking SP LockingSecretProtect failed: %v", err)
+	} else {
+		fmt.Println("Locking SP LockingSecretProtect:")
+		spew.Dump(locksec)
+	}
 
-	log.Printf("Locking SP MBRTableInfo:")
 	mbi, err := table.MBR_TableInfo(s)
 	if err != nil {
-		log.Printf("Failed: %v", err)
+		log.Printf("Locking SP MBRTableInfo failed: %v", err)
 	} else {
+		fmt.Println("Locking SP MBRTableInfo:")
 		spew.Dump(mbi)
 		mbuf := make([]byte, mbi.SuggestBufferSize(s))
-		log.Printf("Reading %d first bytes of MBR", len(mbuf))
+		fmt.Printf("Reading %d first bytes of MBR\n", len(mbuf))
 		if n, err := table.MBR_Read(s, mbuf, 0); n != len(mbuf) || err != nil {
 			log.Printf("Failed: %d, %v", n, err)
 		} else {
-			log.Printf("MBR start:\n%s", hex.Dump(mbuf[:128]))
+			fmt.Printf("MBR start:\n%s\n", hex.Dump(mbuf[:128]))
 		}
 	}
 
@@ -302,7 +313,7 @@ func main() {
 	if err != nil {
 		log.Printf("table.Locking_Enumerate failed: %v", err)
 	} else {
-		log.Printf("Locking regions:")
+		fmt.Println("Locking regions:")
 		for _, luid := range lockList {
 			lr, err := table.Locking_Get(s, luid)
 			if err != nil {
