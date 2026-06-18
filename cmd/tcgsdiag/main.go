@@ -247,7 +247,18 @@ func main() {
 	}()
 
 	s := sessions[0]
-	_ = s
+	if err := s.Close(); err != nil {
+		log.Fatal(err)
+	}
+	sessions[0] = nil
+
+	// Open a clean session. Some drives seem to have issues with the previous attempt to open addiitonal sessions
+	s, err = cs.NewSession(uid.AdminSP)
+	if err != nil {
+		log.Printf("Could not open Admin SP session: %v", err)
+		return
+	}
+	sessions[0] = s
 
 	msidPin, err := table.Admin_C_PIN_MSID_GetPIN(s)
 	if err != nil {
