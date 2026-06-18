@@ -44,6 +44,86 @@ func TestComID(d drive.DriveIntf) tcg.ComID {
 	return comID
 }
 
+// minComPacketSize minimum packet size defined by the TCG Storage standard
+const minComPacketSize uint = 2048
+
+// probeControlSession tries to establish a control session that can actually
+// open a regular session. Some drives misbehave with the default options, so we
+// try the following combinations in order and use the first one that works:
+//
+//	extended properties,         MaxComPacketSize = library default
+//	extended properties,         MaxComPacketSize = TPer's own size
+//	extended properties,         MaxComPacketSize = 2048 (spec minimum)
+//	without extended properties, MaxComPacketSize = library default
+//	without extended properties, MaxComPacketSize = TPer's own size
+//	without extended properties, MaxComPacketSize = 2048 (spec minimum)
+//
+// Some drives reject the extended Properties call during NewControlSession(),
+// and some faulty drives cannot cope with a host packet size larger than
+// their own. A combination only counts as working once a test session could
+// be opened with it.
+func probeControlSession(d drive.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg.ControlSession {
+	// Query the TPer's own MaxComPacketSize up front. Advertise the spec
+	// minimum, as any drive should accept that during the Properties exchange.
+	// Fall back to the spec minimum if the TPer does not tell us.
+	tperSize := minComPacketSize
+	for _, extended := range []bool{true, false} {
+		opts := []tcg.ControlSessionOpt{tcg.WithComID(comID), tcg.WithMaxComPacketSize(minComPacketSize)}
+		if !extended {
+			opts = append(opts, tcg.WithoutExtendedProperties())
+		}
+		cs, err := tcg.NewControlSession(d, d0, opts...)
+		if err != nil {
+			log.Printf("Querying TPer MaxComPacketSize failed (extended properties=%t): %v", extended, err)
+			continue
+		}
+		fmt.Printf("TPer MaxComPacketSize: %d\n", cs.TPerProperties.MaxComPacketSize)
+		// The spec minimum is 2048. Smaller values can also underflow the host
+		// properties that NewControlSession derives from this size.
+		tperSize = max(cs.TPerProperties.MaxComPacketSize, minComPacketSize)
+		if err := cs.Close(); err != nil {
+			log.Printf("Closing control session failed: %v", err)
+		}
+		break
+	}
+
+	for _, extended := range []bool{true, false} {
+		for _, size := range []uint{tcg.DefaultMaxComPacketSize, tperSize, minComPacketSize} {
+			desc := fmt.Sprintf("extended properties=%t, MaxComPacketSize=%d", extended, size)
+			opts := []tcg.ControlSessionOpt{tcg.WithComID(comID), tcg.WithMaxComPacketSize(size)}
+			if !extended {
+				opts = append(opts, tcg.WithoutExtendedProperties())
+			}
+
+			cs, err := tcg.NewControlSession(d, d0, opts...)
+			if err != nil {
+				log.Printf("NewControlSession failed (%s): %v", desc, err)
+				continue
+			}
+
+			// Verify the control session by opening and closing a real session.
+			// This ensures the drive works with these options.
+			s, err := cs.NewSession(uid.AdminSP)
+			if err != nil {
+				err = fmt.Errorf("opening test session: %w", err)
+			} else if err = s.Close(); err != nil {
+				err = fmt.Errorf("closing test session: %w", err)
+			}
+			if err != nil {
+				log.Printf("Verifying control session failed (%s): %v", desc, err)
+				if err := cs.Close(); err != nil {
+					log.Printf("Closing control session failed: %v", err)
+				}
+				continue
+			}
+			fmt.Printf("Established working control session (%s)\n", desc)
+			return cs
+		}
+	}
+
+	return nil
+}
+
 func TestControlSession(d drive.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.ComID) *tcg.ControlSession {
 	if comID == tcg.ComIDInvalid {
 		fmt.Println("Auto-allocation ComID test failed earlier, selecting first available base ComID")
@@ -65,9 +145,9 @@ func TestControlSession(d drive.DriveIntf, d0 *tcg.Level0Discovery, comID tcg.Co
 		}
 	}
 	fmt.Printf("Creating control session with ComID 0x%08x\n", comID)
-	cs, err := tcg.NewControlSession(d, d0, tcg.WithComID(comID), tcg.WithoutExtendedProperties())
-	if err != nil {
-		log.Printf("s.NewControlSession failed: %v", err)
+	cs := probeControlSession(d, d0, comID)
+	if cs == nil {
+		log.Printf("Unable to establish a working control session for ComID 0x%08x", comID)
 		return nil
 	}
 	fmt.Printf("Operating using protocol %q\n", cs.ProtocolLevel.String())
@@ -126,6 +206,11 @@ func main() {
 		log.Println("No control session, unable to continue")
 		return
 	}
+	defer func() {
+		if err := cs.Close(); err != nil {
+			log.Printf("Closing control session failed: %v", err)
+		}
+	}()
 
 	var sessions []*tcg.Session
 	// Try to open as many sessions as we can
