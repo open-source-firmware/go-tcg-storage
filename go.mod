@@ -3,7 +3,7 @@ module github.com/open-source-firmware/go-tcg-storage
 go 1.25.0
 
 require (
-	github.com/alecthomas/kong v1.15.0
+	github.com/alecthomas/kong v1.16.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dswarbrick/smart v0.0.0-20230625164221-6fe037e2b05f
 	github.com/prometheus/client_golang v1.24.0
