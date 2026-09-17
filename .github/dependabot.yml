@@ -4,16 +4,29 @@ updates:
   - package-ecosystem: 'github-actions'
     directory: '/'
     schedule:
-      interval: 'daily'
+      interval: 'monthly'
       time: '00:00'
     groups:
-      github:
-        update-types:
-          - 'minor'
-          - 'patch'
+      github-actions:
+        patterns:
+          - '*'
 
   - package-ecosystem: gomod
     directory: '/'
     schedule:
-      interval: 'daily'
+      interval: 'monthly'
       time: '00:00'
+    groups:
+      golang-x:
+        patterns:
+          - 'golang.org/x/*'
+          - 'google.golang.org/*'
+      kong:
+        patterns:
+          - 'github.com/alecthomas/kong'
+      prometheus:
+        patterns:
+          - 'github.com/prometheus/*'
+      go-dependencies:
+        patterns:
+          - '*'
