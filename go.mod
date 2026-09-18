@@ -6,7 +6,7 @@ require (
 	github.com/alecthomas/kong v1.16.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/dswarbrick/smart v0.0.0-20230625164221-6fe037e2b05f
-	github.com/prometheus/client_golang v1.24.0
+	github.com/prometheus/client_golang v1.24.1
 	github.com/prometheus/common v0.71.0
 	golang.org/x/crypto v0.57.0
 	golang.org/x/term v0.46.0
