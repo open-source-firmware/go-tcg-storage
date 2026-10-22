@@ -20,9 +20,10 @@ package sgio
 import (
 	"errors"
 	"fmt"
+	"runtime"
 	"unsafe"
 
-	"github.com/dswarbrick/smart/ioctl"
+	"golang.org/x/sys/unix"
 )
 
 type CDBDirection int32
@@ -86,11 +87,7 @@ type sgIoHdr struct {
 	info            uint32       // auxiliary information
 }
 
-func execGenericIO(fd uintptr, hdr *sgIoHdr, sense []byte) error {
-	if err := ioctl.Ioctl(fd, SG_IO, uintptr(unsafe.Pointer(hdr))); err != nil {
-		return err
-	}
-
+func sgStatusError(hdr *sgIoHdr, sense []byte) error {
 	// See http://www.t10.org/lists/2status.htm for SCSI status codes
 	if hdr.info&SG_INFO_OK_MASK != SG_INFO_OK {
 		if hdr.driver_status == DRIVER_SENSE {
@@ -117,6 +114,10 @@ func execGenericIO(fd uintptr, hdr *sgIoHdr, sense []byte) error {
 func SendCDB(fd uintptr, cdb []byte, dir CDBDirection, buf *[]byte) error {
 	senseBuf := make([]byte, 32)
 
+	// No function calls between taking the buffer addresses and the syscall,
+	// so that the buffers cannot be moved in the meantime. unix.Syscall keeps
+	// hdr itself in place, but not the buffers it points to, hence the
+	// KeepAlives.
 	hdr := sgIoHdr{
 		interface_id:    'S',
 		dxfer_direction: dir,
@@ -128,6 +129,13 @@ func SendCDB(fd uintptr, cdb []byte, dir CDBDirection, buf *[]byte) error {
 		cmdp:            uintptr(unsafe.Pointer(&cdb[0])),
 		sbp:             uintptr(unsafe.Pointer(&senseBuf[0])),
 	}
+	_, _, errno := unix.Syscall(unix.SYS_IOCTL, fd, SG_IO, uintptr(unsafe.Pointer(&hdr)))
+	runtime.KeepAlive(cdb)
+	runtime.KeepAlive(*buf)
+	runtime.KeepAlive(senseBuf)
+	if errno != 0 {
+		return errno
+	}
 
-	return execGenericIO(fd, &hdr, senseBuf)
+	return sgStatusError(&hdr, senseBuf)
 }
