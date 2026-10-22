@@ -112,6 +112,10 @@ func sgStatusError(hdr *sgIoHdr, sense []byte) error {
 }
 
 func SendCDB(fd uintptr, cdb []byte, dir CDBDirection, buf *[]byte) error {
+	if len(cdb) == 0 || len(*buf) == 0 {
+		return ErrEmptyBuffer
+	}
+
 	senseBuf := make([]byte, 32)
 
 	// No function calls between taking the buffer addresses and the syscall,

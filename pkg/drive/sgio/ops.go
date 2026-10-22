@@ -45,6 +45,7 @@ const (
 )
 
 var (
+	ErrEmptyBuffer    = errors.New("empty CDB or data buffer")
 	ErrUnexpectedResp = errors.New("unexpected SCSI response")
 )
 
@@ -93,8 +94,7 @@ type InquiryResponse struct {
 type SimpleVPDResponse struct {
 	Peripheral byte
 	PageCode   byte
-	_          byte
-	PageLength byte
+	PageLength uint16
 }
 
 func (inq InquiryResponse) String() string {
@@ -163,7 +163,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 	}
 
 	// The length field counts the bytes after the 5 byte header, add it to get the full size
-	l := inqHdr.Length + 5
+	l := int(inqHdr.Length) + 5
 	if l < SCSI_INQUIRY_STD_LENGTH {
 		return nil, fmt.Errorf("%w: length of SCSI_INQUIRY (%d < %d)", ErrUnexpectedResp, l, SCSI_INQUIRY_STD_LENGTH)
 	}
@@ -185,8 +185,8 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 	haveDI := false
 
 	// validate response, the length field counts the bytes after the 4 byte header
-	l = vpdHdr.PageLength + 4
-	if (vpdHdr.PageCode == SCSI_VPD_PAGE_SV) && (l > 4) && (l <= SCSI_VPD_STD_LENGTH) {
+	l = int(vpdHdr.PageLength) + 4
+	if (vpdHdr.PageCode == SCSI_VPD_PAGE_SV) && (l > 4) && (l <= len(respBuf)) {
 		supList := respBuf[4:l]
 
 		for i := range supList {
@@ -229,8 +229,8 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 			return nil, err
 		}
 
-		didlen := binary.BigEndian.Uint16(respBuf[2:4]) + 4 // bytes after the 4 byte header, plus the header
-		if (respBuf[1] == SCSI_VPD_PAGE_DI) && (didlen > 4) && (didlen <= 2048) {
+		didlen := int(binary.BigEndian.Uint16(respBuf[2:4])) + 4 // bytes after the 4 byte header, plus the header
+		if (respBuf[1] == SCSI_VPD_PAGE_DI) && (didlen > 4) && (didlen <= len(respBuf)) {
 			// Device Identification VPD page - decode length and descriptor list
 
 			did := respBuf[4:didlen] // identification descriptor list (full)
