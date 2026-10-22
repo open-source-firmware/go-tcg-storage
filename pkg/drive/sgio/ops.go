@@ -45,6 +45,7 @@ const (
 )
 
 var (
+	ErrEmptyBuffer    = errors.New("empty CDB or data buffer")
 	ErrUnexpectedResp = errors.New("unexpected SCSI response")
 )
 
@@ -93,8 +94,7 @@ type InquiryResponse struct {
 type SimpleVPDResponse struct {
 	Peripheral byte
 	PageCode   byte
-	_          byte
-	PageLength byte
+	PageLength uint16
 }
 
 func (inq InquiryResponse) String() string {
@@ -158,12 +158,12 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 		ProductIdent [16]byte
 		ProductRev   [4]byte
 	}{}
-	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &inqHdr); err != nil {
+	if err := binary.Read(bytes.NewBuffer(respBuf), binary.BigEndian, &inqHdr); err != nil {
 		return nil, err
 	}
 
-	// fixup length field to indicate full page length
-	l := inqHdr.Length + 5
+	// The length field counts the bytes after the 5 byte header, add it to get the full size
+	l := int(inqHdr.Length) + 5
 	if l < SCSI_INQUIRY_STD_LENGTH {
 		return nil, fmt.Errorf("%w: length of SCSI_INQUIRY (%d < %d)", ErrUnexpectedResp, l, SCSI_INQUIRY_STD_LENGTH)
 	}
@@ -177,16 +177,16 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 	}
 
 	var vpdHdr SimpleVPDResponse
-	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &vpdHdr); err != nil {
+	if err := binary.Read(bytes.NewBuffer(respBuf), binary.BigEndian, &vpdHdr); err != nil {
 		return nil, err
 	}
 
 	haveSN := false
 	haveDI := false
 
-	// validate response
-	l = vpdHdr.PageLength + 4
-	if (vpdHdr.PageCode == SCSI_VPD_PAGE_SV) && (l > 4) && (l <= SCSI_VPD_STD_LENGTH) {
+	// validate response, the length field counts the bytes after the 4 byte header
+	l = int(vpdHdr.PageLength) + 4
+	if (vpdHdr.PageCode == SCSI_VPD_PAGE_SV) && (l > 4) && (l <= len(respBuf)) {
 		supList := respBuf[4:l]
 
 		for i := range supList {
@@ -209,13 +209,13 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 			return nil, err
 		}
 
-		if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &vpdHdr); err != nil {
+		if err := binary.Read(bytes.NewBuffer(respBuf), binary.BigEndian, &vpdHdr); err != nil {
 			return nil, err
 		}
 
-		l := vpdHdr.PageLength // sn page length includes header!
-		if (vpdHdr.PageCode == SCSI_VPD_PAGE_SN) && (l > 4) && (l <= SCSI_VPD_STD_LENGTH) {
-			sn = respBuf[4:l]
+		l := int(vpdHdr.PageLength) // bytes after the 4 byte header
+		if (vpdHdr.PageCode == SCSI_VPD_PAGE_SN) && (l > 0) && (4+l <= len(respBuf)) {
+			sn = respBuf[4 : 4+l]
 		}
 	}
 
@@ -229,16 +229,19 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 			return nil, err
 		}
 
-		didlen := binary.BigEndian.Uint16(respBuf[2:4]) + 4 // page length (n-3)
-		if (respBuf[1] == SCSI_VPD_PAGE_DI) && (didlen > 4) && (didlen <= 2048) {
+		didlen := int(binary.BigEndian.Uint16(respBuf[2:4])) + 4 // bytes after the 4 byte header, plus the header
+		if (respBuf[1] == SCSI_VPD_PAGE_DI) && (didlen > 4) && (didlen <= len(respBuf)) {
 			// Device Identification VPD page - decode length and descriptor list
 
 			did := respBuf[4:didlen] // identification descriptor list (full)
 
 			// We are only interested in the protocol identifier.
 			// Loop through all ID descriptors and check for a valid protocol field.
-			for len(did) <= 4 {
-				l := did[3]                    // identifier length (n-3)
+			for len(did) >= 4 {
+				l := int(did[3]) // bytes after the 4 byte descriptor header
+				if l+4 > len(did) {
+					break
+				}
 				part := did[:l+4]              // identifier descriptor
 				piv := (part[1] & 0x80) > 0    // protocol identifier valid bit
 				assoc := (part[1] & 0x30) >> 4 // association field
@@ -277,7 +280,9 @@ func ATAIdentify(fd uintptr) (*IdentifyDeviceResponse, error) {
 		return nil, err
 	}
 
-	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &resp); err != nil {
+	// ATA IDENTIFY data is defined as little-endian 16-bit words, even when tunneled
+	// through the SCSI/ATA Translation (SAT) ATA PASS-THROUGH command.
+	if err := binary.Read(bytes.NewBuffer(respBuf), binary.LittleEndian, &resp); err != nil {
 		return nil, err
 	}
 
@@ -316,13 +321,29 @@ func SCSIReadCapacity(fd uintptr) (uint64, error) {
 	return capacity, nil
 }
 
+// Returns the transfer length of an ATA TRUSTED command in 512 byte blocks.
+func ataTransferBlocks(size int) (int, error) {
+	if size&0x1ff > 0 {
+		return 0, fmt.Errorf("ATA TRUSTED commands only support 512-byte aligned buffers")
+	}
+	if size/512 > 0xffff {
+		return 0, fmt.Errorf("ATA TRUSTED transfer of %d bytes is too large", size)
+	}
+	return size / 512, nil
+}
+
 // ATA TRUSTED RECEIVE
 func ATATrustedReceive(fd uintptr, proto uint8, comID uint16, resp *[]byte) error {
 	cdb := CDB12{ATA_PASSTHROUGH}
 	cdb[1] = PIO_DATA_IN << 1
 	cdb[2] = 0x0E
 	cdb[3] = proto
-	cdb[4] = uint8(len(*resp) / 512)
+	n, err := ataTransferBlocks(len(*resp))
+	if err != nil {
+		return err
+	}
+	cdb[4] = uint8(n)      // transfer length (7:0)
+	cdb[5] = uint8(n >> 8) // transfer length (15:8)
 	cdb[6] = uint8(comID & 0xff)
 	cdb[7] = uint8((comID & 0xff00) >> 8)
 	cdb[9] = ATA_TRUSTED_RCV
@@ -338,10 +359,15 @@ func ATATrustedSend(fd uintptr, proto uint8, comID uint16, in []byte) error {
 	cdb[1] = PIO_DATA_OUT << 1
 	cdb[2] = 0x06
 	cdb[3] = proto
-	cdb[4] = uint8(len(in) / 512)
+	n, err := ataTransferBlocks(len(in))
+	if err != nil {
+		return err
+	}
+	cdb[4] = uint8(n)      // transfer length (7:0)
+	cdb[5] = uint8(n >> 8) // transfer length (15:8)
 	cdb[6] = uint8(comID & 0xff)
 	cdb[7] = uint8((comID & 0xff00) >> 8)
-	cdb[9] = ATA_TRUSTED_RCV
+	cdb[9] = ATA_TRUSTED_SND
 	if err := SendCDB(fd, cdb[:], CDBToDevice, &in); err != nil {
 		return err
 	}

@@ -7,11 +7,14 @@ package drive
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
+	"fmt"
 	"runtime"
 	"strings"
 	"unsafe"
 
 	"github.com/dswarbrick/smart/ioctl"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -46,38 +49,66 @@ type nvmePassthruCommand struct {
 
 type nvmeAdminCommand nvmePassthruCommand
 
+var errEmptyBuffer = errors.New("empty data buffer")
+
+// Submits an admin command transferring data, and fails both on ioctl errors
+// and on a non-zero NVMe completion status, which the kernel reports as a
+// positive ioctl return value.
+func nvmeAdminCmd(fd FdIntf, cmd *nvmeAdminCommand, data []byte) error {
+	if len(data) == 0 {
+		return errEmptyBuffer
+	}
+
+	// No function calls between taking the data address and the syscall, so
+	// that the buffer cannot be moved in the meantime. unix.Syscall keeps cmd
+	// itself in place, but not the buffer it points to, hence the KeepAlive.
+	rawFd := fd.Fd()
+	cmd.addr = uint64(uintptr(unsafe.Pointer(&data[0])))
+	cmd.data_len = uint32(len(data))
+	r1, _, errno := unix.Syscall(unix.SYS_IOCTL, rawFd, NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(cmd)))
+	runtime.KeepAlive(data)
+	runtime.KeepAlive(fd)
+	if errno != 0 {
+		return errno
+	}
+	if r1 != 0 {
+		return nvmeStatusError(uint32(r1))
+	}
+	return nil
+}
+
+func nvmeStatusError(status uint32) error {
+	sct := (status >> 8) & 0x7 // status code type
+	sc := status & 0xff        // status code
+	// Generic command status: Invalid Command Opcode, Invalid Field in Command
+	if sct == 0 && (sc == 0x01 || sc == 0x02) {
+		return ErrNotSupported
+	}
+	return fmt.Errorf("NVMe command failed: status code type %#x, status code %#02x", sct, sc)
+}
+
 type nvmeDrive struct {
 	fd FdIntf
 }
 
 func (d *nvmeDrive) IFRecv(proto SecurityProtocol, sps uint16, data *[]byte) error {
 	cmd := nvmeAdminCommand{
-		opcode:   NVME_SECURITY_RECV,
-		nsid:     0,
-		addr:     uint64(uintptr(unsafe.Pointer(&(*data)[0]))),
-		data_len: uint32(len(*data)),
-		cdw10:    uint32(proto&0xff)<<24 | uint32(sps)<<8,
-		cdw11:    uint32(len(*data)),
+		opcode: NVME_SECURITY_RECV,
+		nsid:   0,
+		cdw10:  uint32(proto&0xff)<<24 | uint32(sps)<<8,
+		cdw11:  uint32(len(*data)),
 	}
-
-	err := ioctl.Ioctl(d.fd.Fd(), NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
-	runtime.KeepAlive(d.fd)
-	return err
+	return nvmeAdminCmd(d.fd, &cmd, *data)
 }
 
 func (d *nvmeDrive) IFSend(proto SecurityProtocol, sps uint16, data []byte) error {
 	cmd := nvmeAdminCommand{
-		opcode:   NVME_SECURITY_SEND,
-		nsid:     0,
-		addr:     uint64(uintptr(unsafe.Pointer(&data[0]))),
-		data_len: uint32(len(data)),
-		cdw10:    uint32(proto&0xff)<<24 | uint32(sps)<<8,
-		cdw11:    uint32(len(data)),
+		opcode: NVME_SECURITY_SEND,
+		nsid:   0,
+		cdw10:  uint32(proto&0xff)<<24 | uint32(sps)<<8,
+		cdw11:  uint32(len(data)),
 	}
-
-	err := ioctl.Ioctl(d.fd.Fd(), NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
-	runtime.KeepAlive(d.fd)
-	return err
+	return nvmeAdminCmd(d.fd, &cmd, data)
 }
 
 func (d *nvmeDrive) Identify() (*Identity, error) {
@@ -122,18 +153,13 @@ type nvmeIdentity struct {
 func identifyNvme(fd FdIntf) (*nvmeIdentity, error) {
 	raw := make([]byte, 4096)
 
-	cmd := nvmePassthruCommand{
-		opcode:   NVME_ADMIN_IDENTIFY,
-		nsid:     0, // Namespace 0, since we are identifying the controller
-		addr:     uint64(uintptr(unsafe.Pointer(&raw[0]))),
-		data_len: uint32(len(raw)),
-		cdw10:    1, // Identify controller
+	cmd := nvmeAdminCommand{
+		opcode: NVME_ADMIN_IDENTIFY,
+		nsid:   0, // Namespace 0, since we are identifying the controller
+		cdw10:  1, // Identify controller
 	}
 
-	// TODO: Replace with https://go-review.googlesource.com/c/sys/+/318210/ if accepted
-	err := ioctl.Ioctl(fd.Fd(), NVME_IOCTL_ADMIN_CMD, uintptr(unsafe.Pointer(&cmd)))
-	runtime.KeepAlive(fd)
-	if err != nil {
+	if err := nvmeAdminCmd(fd, &cmd, raw); err != nil {
 		return nil, err
 	}
 
