@@ -162,7 +162,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 		return nil, err
 	}
 
-	// fixup length field to indicate full page length
+	// The length field counts the bytes after the 5 byte header, add it to get the full size
 	l := inqHdr.Length + 5
 	if l < SCSI_INQUIRY_STD_LENGTH {
 		return nil, fmt.Errorf("%w: length of SCSI_INQUIRY (%d < %d)", ErrUnexpectedResp, l, SCSI_INQUIRY_STD_LENGTH)
@@ -184,7 +184,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 	haveSN := false
 	haveDI := false
 
-	// validate response
+	// validate response, the length field counts the bytes after the 4 byte header
 	l = vpdHdr.PageLength + 4
 	if (vpdHdr.PageCode == SCSI_VPD_PAGE_SV) && (l > 4) && (l <= SCSI_VPD_STD_LENGTH) {
 		supList := respBuf[4:l]
@@ -213,9 +213,9 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 			return nil, err
 		}
 
-		l := vpdHdr.PageLength // sn page length includes header!
-		if (vpdHdr.PageCode == SCSI_VPD_PAGE_SN) && (l > 4) && (l <= SCSI_VPD_STD_LENGTH) {
-			sn = respBuf[4:l]
+		l := int(vpdHdr.PageLength) // bytes after the 4 byte header
+		if (vpdHdr.PageCode == SCSI_VPD_PAGE_SN) && (l > 0) && (4+l <= len(respBuf)) {
+			sn = respBuf[4 : 4+l]
 		}
 	}
 
@@ -229,7 +229,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 			return nil, err
 		}
 
-		didlen := binary.BigEndian.Uint16(respBuf[2:4]) + 4 // page length (n-3)
+		didlen := binary.BigEndian.Uint16(respBuf[2:4]) + 4 // bytes after the 4 byte header, plus the header
 		if (respBuf[1] == SCSI_VPD_PAGE_DI) && (didlen > 4) && (didlen <= 2048) {
 			// Device Identification VPD page - decode length and descriptor list
 
@@ -237,8 +237,11 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 
 			// We are only interested in the protocol identifier.
 			// Loop through all ID descriptors and check for a valid protocol field.
-			for len(did) <= 4 {
-				l := did[3]                    // identifier length (n-3)
+			for len(did) >= 4 {
+				l := int(did[3]) // bytes after the 4 byte descriptor header
+				if l+4 > len(did) {
+					break
+				}
 				part := did[:l+4]              // identifier descriptor
 				piv := (part[1] & 0x80) > 0    // protocol identifier valid bit
 				assoc := (part[1] & 0x30) >> 4 // association field
