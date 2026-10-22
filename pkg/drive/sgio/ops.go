@@ -158,7 +158,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 		ProductIdent [16]byte
 		ProductRev   [4]byte
 	}{}
-	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &inqHdr); err != nil {
+	if err := binary.Read(bytes.NewBuffer(respBuf), binary.BigEndian, &inqHdr); err != nil {
 		return nil, err
 	}
 
@@ -177,7 +177,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 	}
 
 	var vpdHdr SimpleVPDResponse
-	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &vpdHdr); err != nil {
+	if err := binary.Read(bytes.NewBuffer(respBuf), binary.BigEndian, &vpdHdr); err != nil {
 		return nil, err
 	}
 
@@ -209,7 +209,7 @@ func SCSIInquiry(fd uintptr) (*InquiryResponse, error) {
 			return nil, err
 		}
 
-		if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &vpdHdr); err != nil {
+		if err := binary.Read(bytes.NewBuffer(respBuf), binary.BigEndian, &vpdHdr); err != nil {
 			return nil, err
 		}
 
@@ -277,7 +277,9 @@ func ATAIdentify(fd uintptr) (*IdentifyDeviceResponse, error) {
 		return nil, err
 	}
 
-	if err := binary.Read(bytes.NewBuffer(respBuf), nativeEndian, &resp); err != nil {
+	// ATA IDENTIFY data is defined as little-endian 16-bit words, even when tunneled
+	// through the SCSI/ATA Translation (SAT) ATA PASS-THROUGH command.
+	if err := binary.Read(bytes.NewBuffer(respBuf), binary.LittleEndian, &resp); err != nil {
 		return nil, err
 	}
 

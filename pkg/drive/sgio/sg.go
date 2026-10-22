@@ -18,7 +18,6 @@
 package sgio
 
 import (
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"unsafe"
@@ -51,8 +50,6 @@ const (
 
 var (
 	ErrIllegalRequest = errors.New("illegal SCSI request")
-
-	nativeEndian binary.ByteOrder
 )
 
 // SCSI CDB types
@@ -62,17 +59,6 @@ type (
 	CDB12 [12]byte
 	CDB16 [16]byte
 )
-
-// Determine native endianness of system
-func init() {
-	i := uint32(1)
-	b := (*[4]byte)(unsafe.Pointer(&i))
-	if b[0] == 1 {
-		nativeEndian = binary.LittleEndian
-	} else {
-		nativeEndian = binary.BigEndian
-	}
-}
 
 // SCSI generic ioctl header, defined as sg_io_hdr_t in <scsi/sg.h>
 type sgIoHdr struct {
