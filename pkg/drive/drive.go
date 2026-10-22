@@ -1,6 +1,16 @@
 // Copyright (c) 2021 by library authors. All rights reserved.
 // Use of this source code is governed by a BSD-style // license that can be found in the LICENSE file.
 
+// Package drive provides access to the security commands of storage devices.
+//
+// A drive is anything implementing DriveIntf. NewSCSIDrive and NewNVMeDrive
+// implement it on top of a SCSITransport or NVMeTransport, which only need to
+// execute single commands. This lets callers support any platform or bus by
+// providing a transport, or by implementing DriveIntf directly if the platform
+// already provides access to the security commands.
+//
+// On Linux, Open accesses device nodes with the SG_IO and NVMe ioctl
+// transports.
 package drive
 
 import (
@@ -14,6 +24,8 @@ import (
 var (
 	ErrNotSupported       = errors.New("operation is not supported")
 	ErrDeviceNotSupported = errors.New("device is not supported")
+	ErrUnexpectedResponse = errors.New("unexpected response from device")
+	ErrEmptyBuffer        = errors.New("empty data buffer")
 )
 
 type SecurityProtocol int
@@ -49,6 +61,11 @@ type SendReceive interface {
 
 type Identify interface {
 	Identify() (*Identity, error)
+	// SerialNumber returns the serial number exactly as reported by the
+	// device, including any padding: the 20 byte serial number of NVMe and
+	// ATA devices, and the unit serial number VPD page contents of SCSI
+	// devices. It is used as a salt for password hashing, so it must be
+	// identical whichever way the device is accessed.
 	SerialNumber() ([]byte, error)
 }
 
