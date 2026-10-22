@@ -321,13 +321,29 @@ func SCSIReadCapacity(fd uintptr) (uint64, error) {
 	return capacity, nil
 }
 
+// Returns the transfer length of an ATA TRUSTED command in 512 byte blocks.
+func ataTransferBlocks(size int) (int, error) {
+	if size&0x1ff > 0 {
+		return 0, fmt.Errorf("ATA TRUSTED commands only support 512-byte aligned buffers")
+	}
+	if size/512 > 0xffff {
+		return 0, fmt.Errorf("ATA TRUSTED transfer of %d bytes is too large", size)
+	}
+	return size / 512, nil
+}
+
 // ATA TRUSTED RECEIVE
 func ATATrustedReceive(fd uintptr, proto uint8, comID uint16, resp *[]byte) error {
 	cdb := CDB12{ATA_PASSTHROUGH}
 	cdb[1] = PIO_DATA_IN << 1
 	cdb[2] = 0x0E
 	cdb[3] = proto
-	cdb[4] = uint8(len(*resp) / 512)
+	n, err := ataTransferBlocks(len(*resp))
+	if err != nil {
+		return err
+	}
+	cdb[4] = uint8(n)      // transfer length (7:0)
+	cdb[5] = uint8(n >> 8) // transfer length (15:8)
 	cdb[6] = uint8(comID & 0xff)
 	cdb[7] = uint8((comID & 0xff00) >> 8)
 	cdb[9] = ATA_TRUSTED_RCV
@@ -343,10 +359,15 @@ func ATATrustedSend(fd uintptr, proto uint8, comID uint16, in []byte) error {
 	cdb[1] = PIO_DATA_OUT << 1
 	cdb[2] = 0x06
 	cdb[3] = proto
-	cdb[4] = uint8(len(in) / 512)
+	n, err := ataTransferBlocks(len(in))
+	if err != nil {
+		return err
+	}
+	cdb[4] = uint8(n)      // transfer length (7:0)
+	cdb[5] = uint8(n >> 8) // transfer length (15:8)
 	cdb[6] = uint8(comID & 0xff)
 	cdb[7] = uint8((comID & 0xff00) >> 8)
-	cdb[9] = ATA_TRUSTED_RCV
+	cdb[9] = ATA_TRUSTED_SND
 	if err := SendCDB(fd, cdb[:], CDBToDevice, &in); err != nil {
 		return err
 	}
