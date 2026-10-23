@@ -3,9 +3,9 @@
 
 // Package drive provides access to the security commands of storage devices.
 //
-// A drive is anything implementing DriveIntf. NewSCSIDrive and NewNVMeDrive
-// implement it on top of a SCSITransport or NVMeTransport, which only need to
-// execute single commands. This lets callers support any platform or bus by
+// A drive is anything implementing DriveIntf. NewSCSIDrive, NewNVMeDrive and
+// NewATADrive implement it on top of a SCSITransport, NVMeTransport or
+// ATATransport, which only need to execute single commands. This lets callers support any platform or bus by
 // providing a transport, or by implementing DriveIntf directly if the platform
 // already provides access to the security commands.
 //
