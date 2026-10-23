@@ -9,3 +9,7 @@ Linux, `Open` uses the built-in SG_IO and NVMe ioctl transports. Other
 platforms are supported by providing a transport, or by implementing
 `DriveIntf` directly if the platform already provides access to the security
 commands.
+
+`NewSATTransport` sends ATA commands through a `SCSITransport` with ATA
+PASS-THROUGH, for SATA drives whose SCSI/ATA Translation layer does not
+translate the SCSI security commands.
