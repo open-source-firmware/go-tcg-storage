@@ -18,14 +18,27 @@ type Core struct {
 	DiskInfo
 }
 
+// NewCore opens the device at the given path, and creates a Core for it.
 func NewCore(device string) (*Core, error) {
 	d, err := drive.Open(device)
 	if err != nil {
 		return nil, fmt.Errorf("open device %s failed: %v", device, err)
 	}
+	c, err := NewCoreFromDrive(d)
+	if err != nil {
+		_ = d.Close()
+		return nil, err
+	}
+	return c, nil
+}
+
+// NewCoreFromDrive creates a Core for an already opened drive, identifying it
+// and performing a Level 0 Discovery. This allows using drives that are not
+// accessed through drive.Open, e.g. ones with a caller provided transport.
+func NewCoreFromDrive(d drive.DriveIntf) (*Core, error) {
 	ident, err := d.Identify()
 	if err != nil {
-		return nil, fmt.Errorf("identify device %s failed: %v", device, err)
+		return nil, fmt.Errorf("identify device failed: %v", err)
 	}
 	c := &Core{
 		DriveIntf: d,
