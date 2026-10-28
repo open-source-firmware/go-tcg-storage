@@ -7,11 +7,8 @@
 package table
 
 import (
-	"bytes"
-	"encoding/binary"
 	"errors"
 	"fmt"
-	"io"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
@@ -484,19 +481,70 @@ type MBRTableInfo struct {
 	RecommendedAccessGranularity uint32
 }
 
+// mbrFramingReserve is the part of a token kept free for method framing, as
+// in sedutil-cli. MBR data is sent as a single atom, so only MaxIndTokenSize
+// applies.
+const mbrFramingReserve = 128
+
+// SuggestBufferSize returns the maximum payload length for one MBR_Read call,
+// or 0 if there is none. The response must fit the host's receive buffer, and
+// some drives reject transfers larger than their own token size, so the
+// smaller of both is used.
 func (m *MBRTableInfo) SuggestBufferSize(s *core.Session) uint {
 	ms := s.ControlSession.HostProperties.MaxIndTokenSize
-	if s.ControlSession.HostProperties.MaxAggTokenSize > ms {
-		ms = s.ControlSession.HostProperties.MaxAggTokenSize
+	if tper := s.ControlSession.TPerProperties.MaxIndTokenSize; tper < ms {
+		ms = tper
 	}
-	// Save some space for lists and status code, this can be tuned if we really wanted.
-	// Technially we should be fine if the TokenSize is less than the subpacket size
-	// but then we would have to actually, you know, do math.
-	ms -= 16
-	// Align to both MandatoryWriteGranularity and RecommendedAccessGranularity
-	ms = ms & ^uint(m.MandatoryWriteGranularity-1)
-	ms = ms & ^uint(m.RecommendedAccessGranularity-1)
+	if ms <= mbrFramingReserve {
+		return 0
+	}
+	ms -= mbrFramingReserve
+
+	if aligned := alignDown(ms, uint(m.RecommendedAccessGranularity)); aligned > 0 {
+		return aligned
+	}
 	return ms
+}
+
+// SuggestWriteBufferSize returns the maximum payload length for one MBR_Write
+// call, or 0 if there is none. Only the TPer's token size applies. The result
+// is a multiple of MandatoryWriteGranularity.
+func (m *MBRTableInfo) SuggestWriteBufferSize(s *core.Session) uint {
+	ms := s.ControlSession.TPerProperties.MaxIndTokenSize
+	if ms <= mbrFramingReserve {
+		return 0
+	}
+	ms -= mbrFramingReserve
+
+	mandatory := uint(m.MandatoryWriteGranularity)
+	both := lcm(mandatory, uint(m.RecommendedAccessGranularity))
+	if aligned := alignDown(ms, both); aligned > 0 {
+		return aligned
+	}
+	return alignDown(ms, mandatory)
+}
+
+// alignDown rounds v down to a multiple of g. g <= 1 means no alignment.
+func alignDown(v, g uint) uint {
+	if g <= 1 {
+		return v
+	}
+	return v - v%g
+}
+
+// lcm returns the least common multiple of a and b, treating 0 as 1.
+func lcm(a, b uint) uint {
+	if a == 0 {
+		a = 1
+	}
+	if b == 0 {
+		b = 1
+	}
+	x, y := a, b
+	for y != 0 {
+		x, y = y, x%y
+	}
+	return a / x * b
 }
 
 func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
@@ -579,44 +627,63 @@ func MBR_Read(s *core.Session, p []byte, off uint32) (int, error) {
 	return l, nil
 }
 
-func LoadPBAImage(s *core.Session, image []byte) error {
-	// Conversion between table and row is required by bad implementation.
-	// ToDo: Refactor uids to be the same for the sake of simplicity
-	var targerUId uid.InvokingID
-	copy(targerUId[:], uid.Locking_MBRTable[:])
-
-	imgReader := bytes.NewReader(image)
-
-	// Calculate max chunk size  - let's do it similar to sedutil-cli
-	// The chunk of data must fit in one token. Also keep a space for headers.
-	//     Note: 128B is more than sedutil-cli takes (56 + 50 + 4) and should be enough space
-	maxSize := s.ControlSession.TPerProperties.MaxIndTokenSize - 128
-	fpos := uint(0)
-	readChunk := make([]byte, maxSize)
-	for imgReader.Len() > 0 {
-		if imgReader.Len() < int(maxSize) {
-			readChunk = make([]byte, imgReader.Len())
-		}
-		if err := binary.Read(imgReader, binary.LittleEndian, &readChunk); err != nil && !errors.Is(err, io.EOF) {
-			return fmt.Errorf("Read(img) failed: %v", err)
-		}
-		mc := method.NewMethodCall(targerUId, uid.OpalSet, s.MethodFlags)
-		mc.Token(stream.StartName)
-		mc.Token(stream.OpalWhere)
-		mc.UInt(fpos)
-		mc.Token(stream.EndName)
-		mc.Token(stream.StartName)
-		mc.Token(stream.OpalValue)
-		// Here comes the data (Long Atom).
-		mc.Bytes(readChunk)
-		mc.Token(stream.EndName)
-		if _, err := s.ExecuteMethod(mc); err != nil {
-			return err
-		}
-		fpos += maxSize
-
+// MBR_Write writes p to the shadow MBR at offset off in a single Set call.
+// len(p) must not exceed MBRTableInfo.SuggestWriteBufferSize, and off and
+// len(p) must be multiples of MandatoryWriteGranularity.
+func MBR_Write(s *core.Session, p []byte, off uint32) (int, error) {
+	mc := method.NewMethodCall(uid.InvokingID(uid.Locking_MBRTable), uid.OpalSet, s.MethodFlags)
+	mc.StartOptionalParameter(uint(stream.OpalWhere), "Where")
+	mc.UInt(uint(off))
+	mc.EndOptionalParameter()
+	mc.StartOptionalParameter(uint(stream.OpalValue), "Values")
+	mc.Bytes(p)
+	mc.EndOptionalParameter()
+	if _, err := s.ExecuteMethod(mc); err != nil {
+		return 0, err
 	}
+	return len(p), nil
+}
 
+// LoadPBAImage writes image to the start of the shadow MBR, padding the last
+// write with zeros to MandatoryWriteGranularity.
+func LoadPBAImage(s *core.Session, image []byte) error {
+	mi, err := MBR_TableInfo(s)
+	if err != nil {
+		return fmt.Errorf("MBR_TableInfo failed: %v", err)
+	}
+	chunk := mi.SuggestWriteBufferSize(s)
+	if chunk == 0 {
+		return errors.New("SuggestWriteBufferSize returned 0")
+	}
+	return loadPBAImage(image, chunk, uint(mi.MandatoryWriteGranularity), uint(mi.Size),
+		func(p []byte, off uint32) (int, error) { return MBR_Write(s, p, off) })
+}
+
+// loadPBAImage writes image in chunks of at most chunk bytes, which must be a
+// multiple of granularity.
+func loadPBAImage(image []byte, chunk, granularity, size uint, write func(p []byte, off uint32) (int, error)) error {
+	padded := uint(len(image))
+	if granularity > 1 {
+		padded = alignDown(padded+granularity-1, granularity)
+	}
+	if padded > size {
+		return fmt.Errorf("image of %d bytes (%d bytes padded) is larger than the shadow MBR of %d bytes",
+			len(image), padded, size)
+	}
+	for off := uint(0); off < uint(len(image)); off += chunk {
+		end := off + chunk
+		if end > uint(len(image)) {
+			end = uint(len(image))
+		}
+		p := image[off:end]
+		if end == uint(len(image)) && padded > end {
+			p = make([]byte, padded-off)
+			copy(p, image[off:end])
+		}
+		if _, err := write(p, uint32(off)); err != nil {
+			return fmt.Errorf("MBR_Write at offset %d failed: %v", off, err)
+		}
+	}
 	return nil
 }
 
