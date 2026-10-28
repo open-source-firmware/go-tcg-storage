@@ -481,47 +481,70 @@ type MBRTableInfo struct {
 	RecommendedAccessGranularity uint32
 }
 
-// SuggestBufferSize returns a safe maximum payload length for a single
-// MBR_Read or MBR_Write call.
-//
-// Reads (TPer → Host) are bounded by the host's receive buffer
-// (HostProperties) and writes (Host → TPer) by the TPer's receive buffer
-// (TPerProperties). Additionally, some drives reject any transfer larger than
-// their own token size regardless of direction (e.g. a faulty drive whose send
-// capacity equals its own token size). To stay safe in every case we use the
-// smaller of the two sides' token limits.
-//
-// The result reserves room for method framing and is aligned down to
-// MandatoryWriteGranularity and RecommendedAccessGranularity so it is also a
-// legal write length. It returns 0 if no safe non-zero size exists.
+// mbrFramingReserve is the part of a token kept free for method framing, as
+// in sedutil-cli. MBR data is sent as a single atom, so only MaxIndTokenSize
+// applies.
+const mbrFramingReserve = 128
+
+// SuggestBufferSize returns the maximum payload length for one MBR_Read call,
+// or 0 if there is none. The response must fit the host's receive buffer, and
+// some drives reject transfers larger than their own token size, so the
+// smaller of both is used.
 func (m *MBRTableInfo) SuggestBufferSize(s *core.Session) uint {
-	// Largest token the host can receive.
-	host := s.ControlSession.HostProperties.MaxIndTokenSize
-	if s.ControlSession.HostProperties.MaxAggTokenSize > host {
-		host = s.ControlSession.HostProperties.MaxAggTokenSize
-	}
-	// Largest token the TPer can receive.
-	tper := s.ControlSession.TPerProperties.MaxIndTokenSize
-	if s.ControlSession.TPerProperties.MaxAggTokenSize > tper {
-		tper = s.ControlSession.TPerProperties.MaxAggTokenSize
-	}
-	// Receive is bounded by the host, send by the TPer; faulty drives can trip
-	// on either side, so use the smaller of the two for both directions.
-	ms := host
-	if tper < ms {
+	ms := s.ControlSession.HostProperties.MaxIndTokenSize
+	if tper := s.ControlSession.TPerProperties.MaxIndTokenSize; tper < ms {
 		ms = tper
 	}
-	// Reserve room for method framing (Where/Values names, long-atom header,
-	// status list). 128 B matches what sedutil-cli leaves free and is
-	// comfortably larger than the actual overhead in either direction.
-	if ms <= 128 {
-		// Guard against uint underflow on drives reporting tiny tokens.
+	if ms <= mbrFramingReserve {
 		return 0
 	}
-	ms -= 128
-	ms = ms & ^uint(m.MandatoryWriteGranularity-1)
-	ms = ms & ^uint(m.RecommendedAccessGranularity-1)
+	ms -= mbrFramingReserve
+
+	if aligned := alignDown(ms, uint(m.RecommendedAccessGranularity)); aligned > 0 {
+		return aligned
+	}
 	return ms
+}
+
+// SuggestWriteBufferSize returns the maximum payload length for one MBR_Write
+// call, or 0 if there is none. Only the TPer's token size applies. The result
+// is a multiple of MandatoryWriteGranularity.
+func (m *MBRTableInfo) SuggestWriteBufferSize(s *core.Session) uint {
+	ms := s.ControlSession.TPerProperties.MaxIndTokenSize
+	if ms <= mbrFramingReserve {
+		return 0
+	}
+	ms -= mbrFramingReserve
+
+	mandatory := uint(m.MandatoryWriteGranularity)
+	both := lcm(mandatory, uint(m.RecommendedAccessGranularity))
+	if aligned := alignDown(ms, both); aligned > 0 {
+		return aligned
+	}
+	return alignDown(ms, mandatory)
+}
+
+// alignDown rounds v down to a multiple of g. g <= 1 means no alignment.
+func alignDown(v, g uint) uint {
+	if g <= 1 {
+		return v
+	}
+	return v - v%g
+}
+
+// lcm returns the least common multiple of a and b, treating 0 as 1.
+func lcm(a, b uint) uint {
+	if a == 0 {
+		a = 1
+	}
+	if b == 0 {
+		b = 1
+	}
+	x, y := a, b
+	for y != 0 {
+		x, y = y, x%y
+	}
+	return a / x * b
 }
 
 func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
@@ -604,14 +627,9 @@ func MBR_Read(s *core.Session, p []byte, off uint32) (int, error) {
 	return l, nil
 }
 
-// MBR_Write writes len(p) bytes from p to the shadow MBR byte table starting
-// at byte offset off. It performs a single Set method call, so len(p) must fit
-// in one token — use MBRTableInfo.SuggestWriteBufferSize to pick a safe chunk
-// size and let the caller loop. The caller is also responsible for respecting
-// MBRTableInfo.MandatoryWriteGranularity (both off and len(p) must be
-// multiples of it) and for staying within MBRTableInfo.Size.
-//
-// On success returns len(p), nil.
+// MBR_Write writes p to the shadow MBR at offset off in a single Set call.
+// len(p) must not exceed MBRTableInfo.SuggestWriteBufferSize, and off and
+// len(p) must be multiples of MandatoryWriteGranularity.
 func MBR_Write(s *core.Session, p []byte, off uint32) (int, error) {
 	mc := method.NewMethodCall(uid.InvokingID(uid.Locking_MBRTable), uid.OpalSet, s.MethodFlags)
 	mc.StartOptionalParameter(uint(stream.OpalWhere), "Where")
@@ -626,21 +644,43 @@ func MBR_Write(s *core.Session, p []byte, off uint32) (int, error) {
 	return len(p), nil
 }
 
+// LoadPBAImage writes image to the start of the shadow MBR, padding the last
+// write with zeros to MandatoryWriteGranularity.
 func LoadPBAImage(s *core.Session, image []byte) error {
 	mi, err := MBR_TableInfo(s)
 	if err != nil {
 		return fmt.Errorf("MBR_TableInfo failed: %v", err)
 	}
-	chunk := mi.SuggestBufferSize(s)
+	chunk := mi.SuggestWriteBufferSize(s)
 	if chunk == 0 {
-		return errors.New("SuggestBufferSize returned 0")
+		return errors.New("SuggestWriteBufferSize returned 0")
+	}
+	return loadPBAImage(image, chunk, uint(mi.MandatoryWriteGranularity), uint(mi.Size),
+		func(p []byte, off uint32) (int, error) { return MBR_Write(s, p, off) })
+}
+
+// loadPBAImage writes image in chunks of at most chunk bytes, which must be a
+// multiple of granularity.
+func loadPBAImage(image []byte, chunk, granularity, size uint, write func(p []byte, off uint32) (int, error)) error {
+	padded := uint(len(image))
+	if granularity > 1 {
+		padded = alignDown(padded+granularity-1, granularity)
+	}
+	if padded > size {
+		return fmt.Errorf("image of %d bytes (%d bytes padded) is larger than the shadow MBR of %d bytes",
+			len(image), padded, size)
 	}
 	for off := uint(0); off < uint(len(image)); off += chunk {
 		end := off + chunk
 		if end > uint(len(image)) {
 			end = uint(len(image))
 		}
-		if _, err := MBR_Write(s, image[off:end], uint32(off)); err != nil {
+		p := image[off:end]
+		if end == uint(len(image)) && padded > end {
+			p = make([]byte, padded-off)
+			copy(p, image[off:end])
+		}
+		if _, err := write(p, uint32(off)); err != nil {
 			return fmt.Errorf("MBR_Write at offset %d failed: %v", off, err)
 		}
 	}
