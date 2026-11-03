@@ -547,45 +547,48 @@ func lcm(a, b uint) uint {
 	return a / x * b
 }
 
+// MBR_TableInfo reads the size and granularities of the MBR table. The cells
+// are read one by one, as some drives do not return the MBR table's Rows in a
+// Get of the full row.
 func MBR_TableInfo(s *core.Session) (*MBRTableInfo, error) {
-	tcol, err := GetFullRow(s, uid.Base_TableRowForTable(uid.Locking_MBRTable))
+	return mbrTableInfo(func(col uint, name string) (interface{}, error) {
+		return GetCell(s, uid.Base_TableRowForTable(uid.Locking_MBRTable), col, name)
+	})
+}
+
+// mbrTableInfo reads the MBR table info via get. The size is required, the
+// granularities default to 1.
+func mbrTableInfo(get func(col uint, name string) (interface{}, error)) (*MBRTableInfo, error) {
+	v, err := get(7, "Rows")
 	if err != nil {
 		if err == ErrEmptyResult {
 			return nil, ErrMBRNotSupproted
 		}
 		return nil, err
 	}
+	size, ok := v.(uint)
+	if !ok {
+		return nil, method.ErrMalformedMethodResponse
+	}
+	if size == 0 {
+		return nil, errors.New("device did not specify MBR size")
+	}
 
 	mi := &MBRTableInfo{
+		Size:                         uint32(size),
 		MandatoryWriteGranularity:    1,
 		RecommendedAccessGranularity: 1,
 	}
-	// Enterprise does not support MBR so don't bother setting the text columns
-	for col, val := range tcol {
-		switch col {
-		case "7":
-			v, ok := val.(uint)
-			if !ok {
-				return nil, method.ErrMalformedMethodResponse
-			}
-			mi.Size = uint32(v)
-		case "13":
-			v, ok := val.(uint)
-			if !ok {
-				return nil, method.ErrMalformedMethodResponse
-			}
-			mi.MandatoryWriteGranularity = uint32(v)
-		case "14":
-			v, ok := val.(uint)
-			if !ok {
-				return nil, method.ErrMalformedMethodResponse
-			}
-			mi.RecommendedAccessGranularity = uint32(v)
+	// Both granularities are optional columns.
+	if v, err := get(13, "MandatoryWriteGranularity"); err == nil {
+		if g, ok := v.(uint); ok && g > 0 {
+			mi.MandatoryWriteGranularity = uint32(g)
 		}
 	}
-
-	if mi.Size == 0 {
-		return nil, errors.New("device did not specify MBR size")
+	if v, err := get(14, "RecommendedAccessGranularity"); err == nil {
+		if g, ok := v.(uint); ok && g > 0 {
+			mi.RecommendedAccessGranularity = uint32(g)
+		}
 	}
 	return mi, nil
 }

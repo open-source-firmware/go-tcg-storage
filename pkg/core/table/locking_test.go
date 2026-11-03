@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/open-source-firmware/go-tcg-storage/pkg/core"
+	"github.com/open-source-firmware/go-tcg-storage/pkg/core/method"
 )
 
 // mbrTestSession builds a session with only the token sizes set.
@@ -357,5 +358,62 @@ func TestLoadPBAImageWriteError(t *testing.T) {
 	}
 	if calls != 2 {
 		t.Errorf("loadPBAImage() made %d writes, want 2 (stop at the first error)", calls)
+	}
+}
+
+func TestMBRTableInfo(t *testing.T) {
+	tests := []struct {
+		name    string
+		cells   map[uint]interface{}
+		want    MBRTableInfo
+		wantErr error
+	}{
+		{
+			name:  "all columns",
+			cells: map[uint]interface{}{7: uint(128 << 20), 13: uint(4096), 14: uint(8192)},
+			want:  MBRTableInfo{Size: 128 << 20, MandatoryWriteGranularity: 4096, RecommendedAccessGranularity: 8192},
+		},
+		{
+			name:  "no granularities",
+			cells: map[uint]interface{}{7: uint(128 << 20)},
+			want:  MBRTableInfo{Size: 128 << 20, MandatoryWriteGranularity: 1, RecommendedAccessGranularity: 1},
+		},
+		{
+			name:  "zero granularities",
+			cells: map[uint]interface{}{7: uint(128 << 20), 13: uint(0), 14: uint(0)},
+			want:  MBRTableInfo{Size: 128 << 20, MandatoryWriteGranularity: 1, RecommendedAccessGranularity: 1},
+		},
+		{
+			name:    "no size",
+			cells:   map[uint]interface{}{13: uint(4096)},
+			wantErr: ErrMBRNotSupproted,
+		},
+		{
+			name:    "malformed size",
+			cells:   map[uint]interface{}{7: []byte("x")},
+			wantErr: method.ErrMalformedMethodResponse,
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			mi, err := mbrTableInfo(func(col uint, _ string) (interface{}, error) {
+				v, ok := tc.cells[col]
+				if !ok {
+					return nil, ErrEmptyResult
+				}
+				return v, nil
+			})
+			if !errors.Is(err, tc.wantErr) {
+				t.Fatalf("mbrTableInfo() error = %v; want %v", err, tc.wantErr)
+			}
+			if err == nil && *mi != tc.want {
+				t.Errorf("mbrTableInfo() = %+v; want %+v", *mi, tc.want)
+			}
+		})
+	}
+
+	_, err := mbrTableInfo(func(col uint, _ string) (interface{}, error) { return uint(0), nil })
+	if err == nil {
+		t.Error("mbrTableInfo() with size 0: error = nil")
 	}
 }
